@@ -1,0 +1,8 @@
+#!/bin/sh
+
+while read line; do
+	echo "$line";
+done \
+| iconv -f utf8 -t cp1251 \
+| isql-fb -user $1 -password $2 $3 \
+| iconv -f cp1251 -t utf8;

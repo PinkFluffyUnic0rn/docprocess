@@ -1,0 +1,27 @@
+#!/bin/sh
+
+awk 'BEGIN {
+	RS="";
+	FS="\n";
+}
+
+{
+	if (NR == 1) {	
+		for (i = 1; i <= NF; ++i) {
+			n = index($i, " ");
+		
+			printf("%s%s", substr($i, 1, n-1), (i != NF) ? ";" : "\n");
+		}
+	}
+
+	for (i = 1; i <= NF; ++i) {
+		n = split($i, a, " ");
+
+		printf("\"");
+		for (j = 2; j <= n; ++j) {
+			gsub(/"/, "\"\"", a[j]);
+			printf("%s%s", a[j],
+				j != n ? " " : (i != NF) ? "\";" : "\"\n");
+		}
+	}
+};'
