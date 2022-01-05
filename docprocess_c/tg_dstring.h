@@ -11,9 +11,13 @@ struct tg_dstring {
 	size_t len;
 };
 
+#define tg_dstraddstr(dstr, src) \
+	tg_dstraddstrn((dstr), (src), strlen((src)))
+
 int tg_dstrcreate(struct tg_dstring *dstr, const char *src);
 
-int tg_dstraddstr(struct tg_dstring *dstr, const char *src);
+int tg_dstraddstrn(struct tg_dstring *dstr, const char *src,
+	size_t len);
 
 int tg_dstrcat(struct tg_dstring *dstr1, struct tg_dstring *dstr2);
 

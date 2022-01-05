@@ -58,7 +58,7 @@ static int tg_dstrbufsinit(struct tg_dstrbufs *bufs, size_t sz)
 		return (-1);
 
 	bufs->end = ((void **)bufs->bufs.data)[bufs->bufs.cnt - 1];
-
+	
 	if (tg_darrinit(&(bufs->free), sizeof(int)) < 0)
 		return (-1);
 
@@ -220,7 +220,9 @@ int tg_dstrdestroy(struct tg_dstring *dstr)
 {
 	struct tg_dstrbufs *bufs;
 
-	if (dstr->len < 8)
+	if (dstr->len < 2)
+		return 0;
+	else if (dstr->len < 8)
 		bufs = &bufs8;
 	else if (dstr->len < 16)
 		bufs = &bufs16;
@@ -237,22 +239,27 @@ int tg_dstrdestroy(struct tg_dstring *dstr)
 	return 0;
 }
 
-int tg_dstraddstr(struct tg_dstring *dstr, const char *src)
+int tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
 {
 	struct tg_dstring tmpdstr;
-	size_t len;
-
-	len = strlen(src);
-
+	
+	// don't create new string when dstr.len > 16, realloc instead
 	if (tg_dstralloc(&tmpdstr, dstr->len + len) < 0)
 		return (-1);
-
+	
 	memcpy(tmpdstr.str, dstr->str, dstr->len + 1);
 	memcpy(tmpdstr.str + dstr->len, src, len);
 
+
+	tmpdstr.str[dstr->len + len] = '\0';
+	
 	tg_dstrdestroy(dstr);
 
 	*dstr = tmpdstr;
+
+	// structure points to itself!!!!
+	if (tmpdstr.bufs == 2)
+		dstr->str = dstr->c;
 
 	return 0;
 }
@@ -276,7 +283,7 @@ int buftest()
 {
 	struct tg_dstring str1;
 	struct tg_dstring str2;
-
+/*
 	tg_dstrcreate(&str1, "xh3ksjx");
 	tg_dstraddstr(&str1, "asdf");
 	tg_dstraddstr(&str1, "sdfhesde_23sdf");
@@ -290,7 +297,7 @@ int buftest()
 	tg_dstrdestroy(&str1);
 	tg_dstrdestroy(&str2);
 	tg_dstrwipe();
-
+*/
 /*
 	struct tg_dstrbufs bufs;
 	int eln[1024 * 1024];

@@ -1,6 +1,6 @@
 # docprocess
 
-Document generating language interpretator
+Document generating language interpretor
 
 ## Insallation
 

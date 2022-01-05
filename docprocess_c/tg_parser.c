@@ -6,8 +6,6 @@
 #include "tg_parser.h"
 #include "tg_dstring.h"
 
-#define BUFSZ 32
-
 const char *tg_tstrsym[] = {
 	"identificator", "integer", "float", "relational operator",
 	"{", "}", "&", "|", "!", "$", "~", ",", ":", ";", "..",
@@ -35,67 +33,7 @@ static struct tg_node *nodes;
 static int nodescount;
 static int maxnodes;
 
-static char **strbufs;
-static size_t strbufscnt;
-static size_t strbufsmax;
-static char *strbufend;
-
-static int strinitbuf()
-{
-	if ((strbufs = malloc(sizeof(char *))) == NULL)
-		return (-1);
-
-	if ((strbufs[0] = malloc(BUFSZ)) == NULL)
-		return (-1);
-
-	strbufend = strbufs[0];
-	strbufscnt = 1;
-	strbufsmax = 1;
-
-	return 0;
-}
-
-static char *strcreate(const char *src, size_t len)
-{
-	char *p;
-
-	if (strbufs[strbufscnt - 1] + BUFSZ - strbufend <= len + 1) {
-		if (strbufscnt >= strbufsmax) {
-			strbufsmax *= 2;
-			if ((strbufs = realloc(strbufs,
-				sizeof(char *) * strbufsmax)) == NULL)
-				return NULL;
-		}
-		
-		if ((strbufs[strbufscnt++] = malloc(
-			len + 1 > BUFSZ ? len + 1 : BUFSZ)) == NULL)
-			return NULL;
-
-		strbufend = strbufs[strbufscnt - 1];
-	}
-
-	if (src != NULL) {
-		strncpy(strbufend, src, len);
-		strbufend[len] = '\0';
-	}
-
-	p = strbufend;
-
-	strbufend += len + 1;
-
-	return p;
-}
-
-static void strclearall()
-{
-	int i;
-
-	for (i = 0; i < strbufscnt; ++i)
-		free(strbufs[i]);
-
-	free(strbufs);
-}
-
+// do something with self-reference in dstring
 struct tg_token *tg_nexttoken()
 {
 	static FILE *f;
@@ -113,7 +51,7 @@ struct tg_token *tg_nexttoken()
 		path = NULL;
 	}
 	
-	printf("start l = |%s|\n", l);
+//	printf("start l = |%s|\n", l);
 	while (1) {	
 		size_t lsz;
 		ssize_t r;
@@ -138,54 +76,74 @@ struct tg_token *tg_nexttoken()
 		l[strlen(l) - 1] = '\0'; //!
 		++curline;
 	}
+	
+//	printf("end l = |%s|\n\n\n", l);
 
 	// put token separated token value somewhere
 
+	struct tg_dstring dstr;
 	char *v;
-	if (l[0] == '\"') {
+
+	if (tg_dstrcreate(&dstr, "") < 0)
+		goto error;
+		
+	if (l[0] == '\"') {	
 		v = ++l;
-		while (l[0] != '\"') {	
+		while (l[0] != '\"') {
 			if (l[0] == '\\') {
 				size_t lsz;
 				ssize_t r;
-				
+			
 				l++;
-
+					
 				switch (l[0]) {
-				case '\n':
+				case '\0':
 					lsz = 0;
 					if ((r = getline(text + curline,
 						&lsz, f)) < 0)
 						goto error;
-
-					l = text[curline];
 					
+					l = text[curline];
 					l[strlen(l) - 1] = '\0'; //!
-
 					++curline;
-					printf("\t\t\tl = |%s|\n", l);
+
 					break;
 
 				case 'n':
+					l++;
+					tg_dstraddstr(&dstr, "\n");
 					break;
 
 				case 'r':
+					l++;
+					tg_dstraddstr(&dstr, "\r");
 					break;
 
 				case 't':
+					l++;
+					tg_dstraddstr(&dstr, "\t");
+					break;
+				
+				default:
+					l++;
+					tg_dstraddstrn(&dstr, l, 1);
 					break;
 				}
 			}
-
-			++l;
-		}
+			
+			tg_dstraddstrn(&dstr, l++, 1);
+		}	
 
 	 	t.type = TG_T_STRING;
+		l++;
 	}
 	else if (isalpha(l[0] | l[0] == '_')) {
 		v = l;
 		while (isalpha(l[0]) | isdigit(l[0]) | l[0] == '_')
 			++l;
+		
+		tg_dstraddstrn(&dstr, v, l - v);
+	
 	//	if (text[curline] == "global")
 	//		...
 	//	else
@@ -194,28 +152,34 @@ struct tg_token *tg_nexttoken()
 		t.type = TG_T_ID;
 	}
 	else if (l[0] == '=') {
-		v = l;
+		tg_dstraddstrn(&dstr, l, 1);
 	
 		t.type = TG_T_ASSIGN;
 		++l;	
 		
 		if (l[0] == '=') {
+			tg_dstraddstrn(&dstr, l, 1);
+			
 			t.type = TG_T_RELOP;
 			++l;
 		}
 	}
 	else if (l[0] == '<') {
-		v = l;
-	
+		tg_dstraddstrn(&dstr, l, 1);
+		
 		t.type = TG_T_RELOP;
 		++l;
 		
 		if (l[0] == '-') {
+			tg_dstraddstrn(&dstr, l, 1);
+		
 			t.type = TG_T_NEXTTOOP;
 			++l;
 		}
 
 	}
+
+	printf("|%s|\n", dstr.str);
 
 	// }
 	// else if (text[curline] == 0-9)
@@ -227,12 +191,7 @@ struct tg_token *tg_nexttoken()
 	// else
 	// 	...
 
-	*l++ = '\0';
-	
-	printf("end l = |%s|\n", l);
-	printf("v = |%s|\n\n\n\n", v);
-
-	t.val = v;
+	t.val = dstr.str;
 	t.line = curline;
 
 	return &t;
@@ -273,66 +232,15 @@ int node_remove(struct tg_node *n)
 
 struct tg_node *tg_template(const char *p)
 {
-	buftest();
-	
-	return NULL;
-	
-	
-	path = p;
-
-	strinitbuf();
-	
-
-/*
-	printf("%s\n", strcreate("fdsh2hds", strlen("fdsh2hds")));
-	printf("%s\n", strcreate("fd212hds", strlen("fd212hds")));
-	printf("%s\n", strcreate("fdsh24212hds", strlen("fdsh24212hds")));
-	printf("%s\n", strcreate("fds", strlen("fds")));
-	printf("%s\n", strcreate("fdhds", strlen("fdhds")));
-
-	printf("%s\n", strcreate("fdsh2hds", strlen("fdsh2hds")));
-	printf("%s\n", strcreate("fd212hds", strlen("fd212hds")));
-	printf("%s\n", strcreate("fdsh24212hds", strlen("fdsh24212hds")));
-	printf("%s\n", strcreate("fds", strlen("fds")));
-	printf("%s\n", strcreate("fdhds", strlen("fdhds")));
-
-	printf("%s\n", strcreate("fdsh2hds", strlen("fdsh2hds")));
-	printf("%s\n", strcreate("fd212hds", strlen("fd212hds")));
-	printf("%s\n", strcreate("fdsh24212hds", strlen("fdsh24212hds")));
-	printf("%s\n", strcreate("fds", strlen("fds")));
-	printf("%s\n", strcreate("fdhds", strlen("fdhds")));
-*/
-	
-	int i;
-	char *strs[1024];
-
-	for (i = 0; i < 1024; ++i) {
-		char s[256];
-
-		sprintf(s, "%d", i);
-
-		strs[i] = strcreate(s, strlen(s));
-		printf("|%s| ", strs[i]);
-	}
-
-	printf("\n\n");
-
-	for (i = 0; i < 1024; ++i) {
-		if (i % 32 == 0)
-			printf("\n");
-
-	//	printf("|%s| ", strs[i]);
-	}
-	
-	strclearall();
-
 	text = malloc(sizeof(char *) * 1024);
+	path = p;
 
 	int c = 0;
 	while (tg_nexttoken() != NULL) {
-		
-		if (++c == 6)
+		if (++c == 11)
 			break;
 
+
+		//printf("token value: %s\n", t.val);
 	}
 }
