@@ -46,20 +46,18 @@ int _tg_getc(char *c, int rawness)
 		curline = 0;
 		path = NULL;
 	}
-/*
-	if (*l != '\0') {
-		*c = *l++;
-		printf("_getting: %c\n", *c);
-		return 0;
-	}
-*/
+
 	while (1) {
 		size_t lsz;
 		ssize_t r;
 
 		if (!rawness) {
-			while (l[0] == ' ' || l[0] == '\t')
-				++l;
+			if (l[0] == ' ' || l[0] == '\t' || l[0] == '\n') { 
+				while (l[1] == ' ' || l[1] == '\t' || l[1] == '\n')
+					++l;
+			
+				l[0] = ' ';
+			}
 			
 			if (l[0] == '#')
 				l = "";
@@ -72,17 +70,16 @@ int _tg_getc(char *c, int rawness)
 		if ((r = getline(text + curline, &lsz, f)) < 0)
 			goto error;
 		else if (r == 0) {
+			return (-1);
 			// EOF
 		}
 		
 		l = text[curline];
-		l[strlen(l) - 1] = '\0'; //!
 		++curline;
 	}
 	
 	*c = *l++;
 
-//	printf("getting: %c\n", *c);
 	return 0;
 
 error:
@@ -144,8 +141,10 @@ int tg_getcrestore()
 	char c;
 
 	// do something with comments
-	if (nextc == ' ' || nextc == '\t')
-		return tg_getc(&c);
+	if (nextc == ' ' || nextc == '\t' || nextc == '\n')
+		nextc = ' ';
+
+	return 0;
 }
 
 int tg_peekc(char *c)
@@ -185,6 +184,9 @@ struct tg_token *tg_nexttoken()
 				tg_getcraw(&c);
 					
 				switch (c) {
+				case '\n':
+					break;
+
 				case 'n':
 					tg_dstraddstr(&dstr, "\n");
 					break;
@@ -212,11 +214,13 @@ struct tg_token *tg_nexttoken()
 		tg_getcrestore();
 		t.type = TG_T_STRING;
 	}
+	else if (c == ' ') {
+	//	tg_dstraddstrn(&dstr, &c, 1);
+		return &t;
+	}
 	else if (isalpha(c) || c == '_') {
-			
 		tg_dstraddstrn(&dstr, &c, 1);
 
-		// whitespaces matters for adjacent id and keyword!!!
 		while (1) {
 			tg_peekc(&c);
 			
@@ -251,6 +255,15 @@ struct tg_token *tg_nexttoken()
 	 		t.type = TG_T_ID;
 	}
 	else if (isdigit(c)) {
+		while (1) {
+			tg_peekc(&c);
+			
+			if (!isdigit(c))
+				break;
+		
+			tg_dstraddstrn(&dstr, &c, 1);
+			tg_getc(&c);
+		}
 		// number
 	}
 	else if (c == '=') {
@@ -406,6 +419,7 @@ struct tg_token *tg_nexttoken()
 	return &t;
 
 error:
+	printf("HERE!\n");
 	return NULL;
 
 	// t.val = [error text]
@@ -446,10 +460,12 @@ struct tg_node *tg_template(const char *p)
 
 	int c = 0;
 	while (tg_nexttoken() != NULL) {
-		if (++c == 50)
+		if (++c == 911)
 			break;
 
 
 		//printf("token value: %s\n", t.val);
 	}
+
+	printf("HERE!\n");
 }

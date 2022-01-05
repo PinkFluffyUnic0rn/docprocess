@@ -212,6 +212,7 @@ int tg_dstrcreate(struct tg_dstring *dstr, const char *src)
 		return (-1);
 	
 	memcpy(dstr->str, src, len);
+	dstr->str[len] = '\0';
 
 	return 0;
 }
