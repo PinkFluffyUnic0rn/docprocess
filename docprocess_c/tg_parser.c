@@ -26,32 +26,42 @@ const char *tg_nstrsym[] = {
 	"range", "function arguments", "object attribute access"
 };
 
-static const char *path;
-static char **text;
+static const char *tg_path;
+static char **tg_text;
+static int tg_curline;
+
+static char curc;
+static int curr;
+static char nextc;
+static int nextr;
+static int getcinit = 0;
 
 static struct tg_node *nodes;
 static int nodescount;
 static int maxnodes;
 
-int _tg_getc(char *c, int rawness)
+// string stream to char stream
+// redo getc interface, character should be returned as int
+// like in usual getc
+static int _tg_getc(char *c, int raw)
 {
 	static FILE *f;
 	static char *l = "";
 	static int curline = 0;
 
-	if (path != NULL) {
-		if ((f = fopen(path, "r")) == NULL)
+	if (tg_path != NULL) {
+		if ((f = fopen(tg_path, "r")) == NULL)
 			goto error;
 
 		curline = 0;
-		path = NULL;
+		tg_path = NULL;
 	}
 
 	while (1) {
 		size_t lsz;
 		ssize_t r;
 
-		if (!rawness) {
+		if (!raw) {
 			if (l[0] == ' ' || l[0] == '\t' || l[0] == '\n') { 
 				while (l[1] == ' ' || l[1] == '\t' || l[1] == '\n')
 					++l;
@@ -65,17 +75,15 @@ int _tg_getc(char *c, int rawness)
 
 		if (l[0] != '\0')
 			break;
-
+		
 		lsz = 0;
-		if ((r = getline(text + curline, &lsz, f)) < 0)
+		if ((r = getline(tg_text + tg_curline, &lsz, f)) < 0)
 			goto error;
 		else if (r == 0) {
 			return (-1);
-			// EOF
 		}
 		
-		l = text[curline];
-		++curline;
+		l = tg_text[tg_curline++];
 	}
 	
 	*c = *l++;
@@ -86,13 +94,7 @@ error:
 	return (-1);
 }
 
-static char curc;
-static int curr;
-static char nextc;
-static int nextr;
-static int getcinit = 0;
-
-int tg_getc(char *c)
+static int tg_getc(char *c)
 {
 	int r;
 
@@ -100,8 +102,6 @@ int tg_getc(char *c)
 		nextr = _tg_getc(&nextc, 0);
 		getcinit = 1;
 	}
-
-// printf("get | cur: %c, next: |%c|\n", curc, nextc);
 
 	curr = nextr;
 	curc = nextc;
@@ -111,12 +111,10 @@ int tg_getc(char *c)
 
 	nextr = _tg_getc(&nextc, 0);
 
-// printf("get | cur: %c, next: %c\n\n", curc, nextc);
-
 	return r;
 }
 
-int tg_getcraw(char *c)
+static int tg_getcraw(char *c)
 {
 	int r;
 
@@ -136,7 +134,7 @@ int tg_getcraw(char *c)
 	return r;
 }
 
-int tg_getcrestore()
+static int tg_getcrestore()
 {
 	char c;
 
@@ -147,21 +145,19 @@ int tg_getcrestore()
 	return 0;
 }
 
-int tg_peekc(char *c)
+static int tg_peekc(char *c)
 {
 	if (getcinit == 0) {
 		nextr = _tg_getc(&nextc, 0);
 		getcinit = 1;
 	}
-//	printf("peek | cur: %c, next: |%c|\n", curc, nextc);
 
 	*c = nextc;
-
 
 	return nextr;
 }
 
-// do something with self-reference in dstring
+// lexical analyzer
 struct tg_token *tg_nexttoken()
 {
 	static struct tg_token t;
@@ -172,7 +168,8 @@ struct tg_token *tg_nexttoken()
 	if (tg_dstrcreate(&dstr, "") < 0)
 		goto error;
 	
-	tg_getc(&c);
+	if (tg_getc(&c) < 0)
+		goto error;
 	
 	if (c == '\"') {
 		tg_getcraw(&c);
@@ -214,10 +211,6 @@ struct tg_token *tg_nexttoken()
 		tg_getcrestore();
 		t.type = TG_T_STRING;
 	}
-	else if (c == ' ') {
-	//	tg_dstraddstrn(&dstr, &c, 1);
-		return &t;
-	}
 	else if (isalpha(c) || c == '_') {
 		tg_dstraddstrn(&dstr, &c, 1);
 
@@ -255,6 +248,9 @@ struct tg_token *tg_nexttoken()
 	 		t.type = TG_T_ID;
 	}
 	else if (isdigit(c)) {
+		tg_dstraddstrn(&dstr, &c, 1);
+	 	t.type = TG_T_INT;
+
 		while (1) {
 			tg_peekc(&c);
 			
@@ -264,7 +260,42 @@ struct tg_token *tg_nexttoken()
 			tg_dstraddstrn(&dstr, &c, 1);
 			tg_getc(&c);
 		}
-		// number
+
+		tg_peekc(&c);
+		if (c == '.') {
+			tg_getc(&c);
+			
+			tg_dstraddstrn(&dstr, &c, 1);
+	 		t.type = TG_T_FLOAT;
+		
+			while (1) {
+				tg_peekc(&c);
+				
+				if (!isdigit(c))
+					break;
+			
+				tg_dstraddstrn(&dstr, &c, 1);
+				tg_getc(&c);
+			}
+		}
+
+		tg_peekc(&c);
+		if (c == 'e' || c == 'E') {
+			tg_getc(&c);
+		
+			tg_dstraddstrn(&dstr, &c, 1);
+	 		t.type = TG_T_FLOAT;
+		
+			while (1) {
+				tg_peekc(&c);
+				
+				if (!isdigit(c))
+					break;
+			
+				tg_dstraddstrn(&dstr, &c, 1);
+				tg_getc(&c);
+			}
+		}
 	}
 	else if (c == '=') {
 		tg_dstraddstrn(&dstr, &c, 1);
@@ -358,7 +389,6 @@ struct tg_token *tg_nexttoken()
 			tg_dstraddstrn(&dstr, &c, 1);
 			t.type = TG_T_DDOT;
 		}
-
 	}
 	else if (c == ',') {
 		tg_dstraddstrn(&dstr, &c, 1);
@@ -400,31 +430,24 @@ struct tg_token *tg_nexttoken()
 		tg_dstraddstrn(&dstr, &c, 1);
 		t.type = TG_T_QUEST;
 	}
+	else if (c == ' ') {
+		return &t;
+	}
+	else {
+		goto error;
+	}
 
 	printf("|%s|\n", dstr.str);
 
-	// }
-	// else if (text[curline] == 0-9)
-	// 	t.type = TG_T_INT
-	// else if strtod(text[curline])
-	// 	t.type == TG_T_DOUBLE
-	// else if text[curline] == "==" | "!=" | ">=" | "<=" | ">" | "<"
-	// 	t.type = TG_T_RELOP
-	// else
-	// 	...
-
 	t.val = dstr.str;
-//	t.line = curline;
+	t.line = tg_curline;
 
 	return &t;
 
 error:
-	printf("HERE!\n");
-	return NULL;
+	t.type = TG_T_ERROR;
 
-	// t.val = [error text]
-	// t.type = TG_T_ERROR
-	// t.line = curline
+	return NULL;
 }
 
 static struct tg_token *tg_gettoken()
@@ -442,6 +465,7 @@ static struct tg_token *tg_gettokentype(enum TG_T_TYPE type)
 
 }
 
+// syntax analizer
 static struct tg_node *node_add(struct tg_node *parent,
 	enum TG_N_TYPE type, struct tg_token *token)
 {
@@ -455,13 +479,13 @@ int node_remove(struct tg_node *n)
 
 struct tg_node *tg_template(const char *p)
 {
-	text = malloc(sizeof(char *) * 1024);
-	path = p;
+	tg_text = malloc(sizeof(char *) * 1024);
+	tg_path = p;
 
 	int c = 0;
 	while (tg_nexttoken() != NULL) {
-		if (++c == 911)
-			break;
+	//	if (++c == 911)
+	//		break;
 
 
 		//printf("token value: %s\n", t.val);
