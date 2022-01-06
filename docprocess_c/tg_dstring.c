@@ -170,12 +170,14 @@ int tg_dstralloc(struct tg_dstring *dstr, size_t len)
 		return (-1);
 	
 	dstr->len = len;
-
+/*
 	if (dstr->len < 2) {
 		dstr->bufs = 2;
 		dstr->str = dstr->c;
 	}
-	else if (dstr->len < 8) {
+	else
+*/
+	if (dstr->len < 8) {
 		dstr->bufs = 8;
 		bufs = &bufs8;
 	}
@@ -220,10 +222,12 @@ int tg_dstrcreate(struct tg_dstring *dstr, const char *src)
 int tg_dstrdestroy(struct tg_dstring *dstr)
 {
 	struct tg_dstrbufs *bufs;
-
+/*
 	if (dstr->len < 2)
 		return 0;
-	else if (dstr->len < 8)
+	else
+*/
+	if (dstr->len < 8)
 		bufs = &bufs8;
 	else if (dstr->len < 16)
 		bufs = &bufs16;
@@ -259,8 +263,8 @@ int tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
 	*dstr = tmpdstr;
 
 	// structure points to itself!!!!
-	if (tmpdstr.bufs == 2)
-		dstr->str = dstr->c;
+//	if (tmpdstr.bufs == 2)
+//		dstr->str = dstr->c;
 
 	return 0;
 }

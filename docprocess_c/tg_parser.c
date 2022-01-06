@@ -7,10 +7,12 @@
 #include "tg_dstring.h"
 
 const char *tg_tstrsym[] = {
-	"identificator", "integer", "float", "relational operator",
-	"{", "}", "&", "|", "!", "$", "~", ",", ":", ";", "..",
-	"multiplication or division", "addition or substraction",
-	"quoted string", "error", "EOF"
+	"identificator", "integer", "float", "quoted string",
+	"relational operator", "(", ")", "&", "|", "~", ",", "!",
+	";", ":", "$", "multiplication or division",
+	"addition or substraction", "..", "=", "?", "next to operator",
+	"global", "function", "for", "if", "else", "continue", "break",
+	"return", "in", ".", "{", "}", "[", "]", "end of file", "error"
 };
 
 const char *tg_nstrsym[] = {
@@ -30,10 +32,8 @@ static const char *tg_path;
 static char **tg_text;
 static int tg_curline;
 
-static char curc;
-static int curr;
-static char nextc;
-static int nextr;
+static int curc;
+static int nextc;
 static int getcinit = 0;
 
 static struct tg_node *nodes;
@@ -43,7 +43,8 @@ static int maxnodes;
 // string stream to char stream
 // redo getc interface, character should be returned as int
 // like in usual getc
-static int _tg_getc(char *c, int raw)
+
+static int _tg_getc(int raw)
 {
 	static FILE *f;
 	static char *l = "";
@@ -62,8 +63,8 @@ static int _tg_getc(char *c, int raw)
 		ssize_t r;
 
 		if (!raw) {
-			if (l[0] == ' ' || l[0] == '\t' || l[0] == '\n') { 
-				while (l[1] == ' ' || l[1] == '\t' || l[1] == '\n')
+			if (isspace(l[0])) { 
+				while (isspace(l[1]))
 					++l;
 			
 				l[0] = ' ';
@@ -86,368 +87,351 @@ static int _tg_getc(char *c, int raw)
 		l = tg_text[tg_curline++];
 	}
 	
-	*c = *l++;
-
-	return 0;
+	return (*l++);
 
 error:
-	return (-1);
+	return EOF;
 }
 
-static int tg_getc(char *c)
+// count lines
+static int tg_getc()
 {
-	int r;
+	int c;
 
 	if (getcinit == 0) {
-		nextr = _tg_getc(&nextc, 0);
+		nextc = _tg_getc(0);
 		getcinit = 1;
 	}
 
-	curr = nextr;
 	curc = nextc;
 
-	r = curr;
-	*c = curc;
+	c = curc;
 
-	nextr = _tg_getc(&nextc, 0);
+	nextc = _tg_getc(0);
 
-	return r;
+	return c;
 }
 
-static int tg_getcraw(char *c)
+static int tg_getcraw()
 {
-	int r;
+	int c;
 
 	if (getcinit == 0) {
-		nextr = _tg_getc(&nextc, 1);
+		nextc = _tg_getc(1);
 		getcinit = 1;
 	}
 
-	curr = nextr;
 	curc = nextc;
 
-	r = curr;
-	*c = curc;
+	c = curc;
 
-	nextr = _tg_getc(&nextc, 1);
+	nextc = _tg_getc(1);
 
-	return r;
+	return c;
 }
 
 static int tg_getcrestore()
 {
-	char c;
-
 	// do something with comments
-	if (nextc == ' ' || nextc == '\t' || nextc == '\n')
+	if (isspace(nextc))
 		nextc = ' ';
 
 	return 0;
 }
 
-static int tg_peekc(char *c)
+static int tg_peekc()
 {
 	if (getcinit == 0) {
-		nextr = _tg_getc(&nextc, 0);
+		nextc = _tg_getc(0);
 		getcinit = 1;
 	}
 
-	*c = nextc;
-
-	return nextr;
+	return nextc;
 }
 
 // lexical analyzer
-struct tg_token *tg_nexttoken()
+int tg_nexttoken(struct tg_token *t)
 {
-	static struct tg_token t;
-
 	struct tg_dstring dstr;
-	char c;
+	int c;
 
 	if (tg_dstrcreate(&dstr, "") < 0)
 		goto error;
-	
-	if (tg_getc(&c) < 0)
+
+	while ((tg_peekc()) == ' ')
+		tg_getc();
+
+	if ((c = tg_getc()) == EOF)
 		goto error;
-	
+
 	if (c == '\"') {
-		tg_getcraw(&c);
+		c = tg_getcraw();
 		while (c != '\"') {
 			if (c == '\\') {
 				size_t lsz;
 				ssize_t r;
-			
-				tg_getcraw(&c);
-					
-				switch (c) {
-				case '\n':
-					break;
 
-				case 'n':
-					tg_dstraddstr(&dstr, "\n");
-					break;
-
-				case 'r':
-					tg_dstraddstr(&dstr, "\r");
-					break;
-
-				case 't':
-					tg_dstraddstr(&dstr, "\t");
-					break;
-				
-				default:
-					tg_dstraddstrn(&dstr, &c, 1);
-					break;
+				c = tg_getcraw();
+				if (c == EOF)
+					goto error;
+				else if (c == '\n') {
 				}
-				
-				tg_getcraw(&c);
+				else if (c == 'n')
+					tg_dstraddstr(&dstr, "\n");
+				else if (c == 'r')
+					tg_dstraddstr(&dstr, "\r");
+				else if (c == 't')
+					tg_dstraddstr(&dstr, "\t");
+				else if (c == '0')
+					tg_dstraddstr(&dstr, "\0");
+				else {
+					tg_dstraddstrn(&dstr,
+						(char *) &c, 1);
+				}
+
+				c = tg_getcraw();
+			}
+			else if (c == EOF) {
+				goto error;
 			}
 			
-			tg_dstraddstrn(&dstr, &c, 1);
-			tg_getcraw(&c);
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
+			c = tg_getcraw();
 		}
 	 	
 		tg_getcrestore();
-		t.type = TG_T_STRING;
+		t->type = TG_T_STRING;
 	}
 	else if (isalpha(c) || c == '_') {
-		tg_dstraddstrn(&dstr, &c, 1);
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
 
 		while (1) {
-			tg_peekc(&c);
+			c = tg_peekc();
 			
 			if (!isalpha(c) && !isdigit(c) && c != '_')
 				break;
 		
-			tg_dstraddstrn(&dstr, &c, 1);
-			tg_getc(&c);
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
+			c = tg_getc();
 		}
 
 		tg_getcrestore();
 
 		if (strcmp(dstr.str, "global") == 0)
-			t.type = TG_T_GLOBAL;
+			t->type = TG_T_GLOBAL;
 		else if (strcmp(dstr.str, "function") == 0)
-			t.type = TG_T_FUNCTION;
+			t->type = TG_T_FUNCTION;
 		else if (strcmp(dstr.str, "for") == 0)
-			t.type = TG_T_FOR;
+			t->type = TG_T_FOR;
 		else if (strcmp(dstr.str, "if") == 0)
-			t.type = TG_T_IF;
+			t->type = TG_T_IF;
 		else if (strcmp(dstr.str, "else") == 0)
-			t.type = TG_T_ELSE;
+			t->type = TG_T_ELSE;
 		else if (strcmp(dstr.str, "continue") == 0)
-			t.type = TG_T_CONTINUE;
+			t->type = TG_T_CONTINUE;
 		else if (strcmp(dstr.str, "break") == 0)
-			t.type = TG_T_BREAK;
+			t->type = TG_T_BREAK;
 		else if (strcmp(dstr.str, "return") == 0)
-			t.type = TG_T_RETURN;
+			t->type = TG_T_RETURN;
 		else if (strcmp(dstr.str, "in") == 0)
-			t.type = TG_T_IN;
+			t->type = TG_T_IN;
 		else
-	 		t.type = TG_T_ID;
+	 		t->type = TG_T_ID;
 	}
 	else if (isdigit(c)) {
-		tg_dstraddstrn(&dstr, &c, 1);
-	 	t.type = TG_T_INT;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+	 	t->type = TG_T_INT;
 
 		while (1) {
-			tg_peekc(&c);
+			c = tg_peekc();
 			
 			if (!isdigit(c))
 				break;
 		
-			tg_dstraddstrn(&dstr, &c, 1);
-			tg_getc(&c);
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
+			c = tg_getc();
 		}
 
-		tg_peekc(&c);
+		c = tg_peekc();
 		if (c == '.') {
-			tg_getc(&c);
+			c = tg_getc();
 			
-			tg_dstraddstrn(&dstr, &c, 1);
-	 		t.type = TG_T_FLOAT;
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
+	 		t->type = TG_T_FLOAT;
 		
 			while (1) {
-				tg_peekc(&c);
+				c = tg_peekc();
 				
 				if (!isdigit(c))
 					break;
 			
-				tg_dstraddstrn(&dstr, &c, 1);
-				tg_getc(&c);
+				tg_dstraddstrn(&dstr, (char *) &c, 1);
+				c = tg_getc();
 			}
 		}
 
-		tg_peekc(&c);
+		c = tg_peekc();
 		if (c == 'e' || c == 'E') {
-			tg_getc(&c);
+			c = tg_getc();
 		
-			tg_dstraddstrn(&dstr, &c, 1);
-	 		t.type = TG_T_FLOAT;
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
+	 		t->type = TG_T_FLOAT;
 		
 			while (1) {
-				tg_peekc(&c);
+				c = tg_peekc();
 				
 				if (!isdigit(c))
 					break;
 			
-				tg_dstraddstrn(&dstr, &c, 1);
-				tg_getc(&c);
+				tg_dstraddstrn(&dstr, (char *) &c, 1);
+				c = tg_getc();
 			}
 		}
 	}
 	else if (c == '=') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_ASSIGN;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_ASSIGN;
 		
-		tg_peekc(&c);
+		c = tg_peekc();
 		if (c == '=') {
-			tg_dstraddstrn(&dstr, &c, 1);
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
 			
-			t.type = TG_T_RELOP;
-			tg_getc(&c);
+			t->type = TG_T_RELOP;
+			c = tg_getc();
 		}
 	}
 	else if (c == '!') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_NOT;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_NOT;
 	
-		tg_peekc(&c);
+		c = tg_peekc();
 		if (c == '=') {
-			tg_dstraddstrn(&dstr, &c, 1);
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
 			
-			t.type = TG_T_RELOP;
-			tg_getc(&c);
+			t->type = TG_T_RELOP;
+			c = tg_getc();
 		}
 	}
 	else if (c == '>') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_RELOP;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_RELOP;
 		
-		tg_peekc(&c);
+		c = tg_peekc();
 		if (c == '=') {
-			tg_dstraddstrn(&dstr, &c, 1);
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
 		
-			t.type = TG_T_RELOP;
-			tg_getc(&c);
+			t->type = TG_T_RELOP;
+			c = tg_getc();
 		}
 
 	}
 	else if (c == '<') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_RELOP;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_RELOP;
 
-		tg_peekc(&c);
+		c = tg_peekc();
 		if (c == '=') {
-			tg_dstraddstrn(&dstr, &c, 1);
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
 		
-			t.type = TG_T_RELOP;
-			tg_getc(&c);
+			t->type = TG_T_RELOP;
+			c = tg_getc();
 		}
 		else if (c == '-') {
-			tg_dstraddstrn(&dstr, &c, 1);
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
 		
-			t.type = TG_T_NEXTTOOP;
-			tg_getc(&c);
+			t->type = TG_T_NEXTTOOP;
+			c = tg_getc();
 		}
 	}
 	else if (c == '^') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_NEXTTOOP;	
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_NEXTTOOP;	
 	}
 	else if (c == '(') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_LPAR;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_LPAR;
 	}
 	else if (c == ')') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_RPAR;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_RPAR;
 	}
 	else if (c == '&') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_AND;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_AND;
 	}
 	else if (c == '|') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_OR;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_OR;
 	}
 	else if (c == '$') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_DOL;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_DOL;
 	}
 	else if (c == '~') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_TILDA;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_TILDA;
 	}
 	else if (c == '.') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_DOT;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_DOT;
 	
 		tg_peekc(&c);
 		if (c == '.') {
-			tg_dstraddstrn(&dstr, &c, 1);
-			t.type = TG_T_DDOT;
+			tg_dstraddstrn(&dstr, (char *) &c, 1);
+			t->type = TG_T_DDOT;
 		}
 	}
 	else if (c == ',') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_COMMA;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_COMMA;
 	}
 	else if (c == ':') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_COLON;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_COLON;
 	}
 	else if (c == ';') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_SEMICOL;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_SEMICOL;
 	}
 	else if (c == '*' || c == '/') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_MULTOP;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_MULTOP;
 	}
 	else if (c == '-' || c == '+') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_ADDOP;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_ADDOP;
 	}
 	else if (c == '{') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_LBRC;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_LBRC;
 	}
 	else if (c == '}') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_RBRC;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_RBRC;
 	}
 	else if (c == '[') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_LBRK;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_LBRK;
 	}
 	else if (c == ']') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_RBRK;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_RBRK;
 	}
 	else if (c == '?') {
-		tg_dstraddstrn(&dstr, &c, 1);
-		t.type = TG_T_QUEST;
-	}
-	else if (c == ' ') {
-		return &t;
+		tg_dstraddstrn(&dstr, (char *) &c, 1);
+		t->type = TG_T_QUEST;
 	}
 	else {
 		goto error;
 	}
 
-	printf("|%s|\n", dstr.str);
-
-	t.val = dstr.str;
-	t.line = tg_curline;
-
-	return &t;
+	t->val = dstr.str;
+	t->line = tg_curline;
+	
+	return 0;
 
 error:
-	t.type = TG_T_ERROR;
-
-	return NULL;
+	return (-1);
 }
 
 static struct tg_token *tg_gettoken()
@@ -482,13 +466,11 @@ struct tg_node *tg_template(const char *p)
 	tg_text = malloc(sizeof(char *) * 1024);
 	tg_path = p;
 
-	int c = 0;
-	while (tg_nexttoken() != NULL) {
-	//	if (++c == 911)
-	//		break;
+	struct tg_token t;
 
-
-		//printf("token value: %s\n", t.val);
+	while (tg_nexttoken(&t) >= 0) {
+		printf("token value: |%s|\ntoken type: |%s|\nline: %d\n",
+			t.val, tg_tstrsym[t.type], t.line);
 	}
 
 	printf("HERE!\n");

@@ -4,7 +4,7 @@
 
 int main()
 {
-	tg_template("template/1-1.txt");
+	tg_template("test.txt");
 
 	return 0;
 }
