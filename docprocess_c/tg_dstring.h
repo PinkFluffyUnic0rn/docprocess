@@ -5,8 +5,8 @@ struct tg_dstring {
 	int bufs;
 	char *str;
 	union {
-		char c[2];
 		int eln;
+		size_t sz;
 	};
 	size_t len;
 };
@@ -23,8 +23,8 @@ int tg_dstrcat(struct tg_dstring *dstr1, struct tg_dstring *dstr2);
 
 int tg_dstrdestroy(struct tg_dstring *dstr);
 
-int tg_dstrwipe();
+// int tg_dstrwipe();
 
-int buftest();
+// int buftest();
 
 #endif

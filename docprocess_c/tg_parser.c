@@ -6,6 +6,8 @@
 #include "tg_parser.h"
 #include "tg_dstring.h"
 
+#define MSGLENMAX 1024
+
 const char *tg_tstrsym[] = {
 	"identificator", "integer", "float", "quoted string",
 	"relational operator", "(", ")", "&", "|", "~", ",", "!",
@@ -32,20 +34,28 @@ static const char *tg_path;
 static char **tg_text;
 static int tg_curline;
 
-static int curc;
-static int nextc;
-static int getcinit = 0;
+// static int curc;
+// static int nextc;
+// static int getcinit = 0;
 
 static struct tg_node *nodes;
 static int nodescount;
 static int maxnodes;
 
-// string stream to char stream
-// redo getc interface, character should be returned as int
-// like in usual getc
+struct tg_char {
+	int c;
+	char error[MSGLENMAX];
+	int line;
 
-static int _tg_getc(int raw)
+};
+
+static struct tg_char cbuf[2];
+static int getcinit = 0;
+
+// string stream to char stream
+static struct tg_char _tg_getc(int raw)
 {
+	struct tg_char c;
 	static FILE *f;
 	static char *l = "";
 	static int curline = 0;
@@ -78,63 +88,65 @@ static int _tg_getc(int raw)
 			break;
 		
 		lsz = 0;
-		if ((r = getline(tg_text + tg_curline, &lsz, f)) < 0)
+		if ((r = getline(tg_text + curline, &lsz, f)) <= 0)
 			goto error;
-		else if (r == 0) {
-			return (-1);
-		}
 		
-		l = tg_text[tg_curline++];
+		l = tg_text[curline++];
 	}
-	
-	return (*l++);
+
+	c.c = (*l++);
+	c.line = curline;
+
+	return c;
 
 error:
-	return EOF;
+	c.c = EOF;
+	c.line = curline;
+
+	return c;
 }
 
-// count lines
 static int tg_getc()
 {
-	int c;
+	struct tg_char c;
 
 	if (getcinit == 0) {
-		nextc = _tg_getc(0);
+		cbuf[1] = _tg_getc(0);
 		getcinit = 1;
 	}
 
-	curc = nextc;
+	cbuf[0] = cbuf[1];
+	c = cbuf[0];
+	cbuf[1] = _tg_getc(0);
 
-	c = curc;
-
-	nextc = _tg_getc(0);
-
-	return c;
+	tg_curline = c.line;
+	
+	return c.c;
 }
 
 static int tg_getcraw()
 {
-	int c;
+	struct tg_char c;
 
 	if (getcinit == 0) {
-		nextc = _tg_getc(1);
+		cbuf[1] = _tg_getc(1);
 		getcinit = 1;
 	}
 
-	curc = nextc;
+	cbuf[0] = cbuf[1];
+	c = cbuf[0];
+	cbuf[1] = _tg_getc(1);
 
-	c = curc;
-
-	nextc = _tg_getc(1);
-
-	return c;
+	tg_curline = c.line;
+	
+	return c.c;
 }
 
 static int tg_getcrestore()
 {
 	// do something with comments
-	if (isspace(nextc))
-		nextc = ' ';
+	if (isspace(cbuf[1].c))
+		cbuf[1].c = ' ';
 
 	return 0;
 }
@@ -142,11 +154,13 @@ static int tg_getcrestore()
 static int tg_peekc()
 {
 	if (getcinit == 0) {
-		nextc = _tg_getc(0);
+		cbuf[1] = _tg_getc(0);
 		getcinit = 1;
 	}
 
-	return nextc;
+	tg_curline = cbuf[1].line;
+	
+	return cbuf[1].c;
 }
 
 // lexical analyzer
@@ -165,6 +179,8 @@ int tg_nexttoken(struct tg_token *t)
 		goto error;
 
 	if (c == '\"') {
+		t->line = tg_curline;
+		
 		c = tg_getcraw();
 		while (c != '\"') {
 			if (c == '\\') {
@@ -200,9 +216,14 @@ int tg_nexttoken(struct tg_token *t)
 		}
 	 	
 		tg_getcrestore();
+		
+		t->val = dstr.str;
 		t->type = TG_T_STRING;
+
+		return 0;
 	}
-	else if (isalpha(c) || c == '_') {
+	
+	if (isalpha(c) || c == '_') {
 		tg_dstraddstrn(&dstr, (char *) &c, 1);
 
 		while (1) {
@@ -469,7 +490,7 @@ struct tg_node *tg_template(const char *p)
 	struct tg_token t;
 
 	while (tg_nexttoken(&t) >= 0) {
-		printf("token value: |%s|\ntoken type: |%s|\nline: %d\n",
+		printf("token value: |%s|\ntoken type: |%s|\nline: %d\n\n",
 			t.val, tg_tstrsym[t.type], t.line);
 	}
 

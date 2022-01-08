@@ -17,12 +17,12 @@ struct tg_dstrbufs {
 	size_t sz;
 };
 
-struct tg_darray mbufs;
+// struct tg_darray mbufs;
 static struct tg_dstrbufs bufs8;
 static struct tg_dstrbufs bufs16;
 static int bufs8init = 0;
 static int bufs16init = 0;
-static int mbufsinit = 0;
+// static int mbufsinit = 0;
 
 static int tg_dstrbufsclear(struct tg_dstrbufs *bufs)
 {
@@ -128,7 +128,7 @@ static int tg_dstrbufsadd(struct tg_dstrbufs *bufs, const char *str)
 static int tg_dstrbufsremove(struct tg_dstrbufs *bufs, int eln)
 {
 	assert(bufs != NULL);
-	
+
 	if (tg_darrpush(&(bufs->free), &eln) < 0)
 		return (-1);
 
@@ -138,13 +138,14 @@ static int tg_dstrbufsremove(struct tg_dstrbufs *bufs, int eln)
 // init variables when clearing buf with wipe
 static int tg_dstrinitbuf()
 {
+/*
 	if (!mbufsinit) {
 		if (tg_darrinit(&mbufs, sizeof(char *)) < 0)
 			return (-1);
 
 		mbufsinit = 1;
 	}
-	
+*/	
 	if (!bufs8init) {
 		if (tg_dstrbufsinit(&bufs8, 8) < 0)
 			return (-1);
@@ -170,13 +171,7 @@ int tg_dstralloc(struct tg_dstring *dstr, size_t len)
 		return (-1);
 	
 	dstr->len = len;
-/*
-	if (dstr->len < 2) {
-		dstr->bufs = 2;
-		dstr->str = dstr->c;
-	}
-	else
-*/
+
 	if (dstr->len < 8) {
 		dstr->bufs = 8;
 		bufs = &bufs8;
@@ -190,8 +185,10 @@ int tg_dstralloc(struct tg_dstring *dstr, size_t len)
 		if ((dstr->str = malloc(dstr->len + 1)) == NULL)
 			return (-1);
 
-		if (tg_darrpush(&mbufs, dstr->str) < 0)
-			return (-1);
+		dstr->sz = dstr->len + 1;
+
+	//	if (tg_darrpush(&mbufs, dstr->str) < 0)
+	//		return (-1);
 	}
 
 	if (dstr->bufs == 8 || dstr->bufs == 16) {
@@ -222,11 +219,7 @@ int tg_dstrcreate(struct tg_dstring *dstr, const char *src)
 int tg_dstrdestroy(struct tg_dstring *dstr)
 {
 	struct tg_dstrbufs *bufs;
-/*
-	if (dstr->len < 2)
-		return 0;
-	else
-*/
+
 	if (dstr->len < 8)
 		bufs = &bufs8;
 	else if (dstr->len < 16)
@@ -247,14 +240,28 @@ int tg_dstrdestroy(struct tg_dstring *dstr)
 int tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
 {
 	struct tg_dstring tmpdstr;
+
+	if (dstr->bufs == 0) {	
+		if (dstr->len + len + 1 > dstr->sz) {
+			dstr->sz = (dstr->len + len + 1) * 3 / 2;
+			if ((dstr->str = realloc(dstr->str,
+				dstr->sz)) == NULL)
+				return (-1);
+		}
+		
+		memcpy(dstr->str + dstr->len, src, len);
+		dstr->str[dstr->len + len] = '\0';
+		
+		dstr->len = dstr->len + len;
 	
-	// don't create new string when dstr.len > 16, realloc instead
+		return 0;
+	}
+
 	if (tg_dstralloc(&tmpdstr, dstr->len + len) < 0)
 		return (-1);
 	
 	memcpy(tmpdstr.str, dstr->str, dstr->len + 1);
 	memcpy(tmpdstr.str + dstr->len, src, len);
-
 
 	tmpdstr.str[dstr->len + len] = '\0';
 	
@@ -262,13 +269,10 @@ int tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
 
 	*dstr = tmpdstr;
 
-	// structure points to itself!!!!
-//	if (tmpdstr.bufs == 2)
-//		dstr->str = dstr->c;
-
 	return 0;
 }
 
+/*
 int tg_dstrwipe()
 {
 	char *p;
@@ -283,6 +287,7 @@ int tg_dstrwipe()
 
 	return 0;
 }
+*/
 
 int buftest()
 {
