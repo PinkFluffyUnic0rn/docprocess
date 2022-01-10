@@ -201,6 +201,18 @@ int tg_dstralloc(struct tg_dstring *dstr, size_t len)
 	return 0;
 }
 
+int tg_dstrcreaten(struct tg_dstring *dstr, const char *src, size_t len)
+{
+	if (tg_dstralloc(dstr, len) < 0)
+		return (-1);
+	
+	memcpy(dstr->str, src, len);
+	dstr->str[len] = '\0';
+
+	return 0;
+}
+
+/*
 int tg_dstrcreate(struct tg_dstring *dstr, const char *src)
 {
 	size_t len;
@@ -215,6 +227,7 @@ int tg_dstrcreate(struct tg_dstring *dstr, const char *src)
 
 	return 0;
 }
+*/
 
 int tg_dstrdestroy(struct tg_dstring *dstr)
 {

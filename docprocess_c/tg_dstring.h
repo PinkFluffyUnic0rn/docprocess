@@ -11,10 +11,14 @@ struct tg_dstring {
 	size_t len;
 };
 
+#define tg_dstrcreate(dstr, src) \
+	tg_dstrcreaten((dstr), (src), strlen((src)))
+
 #define tg_dstraddstr(dstr, src) \
 	tg_dstraddstrn((dstr), (src), strlen((src)))
 
-int tg_dstrcreate(struct tg_dstring *dstr, const char *src);
+int tg_dstrcreaten(struct tg_dstring *dstr, const char *src,
+	size_t len);
 
 int tg_dstraddstrn(struct tg_dstring *dstr, const char *src,
 	size_t len);

@@ -1,6 +1,8 @@
 #ifndef TG_PARSER_H
 #define TG_PARSER_H
 
+#include "tg_dstring.h"
+
 enum TG_T_TYPE {
 	TG_T_ID,	TG_T_INT,	TG_T_FLOAT,	TG_T_STRING,
 	TG_T_RELOP,	TG_T_LPAR,	TG_T_RPAR,	TG_T_AND,
@@ -35,7 +37,7 @@ extern const char *tg_nstrsym[];
 	
 
 struct tg_token {
-	const char *val;
+	struct tg_dstring val;
 	enum TG_T_TYPE type;
 	int line;
 };
