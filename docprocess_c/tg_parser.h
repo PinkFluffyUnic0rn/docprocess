@@ -40,6 +40,7 @@ struct tg_token {
 	struct tg_dstring val;
 	enum TG_T_TYPE type;
 	int line;
+	int pos;
 };
 
 struct tg_node {
