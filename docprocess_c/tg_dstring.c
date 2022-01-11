@@ -22,11 +22,10 @@ static struct tg_dstrbufs bufs8;
 static struct tg_dstrbufs bufs16;
 static int bufs8init = 0;
 static int bufs16init = 0;
-// static int mbufsinit = 0;
 
+/*
 static int tg_dstrbufsclear(struct tg_dstrbufs *bufs)
 {
-	int i;
 	char *p;
 
 	while (tg_darrpop(&(bufs->bufs), &p) == 0)
@@ -37,7 +36,10 @@ static int tg_dstrbufsclear(struct tg_dstrbufs *bufs)
 	bufs->end = NULL;
 	bufs->lastid = 0;
 	bufs->sz = 0;
+
+	return 0;
 }
+*/
 
 static int tg_dstrbufsinit(struct tg_dstrbufs *bufs, size_t sz)
 {
@@ -95,7 +97,6 @@ static int tg_dstrbufsalloc(struct tg_dstrbufs *bufs, size_t len)
 static char *tg_dstrbufsget(struct tg_dstrbufs *bufs, int eln)
 {
 	int bufn, bufeln;
-	char *p;
 	
 	assert(bufs != NULL);
 
@@ -105,6 +106,7 @@ static char *tg_dstrbufsget(struct tg_dstrbufs *bufs, int eln)
 	return ((void **) bufs->bufs.data)[bufn] + bufeln * bufs->sz;
 }
 
+/*
 static int tg_dstrbufsadd(struct tg_dstrbufs *bufs, const char *str)
 {
 	int eln;
@@ -124,6 +126,7 @@ static int tg_dstrbufsadd(struct tg_dstrbufs *bufs, const char *str)
 
 	return eln;
 }
+*/
 
 static int tg_dstrbufsremove(struct tg_dstrbufs *bufs, int eln)
 {
@@ -304,9 +307,10 @@ int tg_dstrwipe()
 
 int buftest()
 {
+/*
 	struct tg_dstring str1;
 	struct tg_dstring str2;
-/*
+
 	tg_dstrcreate(&str1, "xh3ksjx");
 	tg_dstraddstr(&str1, "asdf");
 	tg_dstraddstr(&str1, "sdfhesde_23sdf");
@@ -369,6 +373,6 @@ int buftest()
 	printf("last added: %d\n", added);
 	printf("last removed: %d\n", removed);
 */
+
+	return 0;
 }
-
-

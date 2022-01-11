@@ -36,9 +36,11 @@ struct tg_darray tg_text;
 static int tg_curline;
 static int tg_curpos;
 
+/*
 static struct tg_node *nodes;
 static int nodescount;
 static int maxnodes;
+*/
 
 struct tg_char {
 	int c;
@@ -192,7 +194,6 @@ static int tg_createtoken(struct tg_token *t, const char *val,
 // lexical analyzer
 int tg_nexttoken(struct tg_token *t)
 {
-	struct tg_dstring dstr;
 	int c;
 
 	while ((tg_peekc()) == ' ')
@@ -202,32 +203,25 @@ int tg_nexttoken(struct tg_token *t)
 		goto error;
 
 	if (c == '\"') {
-		if (tg_dstrcreate(&dstr, "") < 0)
+		if (tg_dstrcreate(&(t->val), "") < 0)
 			goto error;
 	
+		t->type = TG_T_STRING;
 		t->line = tg_curline;
 		t->pos = tg_curpos;
 		
 		c = tg_getcraw();
 		while (c != '\"') {
 			if (c == '\\') {
-				size_t lsz;
-				ssize_t r;
-
 				c = tg_getcraw();
-				if (c == EOF)
-					goto error;
-				else if (c == 'n')
-					c = '\n';
-				else if (c == 'r')
-					c = '\r';
-				else if (c == 't')
-					c = '\t';
-				else if (c == '0')
-					c = '\0';
+				if (c == EOF)		goto error;
+				else if (c == 'n')	c = '\n';
+				else if (c == 'r')	c = '\r';
+				else if (c == 't')	c = '\t';
+				else if (c == '0')	c = '\0';
 					
 				if (c != '\n') {
-					if (tg_dstraddstrn(&dstr,
+					if (tg_dstraddstrn(&(t->val),
 						(char *) &c, 1) < 0)
 						goto error;
 				}
@@ -237,7 +231,8 @@ int tg_nexttoken(struct tg_token *t)
 			else if (c == EOF)
 				goto error;
 			
-			if (tg_dstraddstrn(&dstr, (char *) &c, 1) < 0)
+			if (tg_dstraddstrn(&(t->val),
+				(char *) &c, 1) < 0)
 				goto error;
 
 			c = tg_getcraw();
@@ -245,9 +240,6 @@ int tg_nexttoken(struct tg_token *t)
 	 	
 		tg_getcrestore();
 		
-		t->val = dstr;
-		t->type = TG_T_STRING;
-
 		return 0;
 	}
 	
@@ -255,7 +247,7 @@ int tg_nexttoken(struct tg_token *t)
 	 	t->line = tg_curline;
 	 	t->pos = tg_curpos;
 		
-		if (tg_dstrcreaten(&dstr, (char *) &c, 1) < 0)
+		if (tg_dstrcreaten(&(t->val), (char *) &c, 1) < 0)
 			goto error;
 
 		while (1) {
@@ -264,31 +256,29 @@ int tg_nexttoken(struct tg_token *t)
 			if (!isalpha(c) && !isdigit(c) && c != '_')
 				break;
 		
-			if (tg_dstraddstrn(&dstr, (char *) &c, 1) < 0)
+			if (tg_dstraddstrn(&(t->val), (char *) &c, 1) < 0)
 				goto error;
 
 			c = tg_getc();
 		}
-		
-		t->val = dstr;
 
-		if (strcmp(dstr.str, "global") == 0)
+		if (strcmp(t->val.str, "global") == 0)
 			t->type = TG_T_GLOBAL;
-		else if (strcmp(dstr.str, "function") == 0)
+		else if (strcmp(t->val.str, "function") == 0)
 			t->type = TG_T_FUNCTION;
-		else if (strcmp(dstr.str, "for") == 0)
+		else if (strcmp(t->val.str, "for") == 0)
 			t->type = TG_T_FOR;
-		else if (strcmp(dstr.str, "if") == 0)
+		else if (strcmp(t->val.str, "if") == 0)
 			t->type = TG_T_IF;
-		else if (strcmp(dstr.str, "else") == 0)
+		else if (strcmp(t->val.str, "else") == 0)
 			t->type = TG_T_ELSE;
-		else if (strcmp(dstr.str, "continue") == 0)
+		else if (strcmp(t->val.str, "continue") == 0)
 			t->type = TG_T_CONTINUE;
-		else if (strcmp(dstr.str, "break") == 0)
+		else if (strcmp(t->val.str, "break") == 0)
 			t->type = TG_T_BREAK;
-		else if (strcmp(dstr.str, "return") == 0)
+		else if (strcmp(t->val.str, "return") == 0)
 			t->type = TG_T_RETURN;
-		else if (strcmp(dstr.str, "in") == 0)
+		else if (strcmp(t->val.str, "in") == 0)
 			t->type = TG_T_IN;
 		else
 	 		t->type = TG_T_ID;
@@ -297,60 +287,52 @@ int tg_nexttoken(struct tg_token *t)
 	}
 
 	if (isdigit(c)) {
-		if (tg_dstrcreaten(&dstr, (char *) &c, 1) < 0)
+		int p, e;
+
+		if (tg_dstrcreaten(&(t->val), (char *) &c, 1) < 0)
 			goto error;
 
 	 	t->type = TG_T_INT;
 	 	t->line = tg_curline;
 	 	t->pos = tg_curpos;
 
+		p = e = 0;
 		while (1) {
-			c = tg_peekc();
-			
-			if (!isdigit(c))
+			while (1) {
+				c = tg_peekc();
+
+				if (!isdigit(c))
+					break;
+
+				if (tg_dstraddstrn(&(t->val),
+					(char *) &c, 1) < 0)
+					goto error;
+
+				c = tg_getc();
+			}
+
+			if (c == '.' || c == 'e' || c == 'E') {
+	 			t->type = TG_T_FLOAT;
+				
+				if (c == '.') {
+					if (e)	goto error;
+					if (p)	goto error;
+					else	p = 1;
+				}
+				if (c == 'e' || c == 'E') {
+					if (e)	goto error;
+					else	e = 1;
+				}
+
+				c = tg_getc();
+
+				if (tg_dstraddstrn(&(t->val),
+					(char *) &c, 1) < 0)
+					goto error;
+			}
+			else
 				break;
-		
-			tg_dstraddstrn(&dstr, (char *) &c, 1);
-			c = tg_getc();
 		}
-
-		c = tg_peekc();
-		if (c == '.') {
-			c = tg_getc();
-			
-			tg_dstraddstrn(&dstr, (char *) &c, 1);
-	 		t->type = TG_T_FLOAT;
-		
-			while (1) {
-				c = tg_peekc();
-				
-				if (!isdigit(c))
-					break;
-			
-				tg_dstraddstrn(&dstr, (char *) &c, 1);
-				c = tg_getc();
-			}
-		}
-
-		c = tg_peekc();
-		if (c == 'e' || c == 'E') {
-			c = tg_getc();
-		
-			tg_dstraddstrn(&dstr, (char *) &c, 1);
-	 		t->type = TG_T_FLOAT;
-		
-			while (1) {
-				c = tg_peekc();
-				
-				if (!isdigit(c))
-					break;
-			
-				tg_dstraddstrn(&dstr, (char *) &c, 1);
-				c = tg_getc();
-			}
-		}
-
-		t->val = dstr;
 
 		return 0;
 	}
@@ -371,8 +353,7 @@ int tg_nexttoken(struct tg_token *t)
 		}
 	}
 	else if (c == '!') {
-		c = tg_peekc();
-		if (c == '=') {
+		if (tg_peekc() == '=') {
 			if (tg_createtoken(t, "!=", TG_T_RELOP,
 					tg_curline, tg_curpos) < 0)
 				goto error;
@@ -386,8 +367,7 @@ int tg_nexttoken(struct tg_token *t)
 		}
 	}
 	else if (c == '>') {
-		c = tg_peekc();
-		if (c == '=') {
+		if (tg_peekc() == '=') {
 			if (tg_createtoken(t, ">=", TG_T_RELOP,
 					tg_curline, tg_curpos) < 0)
 				goto error;
@@ -458,8 +438,7 @@ int tg_nexttoken(struct tg_token *t)
 			goto error;
 	}
 	else if (c == '.') {
-		c = tg_peekc();
-		if (c == '.') {
+		if (tg_peekc() == '.') {
 			if (tg_createtoken(t, "..", TG_T_DDOT,
 					tg_curline, tg_curpos) < 0)
 				goto error;
@@ -545,32 +524,32 @@ error:
 
 	return (-1);
 }
-
+/*
 static struct tg_token *tg_gettoken()
 {
-
+	return NULL;
 }
 
 static struct tg_token *tg_peektoken()
 {
-
+	return NULL;
 }
 
 static struct tg_token *tg_gettokentype(enum TG_T_TYPE type)
 {
-
+	return NULL;
 }
 
 // syntax analizer
 static struct tg_node *node_add(struct tg_node *parent,
 	enum TG_N_TYPE type, struct tg_token *token)
 {
-
+	return NULL;
 }
-
+*/
 int node_remove(struct tg_node *n)
 {
-
+	return 0;
 }
 
 struct tg_node *tg_template(const char *p)
@@ -585,4 +564,6 @@ struct tg_node *tg_template(const char *p)
 	}
 
 	printf("HERE!\n");
+
+	return NULL;
 }
