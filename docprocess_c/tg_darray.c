@@ -40,9 +40,7 @@ int tg_darrpush(struct tg_darray *darr, void *el)
 
 	memcpy(darr->data + darr->cnt * darr->sz, el, darr->sz);
 	
-	++darr->cnt;
-
-	return 0;
+	return darr->cnt++;
 }
 
 int tg_darrpop(struct tg_darray *darr, void *el)
@@ -63,4 +61,17 @@ int tg_darrpop(struct tg_darray *darr, void *el)
 	memcpy(el, darr->data + darr->cnt * darr->sz, darr->sz);
 
 	return 0;
+}
+
+void *tg_darrget(struct tg_darray *darr, int n)
+{
+	assert(darr != NULL);
+	
+	if (n < 0 || n >= darr->cnt) {
+		TG_SETERROR("%s%s", "Trying to get non-existing",
+			" element out of a dynamyc array");
+		return NULL;
+	}
+	
+	return darr->data + n * darr->sz;
 }

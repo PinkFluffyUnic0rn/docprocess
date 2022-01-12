@@ -43,17 +43,13 @@ struct tg_darray tg_text;
 static int tg_curline;
 static int tg_curpos;
 
-/*
-static struct tg_node *nodes;
-static int nodescount;
-static int maxnodes;
-*/
-
 static struct tg_char cbuf[2];
 static int getcinit = 0;
 
 static struct tg_token tbuf[2];
 static int gettinit = 0;
+
+static struct tg_darray nodes;
 
 int tg_initparser(const char *path)
 {
@@ -573,13 +569,13 @@ int tg_gettokentype(struct tg_token *t, enum TG_T_TYPE type)
 		return (-1);
 
 	if (t->type != type) {
-		// error
+		TG_SETERROR("Wrong token type: expected %s, got %s.",
+			tg_tstrsym[t->type], tg_tstrsym[type]);
 		return (-1);
 	}
 
 	return 0;
 }
-
 
 int tg_peektoken(struct tg_token *t)
 {
@@ -593,14 +589,49 @@ int tg_peektoken(struct tg_token *t)
 	return 0;
 }
 
-/*
 // syntax analizer
-static struct tg_node *node_add(struct tg_node *parent,
+struct tg_node *node_add(struct tg_node *parent,
 	enum TG_N_TYPE type, struct tg_token *token)
-{
-	return NULL;
+{	
+	struct tg_node n;
+	struct tg_node *np;
+	int ni;
+	int i;
+
+	n.type = type;
+	n.token = *token;
+	if (tg_darrinit(&(n.children), sizeof(struct tg_node *)) < 0)
+		return NULL;
+
+	if (tg_darrinit(&(n.siblings), sizeof(struct tg_node *)) < 0)
+		return NULL;
+
+	if ((ni = tg_darrpush(&nodes, &n)) < 0)
+		return NULL;
+
+	if ((np = tg_darrget(&nodes, ni)) == NULL)
+		return NULL;
+
+	if (parent == NULL)
+		return np;
+
+	for (i = 0; i < parent->children.cnt; ++i) {
+		struct tg_node *cp;
+
+		if ((cp = tg_darrget(&(parent->children), i)) == NULL)
+			return NULL;
+
+		if (tg_darrpush(&(cp->siblings), np) < 0)
+			return NULL;
+	}
+
+	if (tg_darrpush(&(parent->children), np) < 0)
+		return NULL;
+
+	return np;
 }
 
+/*
 int node_remove(struct tg_node *n)
 {
 	return 0;
@@ -616,6 +647,12 @@ struct tg_node *tg_template(const char *p)
 	while (tg_gettoken(&t) >= 0) {
 		printf("token value: |%s|\ntoken type: |%s|\nline: %d\npos: %d\n\n",
 			t.val.str, tg_tstrsym[t.type], t.line, t.pos);
+
+		tg_peektoken(&t);
+		printf("next token value: |%s|\ntoken type: |%s|\nline: %d\npos: %d\n\n",
+			t.val.str, tg_tstrsym[t.type], t.line, t.pos);
+	
+		printf("-----------------------------------\n\n");
 	}
 
 	printf("HERE!\n");

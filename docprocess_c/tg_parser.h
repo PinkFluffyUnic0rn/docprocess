@@ -1,6 +1,7 @@
 #ifndef TG_PARSER_H
 #define TG_PARSER_H
 
+#include "tg_darray.h"
 #include "tg_dstring.h"
 
 enum TG_T_TYPE {
@@ -45,9 +46,8 @@ struct tg_node {
 	struct tg_token token;
 	enum TG_N_TYPE type;
 	struct tg_node *parent;
-	struct tg_node *child;
-	struct tg_node *sibling;
-	int childrencount;
+	struct tg_darray children;
+	struct tg_darray siblings;
 };
 
 struct tg_node *tg_template(const char *p);
