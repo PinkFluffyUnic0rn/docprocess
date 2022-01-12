@@ -32,9 +32,7 @@ enum TG_N_TYPE {
 };
 
 extern const char *tg_tstrsym[];
-
 extern const char *tg_nstrsym[];
-	
 
 struct tg_token {
 	struct tg_dstring val;

@@ -9,6 +9,13 @@
 #include "tg_dstring.h"
 #include "tg_common.h"
 
+struct tg_char {
+	int c;
+	char error[TG_MSGMAXSIZE];
+	int line;
+	int pos;
+};
+
 const char *tg_tstrsym[] = {
 	"identificator", "integer", "float", "quoted string",
 	"relational operator", "(", ")", "&", "|", "~", ",", "!",
@@ -42,15 +49,11 @@ static int nodescount;
 static int maxnodes;
 */
 
-struct tg_char {
-	int c;
-	char error[TG_MSGMAXSIZE];
-	int line;
-	int pos;
-};
-
 static struct tg_char cbuf[2];
 static int getcinit = 0;
+
+static struct tg_token tbuf[2];
+static int gettinit = 0;
 
 int tg_initparser(const char *path)
 {
@@ -541,33 +544,68 @@ error:
 
 	return (-1);
 }
+
+int tg_gettoken(struct tg_token *t)
+{
+	struct tg_token tt;
+
+	if (gettinit == 0) {
+		if (tg_nexttoken(tbuf + 1) < 0)
+			return (-1);
+
+		gettinit = 1;
+	}
+
+	tbuf[0] = tbuf[1];
+	tt = tbuf[0];
+
+	if (tg_nexttoken(tbuf + 1) < 0)
+		return (-1);
+
+	*t = tt;
+
+	return 0;
+}
+
+int tg_gettokentype(struct tg_token *t, enum TG_T_TYPE type)
+{
+	if (tg_gettoken(t) < 0)
+		return (-1);
+
+	if (t->type != type) {
+		// error
+		return (-1);
+	}
+
+	return 0;
+}
+
+
+int tg_peektoken(struct tg_token *t)
+{
+	if (gettinit == 0) {
+		tg_nexttoken(tbuf + 1);
+		gettinit = 1;
+	}
+
+	*t = tbuf[1];
+	
+	return 0;
+}
+
 /*
-static struct tg_token *tg_gettoken()
-{
-	return NULL;
-}
-
-static struct tg_token *tg_peektoken()
-{
-	return NULL;
-}
-
-static struct tg_token *tg_gettokentype(enum TG_T_TYPE type)
-{
-	return NULL;
-}
-
 // syntax analizer
 static struct tg_node *node_add(struct tg_node *parent,
 	enum TG_N_TYPE type, struct tg_token *token)
 {
 	return NULL;
 }
-*/
+
 int node_remove(struct tg_node *n)
 {
 	return 0;
 }
+*/
 
 struct tg_node *tg_template(const char *p)
 {
@@ -575,7 +613,7 @@ struct tg_node *tg_template(const char *p)
 
 	struct tg_token t;
 
-	while (tg_nexttoken(&t) >= 0) {
+	while (tg_gettoken(&t) >= 0) {
 		printf("token value: |%s|\ntoken type: |%s|\nline: %d\npos: %d\n\n",
 			t.val.str, tg_tstrsym[t.type], t.line, t.pos);
 	}
