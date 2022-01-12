@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 
+#include "tg_common.h"
 #include "tg_darray.h"
 #include "tg_dstring.h"
 
@@ -18,8 +19,10 @@ struct tg_dstrbufs {
 };
 
 // struct tg_darray mbufs;
+static struct tg_dstrbufs bufs4;
 static struct tg_dstrbufs bufs8;
 static struct tg_dstrbufs bufs16;
+static int bufs4init = 0;
 static int bufs8init = 0;
 static int bufs16init = 0;
 
@@ -53,8 +56,11 @@ static int tg_dstrbufsinit(struct tg_dstrbufs *bufs, size_t sz)
 	if (tg_darrinit(&(bufs->bufs), sizeof(void *)) < 0)
 		return (-1);
 
-	if ((buf = malloc(BUFSZ)) == NULL)
+	if ((buf = malloc(BUFSZ)) == NULL) {
+		TG_SETERROR("%s%s", "Cannot allocate memory while",
+			"initilizing a string buffer");		
 		return (-1);
+	}
 	
 	if (tg_darrpush(&(bufs->bufs), &buf) < 0)
 		return (-1);
@@ -80,8 +86,11 @@ static int tg_dstrbufsalloc(struct tg_dstrbufs *bufs, size_t len)
 			+ BUFSZ - bufs->end < bufs->sz) {
 		char *buf;
 
-		if ((buf = malloc(BUFSZ)) == NULL)
+		if ((buf = malloc(BUFSZ)) == NULL) {
+			TG_SETERROR("%s%s", "Cannot allocate memory ",
+				" for a string buffer");		
 			return (-1);
+		}
 
 		if (tg_darrpush(&(bufs->bufs), &buf) < 0)
 			return (-1);
@@ -149,6 +158,13 @@ static int tg_dstrinitbuf()
 		mbufsinit = 1;
 	}
 */	
+	if (!bufs4init) {
+		if (tg_dstrbufsinit(&bufs4, 4) < 0)
+			return (-1);
+
+		bufs4init = 1;
+	}
+
 	if (!bufs8init) {
 		if (tg_dstrbufsinit(&bufs8, 8) < 0)
 			return (-1);
@@ -175,7 +191,11 @@ int tg_dstralloc(struct tg_dstring *dstr, size_t len)
 	
 	dstr->len = len;
 
-	if (dstr->len < 8) {
+	if (dstr->len < 4) {
+		dstr->bufs = 4;
+		bufs = &bufs4;
+	}
+	else if (dstr->len < 8) {
 		dstr->bufs = 8;
 		bufs = &bufs8;
 	}
@@ -185,8 +205,11 @@ int tg_dstralloc(struct tg_dstring *dstr, size_t len)
 	}
 	else {
 		dstr->bufs = 0;
-		if ((dstr->str = malloc(dstr->len + 1)) == NULL)
+		if ((dstr->str = malloc(dstr->len + 1)) == NULL) {
+			TG_SETERROR("%s%s", "Cannot allocate memory ",
+				" for a dynamic string");
 			return (-1);
+		}
 
 		dstr->sz = dstr->len + 1;
 
@@ -194,7 +217,7 @@ int tg_dstralloc(struct tg_dstring *dstr, size_t len)
 	//		return (-1);
 	}
 
-	if (dstr->bufs == 8 || dstr->bufs == 16) {
+	if (dstr->bufs == 4 || dstr->bufs == 8 || dstr->bufs == 16) {
 		if ((dstr->eln = tg_dstrbufsalloc(bufs, dstr->len)) < 0)
 			return (-1);
 	
@@ -236,7 +259,9 @@ int tg_dstrdestroy(struct tg_dstring *dstr)
 {
 	struct tg_dstrbufs *bufs;
 
-	if (dstr->len < 8)
+	if (dstr->len < 4)
+		bufs = &bufs4;
+	else if (dstr->len < 8)
 		bufs = &bufs8;
 	else if (dstr->len < 16)
 		bufs = &bufs16;
@@ -261,8 +286,13 @@ int tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
 		if (dstr->len + len + 1 > dstr->sz) {
 			dstr->sz = (dstr->len + len + 1) * 3 / 2;
 			if ((dstr->str = realloc(dstr->str,
-				dstr->sz)) == NULL)
-				return (-1);
+				dstr->sz)) == NULL) {
+				TG_SETERROR("%s%s%s", "Cannot"
+					" reallocate memory for a",
+					" dynamic string while",
+					" concatinating");
+					return (-1);
+			}
 		}
 		
 		memcpy(dstr->str + dstr->len, src, len);

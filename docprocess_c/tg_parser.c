@@ -2,12 +2,12 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <errno.h>
 
 #include "tg_parser.h"
 #include "tg_darray.h"
 #include "tg_dstring.h"
-
-#define MSGLENMAX 1024
+#include "tg_common.h"
 
 const char *tg_tstrsym[] = {
 	"identificator", "integer", "float", "quoted string",
@@ -44,7 +44,7 @@ static int maxnodes;
 
 struct tg_char {
 	int c;
-	char error[MSGLENMAX];
+	char error[TG_MSGMAXSIZE];
 	int line;
 	int pos;
 };
@@ -71,8 +71,11 @@ static struct tg_char _tg_getc(int raw)
 	static int curline = 0;
 
 	if (tg_path != NULL) {
-		if ((f = fopen(tg_path, "r")) == NULL)
+		if ((f = fopen(tg_path, "r")) == NULL) {
+			TG_SETERROR("Cannot open file %s: %s.",
+				tg_path, strerror(errno));
 			goto error;
+		}
 
 		curline = 0;
 		tg_path = NULL;
@@ -99,8 +102,11 @@ static struct tg_char _tg_getc(int raw)
 		
 		lsz = 0;
 		l = NULL;
-		if ((r = getline(&l, &lsz, f)) <= 0)
+		if ((r = getline(&l, &lsz, f)) <= 0) {
+			TG_SETERROR("Cannot read line: %s.",
+				strerror(errno));
 			goto error;
+		}
 		
 		if (tg_darrpush(&tg_text, &l) < 0)
 			goto error;
@@ -117,6 +123,7 @@ static struct tg_char _tg_getc(int raw)
 error:
 	c.c = EOF;
 	c.line = curline;
+	strncpy(c.error, tg_error, TG_MSGMAXSIZE);
 
 	return c;
 }
@@ -136,6 +143,7 @@ static int tg_getc()
 
 	tg_curline = c.line;
 	tg_curpos = c.pos;
+	strncpy(tg_error, c.error, TG_MSGMAXSIZE);
 	
 	return c.c;
 }
@@ -155,6 +163,7 @@ static int tg_getcraw()
 
 	tg_curline = c.line;
 	tg_curpos = c.pos;
+	strncpy(tg_error, c.error, TG_MSGMAXSIZE);
 	
 	return c.c;
 }
@@ -315,13 +324,20 @@ int tg_nexttoken(struct tg_token *t)
 	 			t->type = TG_T_FLOAT;
 				
 				if (c == '.') {
-					if (e)	goto error;
-					if (p)	goto error;
-					else	p = 1;
+					if (e || p) {
+						TG_SETERROR("Wrong decimal format.");
+						goto error;
+					}
+
+					p = 1;
 				}
 				if (c == 'e' || c == 'E') {
-					if (e)	goto error;
-					else	e = 1;
+					if (e) {
+						TG_SETERROR("Wrong decimal format.");
+						goto error;
+					}
+					
+					e = 1;
 				}
 
 				c = tg_getc();
@@ -512,13 +528,14 @@ int tg_nexttoken(struct tg_token *t)
 			goto error;
 	}
 	else {
+		TG_SETERROR("Unknown token.");
 		goto error;
 	}
 
 	return 0;
 
 error:
-	if (tg_createtoken(t, "", TG_T_ERROR,
+	if (tg_createtoken(t, tg_error, TG_T_ERROR,
 			tg_curline, tg_curpos) < 0)
 		goto error;
 
