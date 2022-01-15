@@ -16,17 +16,14 @@ struct tg_char {
 	int pos;
 };
 
-const char *tg_tstrsym[] = {
+const char *tg_strsym[] = {
 	"identificator", "integer", "float", "quoted string",
 	"relational operator", "(", ")", "&", "|", "~", ",", "!",
-	";", ":", "$", "multiplication or division",
-	"addition or substraction", "..", "=", "?", "next to operator",
-	"global", "function", "for", "if", "else", "continue", "break",
-	"return", "in", ".", "{", "}", "[", "]", "end of file", "error"
-};
-
-const char *tg_nstrsym[] = {
-	"template", "function definition",
+	";", ":", "$", "addition or substraction",
+	"multiplication or division", "..", "=", "?",
+	"next to operator", "global", "function", "for", "if", "else",
+	"continue", "break", "return", "in", ".", "{", "}", "[", "]",
+	"end of file", "error", "", "template", "function definition",
 	"function definition arguments", "statement", "return", "if",
 	"for", "for (expression)", "for (classic)", "statement body",
 	"block", "expression", "assignment", "ternary operator",
@@ -187,7 +184,7 @@ static int tg_peekc()
 }
 
 static int tg_createtoken(struct tg_token *t, const char *val,
-	enum TG_T_TYPE type, int line, int pos)
+	enum TG_TYPE type, int line, int pos)
 {
 	if (tg_dstrcreate(&(t->val), val) < 0)
 		return (-1);
@@ -563,14 +560,14 @@ int tg_gettoken(struct tg_token *t)
 	return 0;
 }
 
-int tg_gettokentype(struct tg_token *t, enum TG_T_TYPE type)
+int tg_gettokentype(struct tg_token *t, enum TG_TYPE type)
 {
 	if (tg_gettoken(t) < 0)
 		return (-1);
 
 	if (t->type != type) {
 		TG_SETERROR("Wrong token type: expected %s, got %s.",
-			tg_tstrsym[t->type], tg_tstrsym[type]);
+			tg_strsym[t->type], tg_strsym[type]);
 		return (-1);
 	}
 
@@ -590,32 +587,38 @@ int tg_peektoken(struct tg_token *t)
 }
 
 // syntax analizer
-struct tg_node *node_add(struct tg_node *parent,
-	enum TG_N_TYPE type, struct tg_token *token)
+int node_add(int pi, enum TG_TYPE type, struct tg_token *token)
 {	
 	struct tg_node n;
 	struct tg_node *np;
+	struct tg_node *parent;
 	int ni;
 	int i;
 
 	n.type = type;
-	n.token = *token;
-	if (tg_darrinit(&(n.children), sizeof(struct tg_node *)) < 0)
-		return NULL;
+	
+	if (token != NULL)
+		n.token = *token;
 
-	if (tg_darrinit(&(n.siblings), sizeof(struct tg_node *)) < 0)
-		return NULL;
+	if (tg_darrinit(&(n.children), sizeof(int)) < 0)
+		return (-1);
+
+	if (tg_darrinit(&(n.siblings), sizeof(int)) < 0)
+		return (-1);
 
 	if ((ni = tg_darrpush(&nodes, &n)) < 0)
-		return NULL;
-
+		return (-1);
+	
 	if ((np = tg_darrget(&nodes, ni)) == NULL)
-		return NULL;
+		return (-1);
+	
+	if (pi < 0)
+		return ni;
 
-	if (parent == NULL)
-		return np;
+	parent = tg_darrget(&nodes, pi);
 
 	for (i = 0; i < parent->children.cnt; ++i) {
+/*
 		struct tg_node *cp;
 
 		if ((cp = tg_darrget(&(parent->children), i)) == NULL)
@@ -623,12 +626,16 @@ struct tg_node *node_add(struct tg_node *parent,
 
 		if (tg_darrpush(&(cp->siblings), np) < 0)
 			return NULL;
+
+		add ni to all siblings
+		add all siblings to np
+*/
 	}
 
-	if (tg_darrpush(&(parent->children), np) < 0)
-		return NULL;
+	if (tg_darrpush(&(parent->children), &ni) < 0)
+		return (-1);
 
-	return np;
+	return ni;
 }
 
 /*
@@ -638,24 +645,98 @@ int node_remove(struct tg_node *n)
 }
 */
 
+int tg_indent(int t)
+{
+	int i;
+
+	for (i = 0; i < t; ++i)
+		printf("\t");
+
+	return 0;
+}
+
+int tg_printnode(struct tg_node *n, int depth)
+{
+	int i;
+
+	tg_indent(depth);
+	printf("node {\n");
+	tg_indent(depth + 1);
+	printf("type: %s\n", tg_strsym[n->type]);
+
+	// differ terminal and non-terminal
+	if (n->type < TG_T_END) {
+		tg_indent(depth + 1);
+		printf("token {\n");
+		tg_indent(depth + 2);
+		printf("value: %s\n", n->token.val.str);
+		tg_indent(depth + 2);
+		printf("type: %s\n", tg_strsym[n->token.type]);
+		tg_indent(depth + 2);
+		printf("line: %d\n", n->token.line);
+		tg_indent(depth + 2);
+		printf("pos: %d\n", n->token.pos);
+		tg_indent(depth + 1);
+		printf("}\n");
+	}
+
+	tg_indent(depth + 1);
+	printf("children count: %ld\n", n->children.cnt);
+	if (n->children.cnt != 0) {
+		tg_indent(depth + 1);
+		printf("children {\n");
+		for (i = 0; i < n->children.cnt; ++i) {
+			int ni;
+
+			ni = *((int *) tg_darrget(&(n->children), i));
+		
+			tg_printnode(tg_darrget(&nodes, ni), depth + 2);	
+
+		//	printf("!@#!@#%s\n", n->token.val.str);
+		}
+		tg_indent(depth + 1);
+		printf("}\n");
+	}
+
+	tg_indent(depth);
+	printf("}\n");
+
+	return 0;
+}
+
 struct tg_node *tg_template(const char *p)
 {
 	tg_initparser(p);
 
+	tg_darrinit(&nodes, sizeof(struct tg_node)); // !!!
+
+	int ni;
+
+	ni = node_add(-1, TG_N_TEMPLATE, NULL);
+	
+	struct tg_token t;
+
+	tg_gettoken(&t);
+
+	node_add(ni, TG_T_FLOAT, &t);
+
+	tg_printnode(tg_darrget(&nodes, ni), 0);
+
+/*
 	struct tg_token t;
 
 	while (tg_gettoken(&t) >= 0) {
 		printf("token value: |%s|\ntoken type: |%s|\nline: %d\npos: %d\n\n",
-			t.val.str, tg_tstrsym[t.type], t.line, t.pos);
+			t.val.str, tg_strsym[t.type], t.line, t.pos);
 
 		tg_peektoken(&t);
 		printf("next token value: |%s|\ntoken type: |%s|\nline: %d\npos: %d\n\n",
-			t.val.str, tg_tstrsym[t.type], t.line, t.pos);
+			t.val.str, tg_strsym[t.type], t.line, t.pos);
 	
 		printf("-----------------------------------\n\n");
 	}
 
 	printf("HERE!\n");
-
+*/
 	return NULL;
 }
