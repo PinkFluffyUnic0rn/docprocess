@@ -535,13 +535,11 @@ error:
 			tg_curline, tg_curpos) < 0)
 		goto error;
 
-	return (-1);
+	return 0;
 }
 
 int tg_gettoken(struct tg_token *t)
 {
-	struct tg_token tt;
-
 	if (gettinit == 0) {
 		if (tg_nexttoken(tbuf + 1) < 0)
 			return (-1);
@@ -549,15 +547,18 @@ int tg_gettoken(struct tg_token *t)
 		gettinit = 1;
 	}
 
+	if (tbuf[0].type == TG_T_EOF || tbuf[0].type == TG_T_ERROR) {
+		*t = tbuf[0];
+		return 0;
+	}
+
 	tbuf[0] = tbuf[1];
-	tt = tbuf[0];
+	*t = tbuf[0];
 
 	if (tg_nexttoken(tbuf + 1) < 0)
 		return (-1);
 
-	*t = tt;
-
-	return 0;
+	return t->type;
 }
 
 int tg_gettokentype(struct tg_token *t, enum TG_TYPE type)
@@ -571,7 +572,7 @@ int tg_gettokentype(struct tg_token *t, enum TG_TYPE type)
 		return (-1);
 	}
 
-	return 0;
+	return t->type;
 }
 
 int tg_peektoken(struct tg_token *t)
@@ -581,19 +582,24 @@ int tg_peektoken(struct tg_token *t)
 		gettinit = 1;
 	}
 
+	if (tbuf[0].type == TG_T_EOF || tbuf[0].type == TG_T_ERROR) {
+		*t = tbuf[0];
+		return 0;
+	}
+
 	*t = tbuf[1];
 	
-	return 0;
+	return t->type;
 }
 
 // syntax analizer
-int node_add(int pi, enum TG_TYPE type, struct tg_token *token)
+int tg_nodeadd(int pi, enum TG_TYPE type, struct tg_token *token)
 {	
 	struct tg_node n;
-	struct tg_node *np;
+//	struct tg_node *np;
 	struct tg_node *parent;
 	int ni;
-	int i;
+//	int i;
 
 	n.type = type;
 	
@@ -609,16 +615,13 @@ int node_add(int pi, enum TG_TYPE type, struct tg_token *token)
 	if ((ni = tg_darrpush(&nodes, &n)) < 0)
 		return (-1);
 	
-	if ((np = tg_darrget(&nodes, ni)) == NULL)
-		return (-1);
-	
 	if (pi < 0)
 		return ni;
 
 	parent = tg_darrget(&nodes, pi);
-
-	for (i = 0; i < parent->children.cnt; ++i) {
 /*
+	for (i = 0; i < parent->children.cnt; ++i) {
+
 		struct tg_node *cp;
 
 		if ((cp = tg_darrget(&(parent->children), i)) == NULL)
@@ -629,9 +632,8 @@ int node_add(int pi, enum TG_TYPE type, struct tg_token *token)
 
 		add ni to all siblings
 		add all siblings to np
-*/
 	}
-
+*/
 	if (tg_darrpush(&(parent->children), &ni) < 0)
 		return (-1);
 
@@ -655,9 +657,12 @@ int tg_indent(int t)
 	return 0;
 }
 
-int tg_printnode(struct tg_node *n, int depth)
+int tg_printnode(int ni, int depth)
 {
 	int i;
+	struct tg_node *n;
+
+	n = tg_darrget(&nodes, ni);
 
 	tg_indent(depth);
 	printf("node {\n");
@@ -690,7 +695,7 @@ int tg_printnode(struct tg_node *n, int depth)
 
 			ni = *((int *) tg_darrget(&(n->children), i));
 		
-			tg_printnode(tg_darrget(&nodes, ni), depth + 2);	
+			tg_printnode(ni, depth + 2);	
 
 		//	printf("!@#!@#%s\n", n->token.val.str);
 		}
@@ -704,12 +709,363 @@ int tg_printnode(struct tg_node *n, int depth)
 	return 0;
 }
 
+int tg_id(int ni)
+{
+	struct tg_token t;
+
+	tg_gettokentype(&t, TG_T_ID);
+
+	tg_nodeadd(ni, TG_T_ID, &t);
+
+	return 0;
+}
+
+int tg_constant(int ni)
+{
+	struct tg_token t;
+
+	tg_gettoken(&t);
+
+	if (t.type != TG_T_STRING && t.type != TG_T_INT
+		&& t.type != TG_T_FLOAT) {
+		// error
+	}
+	
+	tg_nodeadd(ni, t.type, &t);
+
+	return 0;
+}
+
+int tg_expr(int ni);
+
+int tg_val(int ni)
+{
+	struct tg_token t;
+
+	tg_peektoken(&t);
+
+	switch (t.type) {
+	case TG_T_ID:
+		tg_id(ni);
+		break;
+
+	case TG_T_LPAR:
+		tg_gettoken(&t);
+
+		ni = tg_nodeadd(ni, TG_N_EXPR, NULL);
+
+		tg_expr(ni);
+
+		tg_gettokentype(&t, TG_T_RPAR);
+		break;
+
+	case TG_T_FLOAT:
+	case TG_T_INT:
+	case TG_T_STRING:
+		tg_constant(ni);
+		break;
+
+	default:
+		break;
+	}
+
+	return 0;
+}
+int tg_ref(int ni)
+{
+	struct tg_token t;
+	
+	tg_gettokentype(&t, TG_T_DOL);
+
+	tg_nodeadd(ni, TG_T_DOL, &t);
+	tg_val(ni);
+
+	return 0;
+}
+
+int tg_not(int ni)
+{
+	struct tg_token t;
+	
+	tg_gettokentype(&t, TG_T_NOT);
+
+	tg_nodeadd(ni, TG_T_NOT, &t);
+	tg_val(ni);
+
+	return 0;
+}
+
+int tg_sign(int ni)
+{
+	struct tg_token t;
+	
+	tg_gettokentype(&t, TG_T_ADDOP);
+
+	tg_nodeadd(ni, TG_T_ADDOP, &t);
+	tg_val(ni);
+
+	return 0;
+}
+
+int tg_unary(int ni)
+{
+	struct tg_token t;
+
+	tg_peektoken(&t);
+
+	switch(t.type) {
+	case TG_T_DOL:
+		ni = tg_nodeadd(ni, TG_N_REF, &t);
+		tg_ref(ni);
+		break;
+
+	case TG_T_NOT:
+		ni = tg_nodeadd(ni, TG_N_NOT, &t);
+		tg_not(ni);
+		break;
+
+	case TG_T_ADDOP:
+		ni = tg_nodeadd(ni, TG_N_SIGN, &t);
+		tg_sign(ni);
+		break;
+	default:
+		tg_val(ni);
+	}
+
+	return 0;
+}
+
+int tg_mult(int ni)
+{
+	struct tg_token t;
+	
+	tg_unary(ni);
+
+	while (tg_peektoken(&t) == TG_T_MULTOP) {
+		tg_gettokentype(&t, TG_T_MULTOP);
+	
+		tg_nodeadd(ni, TG_T_MULTOP, &t);
+
+		tg_unary(ni);
+	}
+
+	return 0;
+}
+
+int tg_add(int ni)
+{
+	struct tg_token t;
+	int mni;
+
+	mni = tg_nodeadd(ni, TG_N_MULT, &t);
+	tg_mult(mni);
+	
+	while (tg_peektoken(&t) == TG_T_ADDOP) {
+		tg_gettokentype(&t, TG_T_ADDOP);
+	
+		tg_nodeadd(ni, TG_T_ADDOP, &t);
+
+		mni = tg_nodeadd(ni, TG_N_MULT, &t);
+		tg_mult(mni);
+	}
+
+	return 0;
+}
+
+int tg_cat(int ni)
+{
+	struct tg_token t;
+	int ani;
+
+	ani = tg_nodeadd(ni, TG_N_ADD, &t);
+	tg_add(ani);
+	
+	while (tg_peektoken(&t) == TG_T_TILDA) {
+		tg_gettokentype(&t, TG_T_TILDA);
+	
+		tg_nodeadd(ni, TG_T_TILDA, &t);
+
+		ani = tg_nodeadd(ni, TG_N_ADD, &t);
+		tg_add(ani);
+	}
+
+	return 0;
+}
+
+int tg_nexttoopts(int ni)
+{
+	struct tg_token t;
+	
+	tg_gettokentype(&t, TG_T_COLON);
+	
+	tg_gettokentype(&t, TG_T_STRING);
+		
+	tg_nodeadd(ni, TG_T_STRING, &t);
+
+	return 0;
+}
+
+int tg_nextto(int ni)
+{
+	struct tg_token t;
+	int cni;
+
+	cni = tg_nodeadd(ni, TG_N_CAT, &t);
+	tg_cat(cni);
+	
+	while (tg_peektoken(&t) == TG_T_NEXTTOOP) {
+		tg_gettokentype(&t, TG_T_NEXTTOOP);
+	
+		tg_nodeadd(ni, TG_T_NEXTTOOP, &t);
+
+		cni = tg_nodeadd(ni, TG_N_CAT, &t);
+		tg_cat(cni);
+
+		if (tg_peektoken(&t) == TG_T_COLON)
+			tg_nexttoopts(ni);
+	}
+
+	return 0;
+}
+
+int tg_rel(int ni)
+{
+	struct tg_token t;
+	int nni;
+
+	nni = tg_nodeadd(ni, TG_N_NEXTTO, &t);
+	tg_nextto(nni);
+	
+	if (tg_peektoken(&t) == TG_T_RELOP) {
+		tg_gettokentype(&t, TG_T_RELOP);
+	
+		tg_nodeadd(ni, TG_T_RELOP, &t);
+
+		nni = tg_nodeadd(ni, TG_N_NEXTTO, &t);
+		tg_nextto(nni);
+	}
+
+	return 0;
+
+}
+
+int tg_and(int ni)
+{
+	struct tg_token t;
+	int rni;
+
+	rni = tg_nodeadd(ni, TG_N_REL, &t);
+	tg_rel(rni);
+	
+	while (tg_peektoken(&t) == TG_T_AND) {
+		tg_gettokentype(&t, TG_T_AND);
+	
+		rni = tg_nodeadd(ni, TG_N_REL, &t);
+		tg_rel(rni);
+	}
+
+	return 0;
+}
+
+int tg_or(int ni)
+{
+	struct tg_token t;
+	int ani;
+
+	ani = tg_nodeadd(ni, TG_N_AND, &t);
+	tg_and(ani);
+	
+	while (tg_peektoken(&t) == TG_T_OR) {
+		tg_gettokentype(&t, TG_T_OR);
+	
+		ani = tg_nodeadd(ni, TG_N_AND, &t);
+		tg_and(ani);
+	}
+
+	return 0;
+}
+
+int tg_ternary(int ni)
+{
+	struct tg_token t;
+	int oni;
+
+	oni = tg_nodeadd(ni, TG_N_OR, &t);
+	tg_or(oni);
+	
+	while (tg_peektoken(&t) == TG_T_QUEST) {
+		tg_gettokentype(&t, TG_T_QUEST);
+	
+		oni = tg_nodeadd(ni, TG_N_OR, &t);
+		tg_and(oni);
+		
+		tg_gettokentype(&t, TG_T_COLON);
+
+		oni = tg_nodeadd(ni, TG_N_OR, &t);
+		tg_and(oni);
+	}
+
+	return 0;
+}
+
+int tg_assign(int ni)
+{
+	struct tg_token t;
+	int tni;
+
+	tni = tg_nodeadd(ni, TG_N_TERNARY, &t);
+	tg_ternary(tni);
+	
+	while (tg_peektoken(&t) == TG_T_ASSIGN) {
+		tg_gettokentype(&t, TG_T_ASSIGN);
+		
+		tni = tg_nodeadd(ni, TG_N_TERNARY, &t);
+		tg_ternary(tni);
+	}
+
+	return 0;
+}
+
+int tg_expr(int ni)
+{
+	struct tg_token t;
+	int ani;
+
+	ani = tg_nodeadd(ni, TG_N_ASSIGN, &t);
+	tg_assign(ani);
+	
+	while (tg_peektoken(&t) == TG_T_COMMA) {
+		tg_gettokentype(&t, TG_T_COMMA);
+		
+		ani = tg_nodeadd(ni, TG_N_ASSIGN, &t);
+		tg_assign(ani);
+	}
+
+	return 0;
+}
+
 struct tg_node *tg_template(const char *p)
 {
 	tg_initparser(p);
 
 	tg_darrinit(&nodes, sizeof(struct tg_node)); // !!!
 
+	int ni;
+
+	ni = tg_nodeadd(-1, TG_N_TEMPLATE, NULL);
+	
+	tg_expr(ni);
+
+	struct tg_token t;
+
+	tg_gettoken(&t);
+
+	tg_printnode(ni, 0);
+
+	printf("%s\n", t.val.str);
+
+
+/*
 	int ni;
 
 	ni = node_add(-1, TG_N_TEMPLATE, NULL);
@@ -719,9 +1075,11 @@ struct tg_node *tg_template(const char *p)
 	tg_gettoken(&t);
 
 	node_add(ni, TG_T_FLOAT, &t);
-
-	tg_printnode(tg_darrget(&nodes, ni), 0);
-
+	node_add(ni, TG_T_INT, &t);
+	node_add(ni, TG_T_STRING, &t);
+	
+	tg_printnode(ni, 0);
+*/
 /*
 	struct tg_token t;
 
