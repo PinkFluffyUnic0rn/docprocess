@@ -1,44 +1,47 @@
 template	-> (funcdef | stmt)* EOF
-funcdef		-> 'function' id '(' defargs ')' block
-defargs		-> id [',' id]*
-stmt		-> for | if | block | return | 'break' ';' | 'continue' ';' | expr
-return		-> 'return' [expr] ';'
-if		-> 'if' '(' expr ')' body ['else' body]
-for		-> 'for' '(' forexpr (fortable | forclassic) ')' body
-forexpr		-> expr | _
-forclassic	-> ';' forexpr ';' forexpr
-body		-> block | stmt
-block		-> '{' stmt* '}'
+funcdef		-> 'function' id '(' defargs ')' block				+
+defargs		-> id [',' id]*							+
+stmt		-> for | if | return | 'break' ';'				+
+			| 'continue' ';' | block | expr	
+for		-> 'for' '(' forexpr (fortable | forclassic) ')' body		+
+if		-> 'if' '(' expr ')' body ['else' body]				+
+return		-> 'return' [expr] ';'						+
+forexpr		-> expr | _							+
+fortable	-> 'in' [fordir]						+
+forclassic	-> ';' forexpr ';' forexpr					+
+body		-> block | stmt							+
+block		-> '{' stmt* '}'						+
 
-expr		-> assign [',' assign]*				+
-assign		-> ternary ['=' ternary]*			+
-ternary		-> or ['?' or ':' or]*				+
-or		-> and ['|' and]*				+
-and		-> rel ['&' rel]*				+
-rel		-> nextto [relop nextto]			+
-nextto		-> cat [nextop cat [nexttoops]]*		+
-nexttoops	-> ':' string					+
-cat		-> add ['~' add]*				+
-add		-> mult [addop mult]*				+
-mult		-> unary [multop unary]*			+
-unary		-> ref | not | sign | address			+
-ref 		-> '$' address					+
-not		-> '!' address					+
-sign		-> addop address				+
-address		-> val [args | index | attr]*
-val		-> id | '(' expr ')' | const			+
-const		-> float | int | string				+
-index		-> '[' filter [',' filter]* ']'
-filter 		-> assign | range
-range		-> assign '..' assign
-args		-> '(' assign [',' assign]* ')'
-attr		-> '.' id
+expr		-> assign [',' assign]*						+
+assign		-> ternary ['=' ternary]*					+
+ternary		-> or ['?' or ':' or]*						+
+or		-> and ['|' and]*						+
+and		-> rel ['&' rel]*						+
+rel		-> nextto [relop nextto]					+
+nextto		-> cat [nextop cat [nexttoops]]*				+
+nexttoops	-> ':' string							+
+cat		-> add ['~' add]*						+
+add		-> mult [addop mult]*						+
+mult		-> unary [multop unary]*					+
+unary		-> ref | not | sign | address					+
+ref 		-> '$' address							+
+not		-> '!' address							+
+sign		-> addop address						+
+address		-> val [args | index | attr]*					+
+val		-> id | '(' expr ')' | const					+
+const		-> float | int | string						+
+index		-> '[' filter [',' filter]* ']'					+
+filter 		-> assign | range						+
+range		-> assign '..' assign						+
+args		-> '(' assign [',' assign]* ')'					+
+attr		-> '.' id							+
 
-id		-> /^[a-zA-Z_]+[a-zA-Z_0-9]*/			+
-float		-> /^[0-9]*\.[0-9]+([eE][-+]?[0-9]+)?/		+
-int		-> /^[0-9]+/					+
-nexttoop	-> '^' | '<-'					+
-relop		-> '==' | '^' | '!=' | '>=' | '<=' | '<' | '>'	+
-addop		-> '+' | '-'					+
-multop		-> '*' | '/'					+
-string 		-> ...						+
+id		-> /^[a-zA-Z_]+[a-zA-Z_0-9]*/					+
+float		-> /^[0-9]*\.[0-9]+([eE][-+]?[0-9]+)?/				+
+int		-> /^[0-9]+/							+
+nexttoop	-> '^' | '<-'							+
+relop		-> '==' | '^' | '!=' | '>=' | '<=' | '<' | '>'			+
+addop		-> '+' | '-'							+
+multop		-> '*' | '/'							+
+string 		-> ...								+
+fordir		-> cols | rows

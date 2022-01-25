@@ -22,17 +22,18 @@ const char *tg_strsym[] = {
 	";", ":", "$", "addition or substraction",
 	"multiplication or division", "..", "=", "?",
 	"next to operator", "global", "function", "for", "if", "else",
-	"continue", "break", "return", "in", ".", "{", "}", "[", "]",
-	"end of file", "error", "", "template", "function definition",
-	"function definition arguments", "statement", "return", "if",
-	"for", "for (expression)", "for (classic)", "statement body",
-	"block", "expression", "assignment", "ternary operator",
-	"logical or", "logical and", "relation", "next to",
-	"next to options", "string concationation",
-	"addtion or substraction", "multiplication or division",
-	"unary operator", "reference", "logical not", "sign",
-	"id usage", "value", "constant", "array access", "filter",
-	"range", "function arguments", "object attribute access"
+	"continue", "break", "return", "in", "columns", ".", "{", "}",
+	"[", "]", "end of file", "error", "", "template",
+	"function definition", "function definition arguments",
+	"statement", "return", "if", "for", "for (expression)",
+	"for (classic)", "statement body", "block", "expression",
+	"assignment", "ternary operator", "logical or", "logical and",
+	"relation", "next to", "next to options",
+	"string concationation", "addtion or substraction",
+	"multiplication or division", "unary operator", "reference",
+	"logical not", "sign", "id usage", "value", "constant",
+	"array access", "filter", "range", "function arguments",
+	"object attribute access"
 };
 
 static const char *tg_path;
@@ -285,6 +286,8 @@ int tg_nexttoken(struct tg_token *t)
 			t->type = TG_T_RETURN;
 		else if (strcmp(t->val.str, "in") == 0)
 			t->type = TG_T_IN;
+		else if (strcmp(t->val.str, "columns") == 0)
+			t->type = TG_T_COLUMNS;
 		else
 	 		t->type = TG_T_ID;
 
@@ -652,7 +655,8 @@ int tg_indent(int t)
 	int i;
 
 	for (i = 0; i < t; ++i)
-		printf("\t");
+		printf("  ");
+		//printf("\t");
 
 	return 0;
 }
@@ -737,6 +741,8 @@ int tg_constant(int ni)
 }
 
 int tg_expr(int ni);
+int tg_assign(int ni);
+int tg_stmt(int ni);
 
 int tg_val(int ni)
 {
@@ -771,6 +777,119 @@ int tg_val(int ni)
 
 	return 0;
 }
+
+int tg_args(int ni)
+{
+	struct tg_token t;
+	int ani;
+	
+	tg_gettokentype(&t, TG_T_LPAR);
+
+	if (tg_peektoken(&t) == TG_T_RPAR) {
+		tg_gettokentype(&t, TG_T_RPAR);
+		return 0;
+	}
+
+	ani = tg_nodeadd(ni, TG_N_ASSIGN, NULL);
+	tg_assign(ani);
+
+	while (tg_peektoken(&t) == TG_T_COMMA) {
+		tg_gettokentype(&t, TG_T_COMMA);
+	
+		ani = tg_nodeadd(ni, TG_N_ASSIGN, NULL);
+		tg_assign(ani);
+	}
+
+	tg_gettokentype(&t, TG_T_RPAR);
+
+	return 0;
+}
+
+int tg_filter(int ni)
+{
+	struct tg_token t;
+	int ani;
+
+	ani = tg_nodeadd(ni, TG_N_ASSIGN, NULL);
+	tg_assign(ani);
+
+	tg_gettokentype(&t, TG_T_DDOT);
+	tg_nodeadd(ni, TG_T_DDOT, &t);
+
+	ani = tg_nodeadd(ni, TG_N_ASSIGN, NULL);
+	tg_assign(ani);
+
+	return 0;
+}
+
+int tg_index(int ni)
+{
+	struct tg_token t;
+	int fni;
+
+	tg_gettokentype(&t, TG_T_LBRK);
+	
+	fni = tg_nodeadd(ni, TG_N_FILTER, NULL);
+	tg_filter(fni);
+
+	while (tg_peektoken(&t) == TG_T_COMMA) {
+		tg_gettokentype(&t, TG_T_COMMA);
+	
+		fni = tg_nodeadd(ni, TG_N_FILTER, NULL);
+		tg_filter(fni);
+	}
+	tg_gettokentype(&t, TG_T_RBRK);
+
+	return 0;
+}
+
+int tg_attr(int ni)
+{
+	struct tg_token t;
+
+	tg_gettokentype(&t, TG_T_DOT);
+	
+	tg_gettokentype(&t, TG_T_ID);
+	
+	tg_nodeadd(ni, TG_T_ID, &t);
+
+	return 0;
+}
+
+int tg_address(int ni)
+{
+	struct tg_token t;
+	enum TG_TYPE type;
+	int ani;
+
+	tg_val(ni);
+
+	while ((type = tg_peektoken(&t)) == TG_T_LPAR
+		|| type == TG_T_LBRK || type == TG_T_DOT) {
+		switch (type) {
+		case TG_T_LPAR:
+			ani = tg_nodeadd(ni, TG_N_ARGS, NULL);
+			tg_args(ani);
+			break;
+
+		case TG_T_LBRK:
+			ani = tg_nodeadd(ni, TG_N_INDEX, NULL);
+			tg_index(ani);
+			break;
+
+		case TG_T_DOT:
+			ani = tg_nodeadd(ni, TG_N_ATTR, NULL);
+			tg_attr(ani);
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	return 0;
+}
+
 int tg_ref(int ni)
 {
 	struct tg_token t;
@@ -778,7 +897,7 @@ int tg_ref(int ni)
 	tg_gettokentype(&t, TG_T_DOL);
 
 	tg_nodeadd(ni, TG_T_DOL, &t);
-	tg_val(ni);
+	tg_address(ni);
 
 	return 0;
 }
@@ -790,7 +909,7 @@ int tg_not(int ni)
 	tg_gettokentype(&t, TG_T_NOT);
 
 	tg_nodeadd(ni, TG_T_NOT, &t);
-	tg_val(ni);
+	tg_address(ni);
 
 	return 0;
 }
@@ -802,7 +921,7 @@ int tg_sign(int ni)
 	tg_gettokentype(&t, TG_T_ADDOP);
 
 	tg_nodeadd(ni, TG_T_ADDOP, &t);
-	tg_val(ni);
+	tg_address(ni);
 
 	return 0;
 }
@@ -829,7 +948,7 @@ int tg_unary(int ni)
 		tg_sign(ni);
 		break;
 	default:
-		tg_val(ni);
+		tg_address(ni);
 	}
 
 	return 0;
@@ -859,10 +978,10 @@ int tg_add(int ni)
 
 	mni = tg_nodeadd(ni, TG_N_MULT, &t);
 	tg_mult(mni);
-	
+
 	while (tg_peektoken(&t) == TG_T_ADDOP) {
 		tg_gettokentype(&t, TG_T_ADDOP);
-	
+
 		tg_nodeadd(ni, TG_T_ADDOP, &t);
 
 		mni = tg_nodeadd(ni, TG_N_MULT, &t);
@@ -1044,6 +1163,233 @@ int tg_expr(int ni)
 	return 0;
 }
 
+int tg_block(int ni)
+{
+	struct tg_token t;
+	
+	tg_gettokentype(&t, TG_T_LBRC);
+
+	while (tg_peektoken(&t) != TG_T_RBRC)
+		tg_stmt(ni);
+
+	tg_gettokentype(&t, TG_T_RBRC);
+
+	return 0;
+}
+
+int tg_defargs(int ni)
+{
+	struct tg_token t;
+	
+	tg_gettokentype(&t, TG_T_ID);
+	tg_nodeadd(ni, TG_T_ID, &t);
+	
+	while (tg_peektoken(&t) == TG_T_COMMA) {
+		tg_gettokentype(&t, TG_T_COMMA);
+			
+		tg_gettokentype(&t, TG_T_ID);
+		tg_nodeadd(ni, TG_T_ID, &t);
+	}
+
+	return 0;
+}
+
+int funcdef(int ni)
+{
+	struct tg_token t;
+	int nni;
+
+	tg_gettokentype(&t, TG_T_FUNCTION);
+
+	tg_gettokentype(&t, TG_T_ID);
+
+	tg_gettokentype(&t, TG_T_LPAR);
+
+	nni = tg_nodeadd(ni, TG_N_DEFARGS, &t);
+	tg_defargs(nni);
+	
+	tg_gettokentype(&t, TG_T_RPAR);
+
+	nni = tg_nodeadd(ni, TG_N_BLOCK, &t);
+	tg_block(nni);
+
+	return 0;
+}
+
+int tg_body(int ni)
+{
+	struct tg_token t;
+
+	if (tg_peektoken(&t) == TG_T_LBRC)
+		tg_block(ni);
+	else
+		tg_stmt(ni);
+
+	return 0;
+}
+
+int tg_forexpr(int ni)
+{
+	struct tg_token t;
+	int eni;
+
+	tg_peektoken(&t);
+
+	if (t.type == TG_T_SEMICOL || t.type == TG_T_RPAR)
+		return 0;
+
+	eni = tg_nodeadd(ni, TG_N_EXPR, NULL);
+	tg_expr(eni);
+
+	return 0;
+}
+
+int tg_fortable(int ni)
+{
+	struct tg_token t;
+	int eni;
+
+	tg_gettokentype(&t, TG_T_IN);
+
+	eni = tg_nodeadd(ni, TG_N_EXPR, NULL);
+	tg_expr(eni);
+
+	tg_peektoken(&t);
+	if (t.type == TG_T_COLUMNS) {
+		tg_gettokentype(&t, TG_T_COLUMNS);
+		tg_nodeadd(ni, TG_T_COLUMNS, &t);
+	}
+	
+	return 0;
+}
+
+int tg_forclassic(int ni)
+{
+	struct tg_token t;
+	int fni;
+
+	tg_gettokentype(&t, TG_T_SEMICOL);
+
+	fni = tg_nodeadd(ni, TG_N_FOREXPR, NULL);
+	tg_forexpr(fni);
+
+	tg_gettokentype(&t, TG_T_SEMICOL);
+
+	fni = tg_nodeadd(ni, TG_N_FOREXPR, NULL);
+	tg_forexpr(fni);
+
+	return 0;
+}
+
+int tg_for(int ni)
+{
+	struct tg_token t;
+	int nni;
+
+	tg_gettokentype(&t, TG_T_FOR);
+	tg_gettokentype(&t, TG_T_LPAR);
+
+	nni = tg_nodeadd(ni, TG_N_FOREXPR, NULL);
+	
+	tg_forexpr(nni);
+
+	if (tg_peektoken(&t) == TG_T_IN) {
+		tg_fortable(ni);
+	}
+	else {
+		tg_forclassic(ni);
+	}
+
+	tg_gettokentype(&t, TG_T_RPAR);
+
+	nni = tg_nodeadd(ni, TG_N_BLOCK, NULL);
+	tg_body(nni);
+
+	return 0;
+}
+
+int tg_if(int ni)
+{
+	struct tg_token t;
+	int nni;
+
+	tg_gettokentype(&t, TG_T_FOR);
+	tg_gettokentype(&t, TG_T_LPAR);
+
+	nni = tg_nodeadd(ni, TG_N_EXPR, NULL);
+	tg_expr(nni);
+
+	tg_gettokentype(&t, TG_T_RPAR);
+
+	nni = tg_nodeadd(ni, TG_N_BLOCK, NULL);
+	tg_body(nni);
+
+	if (tg_peektoken(&t) == TG_T_ELSE) {
+		tg_gettokentype(&t, TG_T_ELSE);
+
+		nni = tg_nodeadd(ni, TG_N_BLOCK, NULL);
+		tg_body(nni);
+	}
+
+	return 0;
+}
+
+int tg_return(int ni)
+{
+	struct tg_token t;
+	int eni;
+
+	tg_gettokentype(&t, TG_T_RETURN);
+
+	if (tg_peektoken(&t) != TG_T_SEMICOL) {
+		eni = tg_nodeadd(ni, TG_N_EXPR, NULL);
+		tg_expr(eni);
+	}
+
+	tg_gettokentype(&t, TG_T_SEMICOL);
+
+	return 0;
+}
+
+int tg_stmt(int ni)
+{
+	struct tg_token t;
+	int nni;
+
+	switch (tg_peektoken(&t)) {
+	case TG_T_FOR:
+		nni = tg_nodeadd(ni, TG_N_FOR, NULL);
+		tg_for(nni);
+		break;
+
+	case TG_T_IF:
+		nni = tg_nodeadd(ni, TG_N_IF, NULL);
+		tg_if(nni);
+		break;
+
+	case TG_T_RETURN:
+		nni = tg_nodeadd(ni, TG_N_RETURN, NULL);
+		tg_return(nni);
+		break;
+
+	case TG_T_BREAK:
+		tg_nodeadd(ni, TG_T_BREAK, &t);
+		break;
+
+	case TG_T_CONTINUE:
+		tg_nodeadd(ni, TG_T_CONTINUE, &t);
+		break;
+
+	default:
+		nni = tg_nodeadd(ni, TG_N_EXPR, NULL);
+		tg_expr(nni);
+		tg_gettokentype(&t, TG_T_SEMICOL);
+		break;
+	}
+
+	return 0;
+}
+
 struct tg_node *tg_template(const char *p)
 {
 	tg_initparser(p);
@@ -1054,7 +1400,7 @@ struct tg_node *tg_template(const char *p)
 
 	ni = tg_nodeadd(-1, TG_N_TEMPLATE, NULL);
 	
-	tg_expr(ni);
+	tg_stmt(ni);
 
 	struct tg_token t;
 
