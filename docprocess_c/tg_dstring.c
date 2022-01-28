@@ -26,24 +26,6 @@ static int bufs4init = 0;
 static int bufs8init = 0;
 static int bufs16init = 0;
 
-/*
-static int tg_dstrbufsclear(struct tg_dstrbufs *bufs)
-{
-	char *p;
-
-	while (tg_darrpop(&(bufs->bufs), &p) == 0)
-		free(p);
-
-	while (tg_darrpop(&(bufs->free), NULL) == 0);
-	
-	bufs->end = NULL;
-	bufs->lastid = 0;
-	bufs->sz = 0;
-
-	return 0;
-}
-*/
-
 static int tg_dstrbufsinit(struct tg_dstrbufs *bufs, size_t sz)
 {
 	char *buf;
@@ -115,28 +97,6 @@ static char *tg_dstrbufsget(struct tg_dstrbufs *bufs, int eln)
 	return ((void **) bufs->bufs.data)[bufn] + bufeln * bufs->sz;
 }
 
-/*
-static int tg_dstrbufsadd(struct tg_dstrbufs *bufs, const char *str)
-{
-	int eln;
-	char *p;
-	size_t len;
-
-	len = strlen(str);
-
-	if ((eln = tg_dstrbufsalloc(bufs, len)) < 0)
-		return (-1);
-	
-	p = tg_dstrbufsget(bufs, eln);
-
-	memcpy(p, str, len + 1);
-	p[len] = '\0';
-
-
-	return eln;
-}
-*/
-
 static int tg_dstrbufsremove(struct tg_dstrbufs *bufs, int eln)
 {
 	assert(bufs != NULL);
@@ -150,14 +110,6 @@ static int tg_dstrbufsremove(struct tg_dstrbufs *bufs, int eln)
 // init variables when clearing buf with wipe
 static int tg_dstrinitbuf()
 {
-/*
-	if (!mbufsinit) {
-		if (tg_darrinit(&mbufs, sizeof(char *)) < 0)
-			return (-1);
-
-		mbufsinit = 1;
-	}
-*/	
 	if (!bufs4init) {
 		if (tg_dstrbufsinit(&bufs4, 4) < 0)
 			return (-1);
@@ -227,6 +179,16 @@ int tg_dstralloc(struct tg_dstring *dstr, size_t len)
 	return 0;
 }
 
+int tg_dstrcreatestatic(struct tg_dstring *dstr, const char *src)
+{
+	dstr->bufs = 0;
+	dstr->str = (char *) src;
+	dstr->sz = 0;
+	dstr->len = strlen(src);
+
+	return 0;
+}
+
 int tg_dstrcreaten(struct tg_dstring *dstr, const char *src, size_t len)
 {
 	if (tg_dstralloc(dstr, len) < 0)
@@ -238,28 +200,13 @@ int tg_dstrcreaten(struct tg_dstring *dstr, const char *src, size_t len)
 	return 0;
 }
 
-/*
-int tg_dstrcreate(struct tg_dstring *dstr, const char *src)
-{
-	size_t len;
-
-	len = strlen(src);
-
-	if (tg_dstralloc(dstr, len) < 0)
-		return (-1);
-	
-	memcpy(dstr->str, src, len);
-	dstr->str[len] = '\0';
-
-	return 0;
-}
-*/
-
 int tg_dstrdestroy(struct tg_dstring *dstr)
 {
 	struct tg_dstrbufs *bufs;
 
-	if (dstr->len < 4)
+	if (dstr->len == 0)
+		return 0;
+	else if (dstr->len < 4)
 		bufs = &bufs4;
 	else if (dstr->len < 8)
 		bufs = &bufs8;
@@ -334,75 +281,3 @@ int tg_dstrwipe()
 	return 0;
 }
 */
-
-int buftest()
-{
-/*
-	struct tg_dstring str1;
-	struct tg_dstring str2;
-
-	tg_dstrcreate(&str1, "xh3ksjx");
-	tg_dstraddstr(&str1, "asdf");
-	tg_dstraddstr(&str1, "sdfhesde_23sdf");
-
-	tg_dstrcreate(&str2, "x");
-
-	printf("%s\n", str1.str);
-	printf("%s\n", str2.str);
-
-
-	tg_dstrdestroy(&str1);
-	tg_dstrdestroy(&str2);
-	tg_dstrwipe();
-*/
-/*
-	struct tg_dstrbufs bufs;
-	int eln[1024 * 1024];
-	char s[1024 * 1024];
-	int i;
-
-	tg_dstrbufsinit(&bufs, 2);
-
-	int cnt;
-
-	cnt = 1024 * 4;
-
-	int j;
-	int t;
-	int added, removed;
-
-	t = 0;
-	for (j = 0; j < 64; ++j) {
-		added = rand() % cnt;
-
-		t += added;
-		printf("adding %d elements\n", added);
-		for (i = 0; i < added; ++i) {
-			sprintf(s, "%d", i);
-			
-			printf("%d\n", i);
-			
-			eln[i] = tg_dstrbufsadd(&bufs, s);
-		
-			printf("%s\n", tg_dstrbufsget(&bufs, eln[i]));
-		}
-	
-		if (added == 0)
-			continue;
-
-		removed = rand() % added;
-
-		t -= removed;
-		printf("removing %d elements\n", removed);
-		for (i = 0; i < removed; ++i)
-			tg_dstrbufsremove(&bufs, eln[i]);
-
-		printf("\n");
-	}
-
-	printf("last added: %d\n", added);
-	printf("last removed: %d\n", removed);
-*/
-
-	return 0;
-}

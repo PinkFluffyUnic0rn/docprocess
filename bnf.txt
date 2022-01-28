@@ -29,8 +29,7 @@ ref 		-> '$' address							+
 not		-> '!' address							+
 sign		-> addop address						+
 address		-> val [args | index | attr]*					+
-val		-> id | '(' expr ')' | const					+
-const		-> float | int | string						+
+val		-> id | '(' expr ')' | float | int | string			+
 index		-> '[' filter [',' filter]* ']'					+
 filter 		-> assign | range						+
 range		-> assign '..' assign						+

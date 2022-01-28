@@ -48,7 +48,6 @@ struct tg_node {
 	enum TG_TYPE type;
 	int parent;
 	struct tg_darray children;
-	struct tg_darray siblings;
 };
 
 struct tg_node *tg_template(const char *p);

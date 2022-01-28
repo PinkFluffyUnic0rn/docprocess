@@ -25,7 +25,7 @@ const char *tg_strsym[] = {
 	"assignment operator", "?", "next to operator", "global",
 	"function", "for", "if", "else", "continue", "break", "return",
 	"in", "columns", ".", "{", "}", "[", "]", "end of file",
-	"error", "", "template", "function definition",
+	"error", "fatal error", "", "template", "function definition",
 	"function definition arguments", "statement", "return", "if",
 	"for", "for (expression)", "for (classic)", "statement body",
 	"block", "expression", "assignment", "ternary operator",
@@ -51,7 +51,7 @@ static int gettinit = 0;
 
 static struct tg_darray nodes;
 
-int tg_initparser(const char *path)
+static int tg_initparser(const char *path)
 {
 	if (tg_darrinit(&tg_text, sizeof(char *)) < 0)
 		return (-1);
@@ -65,8 +65,8 @@ int tg_initparser(const char *path)
 static struct tg_char _tg_getc(int raw)
 {
 	struct tg_char c;
-	static FILE *f;
-	static char *l = "";
+	static FILE *f = NULL;
+	static char *l = "";	// dont use static string for l
 	static int curline = 0;
 
 	if (tg_path != NULL) {
@@ -83,12 +83,13 @@ static struct tg_char _tg_getc(int raw)
 	while (1) {
 		size_t lsz;
 		ssize_t r;
+		char *t;
 
 		if (!raw) {
 			if (isspace(l[0])) { 
 				while (isspace(l[1]))
 					++l;
-			
+
 				l[0] = ' ';
 			}
 			
@@ -106,16 +107,22 @@ static struct tg_char _tg_getc(int raw)
 				strerror(errno));
 			goto error;
 		}
-		
-		if (tg_darrpush(&tg_text, &l) < 0)
+	
+		// copy of all program text for error handling
+		if ((t = malloc(lsz)) == NULL)
+			goto error;
+
+		strcpy(t, l);
+
+		if (tg_darrpush(&tg_text, &t) < 0)
 			goto error;
 
 		curline++;
 	}
 
-	c.c = (*l++);
-	c.line = curline;
 	c.pos = l - ((char **) tg_text.data)[curline - 1];
+	c.line = curline;
+	c.c = (*l++);
 
 	return c;
 
@@ -123,6 +130,9 @@ error:
 	c.c = EOF;
 	c.line = curline;
 	strncpy(c.error, tg_error, TG_MSGMAXSIZE);
+
+	if (f != NULL)
+		fclose(f);
 
 	return c;
 }
@@ -200,7 +210,7 @@ static int tg_createtoken(struct tg_token *t, const char *val,
 }
 
 // lexical analyzer
-int tg_nexttoken(struct tg_token *t)
+static int tg_nexttoken(struct tg_token *t)
 {
 	int c;
 
@@ -245,9 +255,9 @@ int tg_nexttoken(struct tg_token *t)
 
 			c = tg_getcraw();
 		}
-	 	
+
 		tg_getcrestore();
-		
+
 		return 0;
 	}
 	
@@ -597,45 +607,59 @@ int tg_nexttoken(struct tg_token *t)
 	return 0;
 
 error:
-	if (tg_createtoken(t, tg_error, TG_T_ERROR,
-			tg_curline, tg_curpos) < 0)
-		goto error;
+	tg_dstrcreatestatic(&(t->val), tg_error);
+	t->line = tg_curline;
+	t->pos = tg_curpos;
+	t->type = TG_T_ERROR;
 
 	return 0;
 }
 
-int tg_gettoken(struct tg_token *t)
+static int tg_gettoken(struct tg_token *t)
 {
 	if (gettinit == 0) {
-		if (tg_nexttoken(tbuf + 1) < 0)
-			return (-1);
+		tg_nexttoken(tbuf + 1);
 
 		gettinit = 1;
 	}
 
 	if (tbuf[0].type == TG_T_EOF || tbuf[0].type == TG_T_ERROR) {
 		*t = tbuf[0];
-		return 0;
+		return tbuf[0].type;
 	}
 
 	tbuf[0] = tbuf[1];
 	*t = tbuf[0];
 
-	if (tg_nexttoken(tbuf + 1) < 0)
-		return (-1);
+	tg_nexttoken(tbuf + 1);
 
 	return t->type;
 }
 
-int tg_gettokentype(struct tg_token *t, enum TG_TYPE type)
+static int tg_gettokentype(struct tg_token *t, enum TG_TYPE type)
 {
-	if (tg_gettoken(t) < 0)
-		return (-1);
+	tg_gettoken(t);
 
 	if (t->type != type) {
+		printf("%s\n", *((char **) tg_darrget(&tg_text, t->line - 1)));
+		int i;
+
+		for (i = 0; i < t->pos; ++i) printf(" "); // -1???
+		printf("^\n");
+
+		for (i = 0; i < t->pos; ++i) printf(" "); // -1???
+		printf("Wrong token type: expected %s, got %s.\n",
+			tg_strsym[type], tg_strsym[t->type]);
+
+		printf("\n\n\n");
+
 		TG_SETERROR("Wrong token type: expected %s, got %s.",
-			tg_strsym[t->type], tg_strsym[type]);
-		return (-1);
+			tg_strsym[type], tg_strsym[t->type]);
+
+		tg_dstrcreatestatic(&(t->val), tg_error);
+		t->line = tg_curline;
+		t->pos = tg_curpos;
+		t->type = TG_T_ERROR;
 	}
 
 	return t->type;
@@ -650,7 +674,7 @@ int tg_peektoken(struct tg_token *t)
 
 	if (tbuf[0].type == TG_T_EOF || tbuf[0].type == TG_T_ERROR) {
 		*t = tbuf[0];
-		return 0;
+		return tbuf[0].type;
 	}
 
 	*t = tbuf[1];
@@ -658,14 +682,12 @@ int tg_peektoken(struct tg_token *t)
 	return t->type;
 }
 
-// syntax analizer
+// node API
 int tg_nodeadd(int pi, enum TG_TYPE type, struct tg_token *token)
 {	
 	struct tg_node n;
-//	struct tg_node *np;
 	struct tg_node *parent;
 	int ni;
-//	int i;
 
 	n.type = type;
 	
@@ -677,9 +699,6 @@ int tg_nodeadd(int pi, enum TG_TYPE type, struct tg_token *token)
 
 	n.parent = pi;
 
-//	if (tg_darrinit(&(n.siblings), sizeof(int)) < 0)
-//		return (-1);
-
 	if ((ni = tg_darrpush(&nodes, &n)) < 0)
 		return (-1);
 	
@@ -688,34 +707,23 @@ int tg_nodeadd(int pi, enum TG_TYPE type, struct tg_token *token)
 
 	if ((parent = tg_darrget(&nodes, pi)) == NULL)
 		return (-1);
-/*
-	for (i = 0; i < parent->children.cnt; ++i) {
 
-		struct tg_node *cp;
-
-		if ((cp = tg_darrget(&(parent->children), i)) == NULL)
-			return NULL;
-
-		if (tg_darrpush(&(cp->siblings), np) < 0)
-			return NULL;
-
-		add ni to all siblings
-		add all siblings to np
-	}
-*/
 	if (tg_darrpush(&(parent->children), &ni) < 0)
 		return (-1);
 
 	return ni;
 }
 
-int tg_attachnode(int pi, int ni)
+int tg_nodeattach(int pi, int ni)
 {
 	struct tg_node *node;
 	struct tg_node *parent;
 
-	parent = tg_darrget(&nodes, pi);
-	node = tg_darrget(&nodes, ni);
+	if ((parent = tg_darrget(&nodes, pi)) == NULL)
+		return (-1);
+	
+	if ((node = tg_darrget(&nodes, ni)) == NULL)
+		return (-1);
 
 	if ((node = tg_darrget(&nodes, ni)) == NULL)
 		return (-1);
@@ -744,7 +752,8 @@ int tg_nodegetchild(int ni, int i)
 	struct tg_node *p;
 	int *pci;
 	
-	p = tg_darrget(&nodes, ni);
+	if ((p = tg_darrget(&nodes, ni)) == NULL)
+		return (-1);
 
 	if ((pci = tg_darrget(&(p->children), i)) == NULL)
 		return (-1);
@@ -752,53 +761,12 @@ int tg_nodegetchild(int ni, int i)
 	return *pci;
 }
 
-/*
-int tg_attachtree(int pi, int ti)
-{
-	struct tg_node *treeroot;
-	struct tg_node *parent;
-	int i;
-
-	parent = tg_darrget(&nodes, pi);
-	treeroot = tg_darrget(&nodes, ti);
-
-	for (i = 0; i < treeroot->children.cnt; ++i) {
-		struct tg_node *cp;
-		int ci;
-
-		ci = *((int *) tg_darrget(&(treeroot->children), i)); //!!!
-
-		if ((cp = tg_darrget(&nodes, ci)) == NULL)
-			return (-1);
-
-		cp->parent = pi;
-
-		if (tg_darrpush(&(parent->children), &ci) < 0)
-			return (-1);
-	}
-
-	// remove root ?
-
-	return 0;
-}
-*/
-
-// int tg_getnode(int ni) ?
-
-/*
-int node_remove(struct tg_node *n)
-{
-	return 0;
-}
-*/
-
 int tg_indent(int t)
 {
 	int i;
 
 	for (i = 0; i < t; ++i)
-		printf("  ");
-		//printf("\t");
+		printf("\t");
 
 	return 0;
 }
@@ -855,7 +823,12 @@ int tg_printnode(int ni, int depth)
 	return 0;
 }
 
-int tg_id(int ni)
+// syntax analizer
+static int tg_expr(int ni);
+static int tg_assign(int ni);
+static int tg_stmt(int ni);
+
+static int tg_id(int ni)
 {
 	struct tg_token t;
 
@@ -866,27 +839,7 @@ int tg_id(int ni)
 	return 0;
 }
 
-int tg_constant(int ni)
-{
-	struct tg_token t;
-
-	tg_gettoken(&t);
-
-	if (t.type != TG_T_STRING && t.type != TG_T_INT
-		&& t.type != TG_T_FLOAT) {
-		// error
-	}
-	
-	tg_nodeadd(ni, t.type, &t);
-
-	return 0;
-}
-
-int tg_expr(int ni);
-int tg_assign(int ni);
-int tg_stmt(int ni);
-
-int tg_val(int ni)
+static int tg_val(int ni)
 {
 	struct tg_token t;
 
@@ -910,7 +863,9 @@ int tg_val(int ni)
 	case TG_T_FLOAT:
 	case TG_T_INT:
 	case TG_T_STRING:
-		tg_constant(ni);
+		tg_gettoken(&t);
+	
+		tg_nodeadd(ni, t.type, &t);
 		break;
 
 	default:
@@ -921,7 +876,7 @@ int tg_val(int ni)
 	return 0;
 }
 
-int tg_args(int ni)
+static int tg_args(int ni)
 {
 	struct tg_token t;
 	int ani;
@@ -948,7 +903,7 @@ int tg_args(int ni)
 	return 0;
 }
 
-int tg_filter(int ni)
+static int tg_filter(int ni)
 {
 	struct tg_token t;
 	int ani;
@@ -965,19 +920,19 @@ int tg_filter(int ni)
 	return 0;
 }
 
-int tg_index(int ni)
+static int tg_index(int ni)
 {
 	struct tg_token t;
 	int fni;
 
 	tg_gettokentype(&t, TG_T_LBRK);
-	
+
 	fni = tg_nodeadd(ni, TG_N_FILTER, NULL);
 	tg_filter(fni);
 
 	while (tg_peektoken(&t) == TG_T_COMMA) {
 		tg_gettokentype(&t, TG_T_COMMA);
-	
+
 		fni = tg_nodeadd(ni, TG_N_FILTER, NULL);
 		tg_filter(fni);
 	}
@@ -986,7 +941,7 @@ int tg_index(int ni)
 	return 0;
 }
 
-int tg_attr(int ni)
+static int tg_attr(int ni)
 {
 	struct tg_token t;
 
@@ -999,7 +954,7 @@ int tg_attr(int ni)
 	return 0;
 }
 
-int tg_address(int ni)
+static int tg_address(int ni)
 {
 	struct tg_token t;
 	enum TG_TYPE type;
@@ -1033,7 +988,7 @@ int tg_address(int ni)
 	return 0;
 }
 
-int tg_prestep(int ni)
+static int tg_prestep(int ni)
 {
 	struct tg_token t;
 	
@@ -1046,7 +1001,7 @@ int tg_prestep(int ni)
 
 }
 
-int tg_ref(int ni)
+static int tg_ref(int ni)
 {
 	struct tg_token t;
 	
@@ -1057,7 +1012,7 @@ int tg_ref(int ni)
 	return 0;
 }
 
-int tg_not(int ni)
+static int tg_not(int ni)
 {
 	struct tg_token t;
 	
@@ -1068,7 +1023,7 @@ int tg_not(int ni)
 	return 0;
 }
 
-int tg_sign(int ni)
+static int tg_sign(int ni)
 {
 	struct tg_token t;
 	
@@ -1080,7 +1035,7 @@ int tg_sign(int ni)
 	return 0;
 }
 
-int tg_unary(int ni)
+static int tg_unary(int ni)
 {
 	struct tg_token t;
 
@@ -1114,7 +1069,7 @@ int tg_unary(int ni)
 	return 0;
 }
 
-int tg_mult(int ni)
+static int tg_mult(int ni)
 {
 	struct tg_token t;
 	
@@ -1131,7 +1086,7 @@ int tg_mult(int ni)
 	return 0;
 }
 
-int tg_add(int ni)
+static int tg_add(int ni)
 {
 	struct tg_token t;
 	int mni;
@@ -1142,7 +1097,7 @@ int tg_add(int ni)
 	if (tg_nodeccnt(mni) == 1)
 		mni = tg_nodegetchild(mni, 0);
 	
-	tg_attachnode(ni, mni);
+	tg_nodeattach(ni, mni);
 
 	while (tg_peektoken(&t) == TG_T_ADDOP) {
 		tg_gettokentype(&t, TG_T_ADDOP);
@@ -1155,13 +1110,13 @@ int tg_add(int ni)
 		if (tg_nodeccnt(mni) == 1)
 			mni = tg_nodegetchild(mni, 0);
 		
-		tg_attachnode(ni, mni);
+		tg_nodeattach(ni, mni);
 	}
 
 	return 0;
 }
 
-int tg_cat(int ni)
+static int tg_cat(int ni)
 {
 	struct tg_token t;
 	int ani;
@@ -1172,7 +1127,7 @@ int tg_cat(int ni)
 	if (tg_nodeccnt(ani) == 1)
 		ani = tg_nodegetchild(ani, 0);
 	
-	tg_attachnode(ni, ani);
+	tg_nodeattach(ni, ani);
 
 	while (tg_peektoken(&t) == TG_T_TILDA) {
 		tg_gettokentype(&t, TG_T_TILDA);
@@ -1185,13 +1140,13 @@ int tg_cat(int ni)
 		if (tg_nodeccnt(ani) == 1)
 			ani = tg_nodegetchild(ani, 0);
 		
-		tg_attachnode(ni, ani);
+		tg_nodeattach(ni, ani);
 	}
 
 	return 0;
 }
 
-int tg_nexttoopts(int ni)
+static int tg_nexttoopts(int ni)
 {
 	struct tg_token t;
 	
@@ -1204,7 +1159,7 @@ int tg_nexttoopts(int ni)
 	return 0;
 }
 
-int tg_nextto(int ni)
+static int tg_nextto(int ni)
 {
 	struct tg_token t;
 	int cni;
@@ -1215,7 +1170,7 @@ int tg_nextto(int ni)
 	if (tg_nodeccnt(cni) == 1)
 		cni = tg_nodegetchild(cni, 0);
 	
-	tg_attachnode(ni, cni);
+	tg_nodeattach(ni, cni);
 
 	while (tg_peektoken(&t) == TG_T_NEXTTOOP) {
 		tg_gettokentype(&t, TG_T_NEXTTOOP);
@@ -1228,7 +1183,7 @@ int tg_nextto(int ni)
 		if (tg_nodeccnt(cni) == 1)
 			cni = tg_nodegetchild(cni, 0);
 		
-		tg_attachnode(ni, cni);
+		tg_nodeattach(ni, cni);
 
 		if (tg_peektoken(&t) == TG_T_COLON)
 			tg_nexttoopts(ni);
@@ -1237,7 +1192,7 @@ int tg_nextto(int ni)
 	return 0;
 }
 
-int tg_rel(int ni)
+static int tg_rel(int ni)
 {
 	struct tg_token t;
 	int nni;
@@ -1248,7 +1203,7 @@ int tg_rel(int ni)
 	if (tg_nodeccnt(nni) == 1)
 		nni = tg_nodegetchild(nni, 0);
 	
-	tg_attachnode(ni, nni);
+	tg_nodeattach(ni, nni);
 
 	if (tg_peektoken(&t) == TG_T_RELOP) {
 		tg_gettokentype(&t, TG_T_RELOP);
@@ -1261,14 +1216,14 @@ int tg_rel(int ni)
 		if (tg_nodeccnt(nni) == 1)
 			nni = tg_nodegetchild(nni, 0);
 		
-		tg_attachnode(ni, nni);
+		tg_nodeattach(ni, nni);
 	}
 
 	return 0;
 
 }
 
-int tg_and(int ni)
+static int tg_and(int ni)
 {
 	struct tg_token t;
 	int rni;
@@ -1279,7 +1234,7 @@ int tg_and(int ni)
 	if (tg_nodeccnt(rni) == 1)
 		rni = tg_nodegetchild(rni, 0);
 	
-	tg_attachnode(ni, rni);
+	tg_nodeattach(ni, rni);
 
 	while (tg_peektoken(&t) == TG_T_AND) {
 		tg_gettokentype(&t, TG_T_AND);
@@ -1290,13 +1245,13 @@ int tg_and(int ni)
 		if (tg_nodeccnt(rni) == 1)
 			rni = tg_nodegetchild(rni, 0);
 		
-		tg_attachnode(ni, rni);
+		tg_nodeattach(ni, rni);
 	}
 
 	return 0;
 }
 
-int tg_or(int ni)
+static int tg_or(int ni)
 {
 	struct tg_token t;
 	int ani;
@@ -1307,7 +1262,7 @@ int tg_or(int ni)
 	if (tg_nodeccnt(ani) == 1)
 		ani = tg_nodegetchild(ani, 0);
 	
-	tg_attachnode(ni, ani);
+	tg_nodeattach(ni, ani);
 
 	while (tg_peektoken(&t) == TG_T_OR) {
 		tg_gettokentype(&t, TG_T_OR);
@@ -1318,13 +1273,13 @@ int tg_or(int ni)
 		if (tg_nodeccnt(ani) == 1)
 			ani = tg_nodegetchild(ani, 0);
 		
-		tg_attachnode(ni, ani);
+		tg_nodeattach(ni, ani);
 	}
 
 	return 0;
 }
 
-int tg_ternary(int ni)
+static int tg_ternary(int ni)
 {
 	struct tg_token t;
 	int oni;
@@ -1335,7 +1290,7 @@ int tg_ternary(int ni)
 	if (tg_nodeccnt(oni) == 1)
 		oni = tg_nodegetchild(oni, 0);
 	
-	tg_attachnode(ni, oni);
+	tg_nodeattach(ni, oni);
 
 	while (tg_peektoken(&t) == TG_T_QUEST) {
 		tg_gettokentype(&t, TG_T_QUEST);
@@ -1346,7 +1301,7 @@ int tg_ternary(int ni)
 		if (tg_nodeccnt(oni) == 1)
 			oni = tg_nodegetchild(oni, 0);
 		
-		tg_attachnode(ni, oni);
+		tg_nodeattach(ni, oni);
 
 		tg_gettokentype(&t, TG_T_COLON);
 
@@ -1356,13 +1311,13 @@ int tg_ternary(int ni)
 		if (tg_nodeccnt(oni) == 1)
 			oni = tg_nodegetchild(oni, 0);
 		
-		tg_attachnode(ni, oni);
+		tg_nodeattach(ni, oni);
 	}
 
 	return 0;
 }
 
-int tg_assign(int ni)
+static int tg_assign(int ni)
 {
 	struct tg_token t;
 	int tni;
@@ -1373,7 +1328,7 @@ int tg_assign(int ni)
 	if (tg_nodeccnt(tni) == 1)
 		tni = tg_nodegetchild(tni, 0);
 	
-	tg_attachnode(ni, tni);
+	tg_nodeattach(ni, tni);
 
 	while (tg_peektoken(&t) == TG_T_ASSIGNOP) {
 		tg_gettokentype(&t, TG_T_ASSIGNOP);
@@ -1386,13 +1341,13 @@ int tg_assign(int ni)
 		if (tg_nodeccnt(tni) == 1)
 			tni = tg_nodegetchild(tni, 0);
 		
-		tg_attachnode(ni, tni);
+		tg_nodeattach(ni, tni);
 	}
 
 	return 0;
 }
 
-int tg_expr(int ni)
+static int tg_expr(int ni)
 {
 	struct tg_token t;
 	int ani;
@@ -1403,7 +1358,7 @@ int tg_expr(int ni)
 	if (tg_nodeccnt(ani) == 1)
 		ani = tg_nodegetchild(ani, 0);
 	
-	tg_attachnode(ni, ani);
+	tg_nodeattach(ni, ani);
 
 	while (tg_peektoken(&t) == TG_T_COMMA) {
 		tg_gettokentype(&t, TG_T_COMMA);
@@ -1414,13 +1369,13 @@ int tg_expr(int ni)
 		if (tg_nodeccnt(ani) == 1)
 			ani = tg_nodegetchild(ani, 0);
 		
-		tg_attachnode(ni, ani);
+		tg_nodeattach(ni, ani);
 	}
 
 	return 0;
 }
 
-int tg_block(int ni)
+static int tg_block(int ni)
 {
 	struct tg_token t;
 	
@@ -1434,7 +1389,7 @@ int tg_block(int ni)
 	return 0;
 }
 
-int tg_defargs(int ni)
+static int tg_defargs(int ni)
 {
 	struct tg_token t;
 	
@@ -1451,7 +1406,7 @@ int tg_defargs(int ni)
 	return 0;
 }
 
-int tg_funcdef(int ni)
+static int tg_funcdef(int ni)
 {
 	struct tg_token t;
 	int nni;
@@ -1459,6 +1414,7 @@ int tg_funcdef(int ni)
 	tg_gettokentype(&t, TG_T_FUNCTION);
 
 	tg_gettokentype(&t, TG_T_ID);
+	tg_nodeadd(ni, TG_T_ID, &t);
 
 	tg_gettokentype(&t, TG_T_LPAR);
 
@@ -1473,7 +1429,7 @@ int tg_funcdef(int ni)
 	return 0;
 }
 
-int tg_body(int ni)
+static int tg_body(int ni)
 {
 	struct tg_token t;
 
@@ -1485,7 +1441,7 @@ int tg_body(int ni)
 	return 0;
 }
 
-int tg_forexpr(int ni)
+static int tg_forexpr(int ni)
 {
 	struct tg_token t;
 	int eni;
@@ -1501,7 +1457,7 @@ int tg_forexpr(int ni)
 	return 0;
 }
 
-int tg_fortable(int ni)
+static int tg_fortable(int ni)
 {
 	struct tg_token t;
 	int eni;
@@ -1520,7 +1476,7 @@ int tg_fortable(int ni)
 	return 0;
 }
 
-int tg_forclassic(int ni)
+static int tg_forclassic(int ni)
 {
 	struct tg_token t;
 	int fni;
@@ -1538,7 +1494,7 @@ int tg_forclassic(int ni)
 	return 0;
 }
 
-int tg_for(int ni)
+static int tg_for(int ni)
 {
 	struct tg_token t;
 	int nni;
@@ -1565,12 +1521,12 @@ int tg_for(int ni)
 	return 0;
 }
 
-int tg_if(int ni)
+static int tg_if(int ni)
 {
 	struct tg_token t;
 	int nni;
 
-	tg_gettokentype(&t, TG_T_FOR);
+	tg_gettokentype(&t, TG_T_IF);
 	tg_gettokentype(&t, TG_T_LPAR);
 
 	nni = tg_nodeadd(ni, TG_N_EXPR, NULL);
@@ -1591,7 +1547,7 @@ int tg_if(int ni)
 	return 0;
 }
 
-int tg_return(int ni)
+static int tg_return(int ni)
 {
 	struct tg_token t;
 	int eni;
@@ -1608,7 +1564,7 @@ int tg_return(int ni)
 	return 0;
 }
 
-int tg_stmt(int ni)
+static int tg_stmt(int ni)
 {
 	struct tg_token t;
 	int nni;
@@ -1653,11 +1609,14 @@ struct tg_node *tg_template(const char *p)
 	int type;
 	int ni;
 	
-	tg_initparser(p);
+	if (tg_initparser(p) < 0)
+		return NULL;
 	
-	tg_darrinit(&nodes, sizeof(struct tg_node)); // !!!
+	if (tg_darrinit(&nodes, sizeof(struct tg_node)) < 0)
+		return NULL;
 
-	ni = tg_nodeadd(-1, TG_N_TEMPLATE, NULL);
+	if ((ni = tg_nodeadd(-1, TG_N_TEMPLATE, NULL)) < 0)
+		return NULL;
 
 	while ((type = tg_peektoken(&t)) != TG_T_EOF
 		&& type != TG_T_ERROR) {
@@ -1669,37 +1628,5 @@ struct tg_node *tg_template(const char *p)
 
 	tg_printnode(ni, 0);
 
-
-/*
-	int ni;
-
-	ni = node_add(-1, TG_N_TEMPLATE, NULL);
-	
-	struct tg_token t;
-
-	tg_gettoken(&t);
-
-	node_add(ni, TG_T_FLOAT, &t);
-	node_add(ni, TG_T_INT, &t);
-	node_add(ni, TG_T_STRING, &t);
-	
-	tg_printnode(ni, 0);
-*/
-/*
-	struct tg_token t;
-
-	while (tg_gettoken(&t) >= 0) {
-		printf("token value: |%s|\ntoken type: |%s|\nline: %d\npos: %d\n\n",
-			t.val.str, tg_strsym[t.type], t.line, t.pos);
-
-		tg_peektoken(&t);
-		printf("next token value: |%s|\ntoken type: |%s|\nline: %d\npos: %d\n\n",
-			t.val.str, tg_strsym[t.type], t.line, t.pos);
-	
-		printf("-----------------------------------\n\n");
-	}
-
-	printf("HERE!\n");
-*/
 	return NULL;
 }
