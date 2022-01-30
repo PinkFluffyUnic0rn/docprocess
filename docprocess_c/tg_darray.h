@@ -14,6 +14,8 @@ int tg_darrpush(struct tg_darray *darr, void *el);
 
 int tg_darrpop(struct tg_darray *darr, void *el);
 
+int tg_darrclear(struct tg_darray *darr);
+
 void *tg_darrget(struct tg_darray *darr, int n);
 
 #endif

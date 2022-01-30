@@ -231,15 +231,20 @@ int tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
 
 	if (dstr->bufs == 0) {	
 		if (dstr->len + len + 1 > dstr->sz) {
-			dstr->sz = (dstr->len + len + 1) * 3 / 2;
-			if ((dstr->str = realloc(dstr->str,
-				dstr->sz)) == NULL) {
+			char *p;
+			size_t l;
+
+			l = (dstr->len + len + 1) * 3 / 2;
+			if ((p = realloc(dstr->str, l)) == NULL) {
 				TG_SETERROR("%s%s%s", "Cannot"
 					" reallocate memory for a",
 					" dynamic string while",
 					" concatinating");
 					return (-1);
 			}
+			
+			dstr->str = p;
+			dstr->sz = l;
 		}
 		
 		memcpy(dstr->str + dstr->len, src, len);

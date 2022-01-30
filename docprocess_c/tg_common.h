@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#define TG_MSGMAXSIZE 4096
+#define TG_MSGMAXSIZE (1024 * 1024)
 
 extern char tg_error[TG_MSGMAXSIZE];
 

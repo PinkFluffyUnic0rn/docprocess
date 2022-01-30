@@ -50,6 +50,6 @@ struct tg_node {
 	struct tg_darray children;
 };
 
-struct tg_node *tg_template(const char *p);
+int tg_template(const char *p);
 
 #endif

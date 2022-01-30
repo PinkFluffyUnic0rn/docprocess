@@ -29,13 +29,17 @@ int tg_darrpush(struct tg_darray *darr, void *el)
 	assert(el != NULL);
 
 	if (darr->cnt >= darr->max) {
-		darr->max *= 2;
-		if ((darr->data = realloc(darr->data,
-			darr->sz * darr->max)) == NULL) {
+		char *p;
+
+		if ((p = realloc(darr->data,
+			darr->sz * darr->max * 2)) == NULL) {
 			TG_SETERROR("%s%s", "Cannot allocate memory",
 				" for a dynamyc array");
 			return (-1);
 		}
+
+		darr->max *= 2;
+		darr->data = p;
 	}
 
 	memcpy(darr->data + darr->cnt * darr->sz, el, darr->sz);
@@ -59,6 +63,13 @@ int tg_darrpop(struct tg_darray *darr, void *el)
 		return 0;
 	
 	memcpy(el, darr->data + darr->cnt * darr->sz, darr->sz);
+
+	return 0;
+}
+
+int tg_darrclear(struct tg_darray *darr)
+{
+	free(darr->data);
 
 	return 0;
 }
