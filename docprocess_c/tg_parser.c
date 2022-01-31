@@ -68,6 +68,9 @@ static int tg_finilizeparser()
 	return 0;
 }
 
+#define TG_C_ERROR -1
+#define TG_C_EOF -2
+
 // string stream to char stream
 static struct tg_char _tg_getc(int raw)
 {
@@ -113,7 +116,14 @@ static struct tg_char _tg_getc(int raw)
 		if (l[0] != '\0')
 			break;
 	
-		if ((r = getline(&b, &lsz, f)) <= 0) {
+		if ((r = getline(&b, &lsz, f)) < 0) {
+			if (feof(f)) {
+				c.pos = l - b;
+				c.line = curline;
+				c.c = TG_C_EOF;
+				return c;
+			}
+
 			TG_SETERROR("Cannot read line: %s.",
 				strerror(errno));
 			goto error;
@@ -135,7 +145,7 @@ static struct tg_char _tg_getc(int raw)
 
 		curline++;
 	}
-
+	
 	c.pos = l - b;
 	c.line = curline;
 	c.c = (*l++);
@@ -143,19 +153,22 @@ static struct tg_char _tg_getc(int raw)
 	return c;
 
 error:
-	c.c = EOF;
+	c.c = TG_C_ERROR;
+	c.pos = l - b;
 	c.line = curline;
 	strncpy(c.error, tg_error, TG_MSGMAXSIZE);
 
-	if (f != NULL)
+	if (f != NULL) {
 		fclose(f);
+		f = NULL;
+	}
 
 	if (b != NULL) {
 		free(b);
 		b = NULL;
 		lsz = 0;
 	}
-
+	
 	return c;
 }
 
@@ -170,8 +183,13 @@ static int tg_getc()
 
 	cbuf[0] = cbuf[1];
 	c = cbuf[0];
+
+	if (c.c == TG_C_ERROR || c.c == TG_C_EOF)
+		goto error;
+	
 	cbuf[1] = _tg_getc(0);
 
+error:
 	tg_curline = c.line;
 	tg_curpos = c.pos;
 	strncpy(tg_error, c.error, TG_MSGMAXSIZE);
@@ -190,8 +208,13 @@ static int tg_getcraw()
 
 	cbuf[0] = cbuf[1];
 	c = cbuf[0];
+
+	if (c.c == TG_C_ERROR || c.c == TG_C_EOF)
+		goto error;
+	
 	cbuf[1] = _tg_getc(1);
 
+error:
 	tg_curline = c.line;
 	tg_curpos = c.pos;
 	strncpy(tg_error, c.error, TG_MSGMAXSIZE);
@@ -218,6 +241,7 @@ static int tg_peekc()
 	return cbuf[1].c;
 }
 
+// lexical analyzer
 static int tg_createtoken(struct tg_token *t, const char *val,
 	enum TG_TYPE type, int line, int pos)
 {
@@ -231,16 +255,24 @@ static int tg_createtoken(struct tg_token *t, const char *val,
 	return 0;
 }
 
-// lexical analyzer
 static int tg_nexttoken(struct tg_token *t)
 {
+	static char tg_tokerror[TG_MSGMAXSIZE];
 	int c;
 
 	while ((tg_peekc()) == ' ')
 		tg_getc();
 
-	if ((c = tg_getc()) == EOF)
+	if ((c = tg_getc()) == TG_C_ERROR)
 		goto error;
+
+	if (c == TG_C_EOF) {
+		if (tg_createtoken(t, "", TG_T_EOF,
+				tg_curline, tg_curpos) < 0)
+			goto error;
+
+		return 0;
+	}
 
 	if (c == '\"') {
 		if (tg_dstrcreate(&(t->val), "") < 0)
@@ -254,7 +286,12 @@ static int tg_nexttoken(struct tg_token *t)
 		while (c != '\"') {
 			if (c == '\\') {
 				c = tg_getcraw();
-				if (c == EOF)		goto error;
+				if (c == TG_C_ERROR)
+					goto error;
+				else if (c == TG_C_EOF) {
+					TG_SETERROR("Unexpected EOF.");
+					goto error;
+				}
 				else if (c == 'n')	c = '\n';
 				else if (c == 'r')	c = '\r';
 				else if (c == 't')	c = '\t';
@@ -268,7 +305,11 @@ static int tg_nexttoken(struct tg_token *t)
 
 				c = tg_getcraw();
 			}
-			else if (c == EOF)
+			else if (c == TG_C_EOF) {
+				TG_SETERROR("Unexpected EOF.");
+				goto error;
+			}
+			else if (c == TG_C_ERROR)
 				goto error;
 			
 			if (tg_dstraddstrn(&(t->val),
@@ -629,7 +670,9 @@ static int tg_nexttoken(struct tg_token *t)
 	return 0;
 
 error:
-	tg_dstrcreatestatic(&(t->val), tg_error); // use separate buffer from tg_error!!!
+	strncpy(tg_tokerror, tg_error, TG_MSGMAXSIZE);
+	tg_dstrcreatestatic(&(t->val), tg_tokerror);
+	
 	t->line = tg_curline;
 	t->pos = tg_curpos;
 	t->type = TG_T_ERROR;
@@ -853,14 +896,14 @@ static int tg_gettokentype(struct tg_token *t, enum TG_TYPE type)
 	if (t->type != type) {
 		char strerr[1024];
 		char *e;
-		
+
 		if (t->type == TG_T_ERROR)
 			e = t->val.str;
 		else {
-			snprintf(strerr, 1024,
+			snprintf(strerr, 4096,
 				"Wrong token type: expected %s, got %s.",
 				tg_strsym[type], tg_strsym[t->type]);
-		
+
 			e = strerr;
 		}
 
@@ -1682,7 +1725,7 @@ int tg_template(const char *p)
 	return ni;
 
 error:
-	printf("tg_error: |%s:%s|\n", p, tg_error);
+	printf("tg_error: |\n%s:%s|\n", p, tg_error);
 
 	tg_finilizeparser();
 
