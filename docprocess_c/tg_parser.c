@@ -25,7 +25,7 @@ const char *tg_strsym[] = {
 	"assignment operator", "?", "next to operator", "global",
 	"function", "for", "if", "else", "continue", "break", "return",
 	"in", "columns", ".", "{", "}", "[", "]", "end of file",
-	"error", "fatal error", "", "template", "function definition",
+	"error", "", "template", "function definition",
 	"function definition arguments", "statement", "return", "if",
 	"for", "for (expression)", "for (classic)", "statement body",
 	"block", "expression", "assignment", "ternary operator",
@@ -80,6 +80,7 @@ static struct tg_char _tg_getc(int raw)
 	static size_t lsz = 0;
 	static int curline = 0;
 
+	// need to be reworked: has problems with finilization
 	if (tg_path != NULL) {
 		if ((f = fopen(tg_path, "r")) == NULL) {
 			TG_SETERROR("Cannot open file %s: %s.",
@@ -258,6 +259,8 @@ static int tg_createtoken(struct tg_token *t, const char *val,
 static int tg_nexttoken(struct tg_token *t)
 {
 	static char tg_tokerror[TG_MSGMAXSIZE];
+	enum TG_TYPE type;
+	const char *v;
 	int c;
 
 	while ((tg_peekc()) == ' ')
@@ -430,242 +433,208 @@ static int tg_nexttoken(struct tg_token *t)
 	if (c == '=') {
 		c = tg_peekc();
 		if (c == '=') {
-			if (tg_createtoken(t, "==", TG_T_RELOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "==";
+			type = TG_T_RELOP;
 
 			tg_getc();
 		}
 		else {
-			if (tg_createtoken(t, "=", TG_T_ASSIGNOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "=";
+			type = TG_T_ASSIGNOP;
 		}
 	}
 	else if (c == '!') {
 		if (tg_peekc() == '=') {
-			if (tg_createtoken(t, "!=", TG_T_RELOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "!=";
+			type = TG_T_RELOP;
 
 			tg_getc();
 		}
 		else {
-			if (tg_createtoken(t, "!", TG_T_NOT,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "!";
+			type = TG_T_NOT;
 		}
 	}
 	else if (c == '>') {
 		if (tg_peekc() == '=') {
-			if (tg_createtoken(t, ">=", TG_T_RELOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
-			
+			v = ">=";
+			type = TG_T_RELOP;
+
 			tg_getc();
 		}
 		else {
-			if (tg_createtoken(t, ">", TG_T_RELOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = ">";
+			type = TG_T_RELOP;
 		}
 	}
 	else if (c == '<') {
 		c = tg_peekc();
 		if (c == '=') {
-			if (tg_createtoken(t, "<=", TG_T_RELOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
-			
+			v = "<=";
+			type = TG_T_RELOP;
+		
 			tg_getc();
 		}
 		else if (c == '-') {
-			if (tg_createtoken(t, "<-", TG_T_NEXTTOOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
-			
+			v = "<-";
+			type = TG_T_NEXTTOOP;
+		
 			tg_getc();
 		}
 		else {
-			if (tg_createtoken(t, "<", TG_T_RELOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "<";
+			type = TG_T_RELOP;
 		}
 	}
 	else if (c == '^') {
-		if (tg_createtoken(t, "^", TG_T_NEXTTOOP,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = "^";
+		type = TG_T_NEXTTOOP;
 	}
 	else if (c == '(') {
-		if (tg_createtoken(t, "(", TG_T_LPAR,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = "(";
+		type = TG_T_LPAR;
 	}
 	else if (c == ')') {
-		if (tg_createtoken(t, ")", TG_T_RPAR,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = ")";
+		type = TG_T_RPAR;
 	}
 	else if (c == '&') {
-		if (tg_createtoken(t, "&", TG_T_AND,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = "&";
+		type = TG_T_AND;
 	}
 	else if (c == '|') {
-		if (tg_createtoken(t, "|", TG_T_OR,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = "|";
+		type = TG_T_OR;
 	}
 	else if (c == '$') {
-		if (tg_createtoken(t, "$", TG_T_DOL,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = "$";
+		type = TG_T_DOL;
 	}
 	else if (c == '~') {
 		if (tg_peekc() == '=') {
-			if (tg_createtoken(t, "~=", TG_T_ASSIGNOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "~=";
+			type = TG_T_ASSIGNOP;
 
 			tg_getc();
 		}
 		else {
-			if (tg_createtoken(t, "~", TG_T_TILDA,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "~";
+			type = TG_T_TILDA;
 		}
 	}
 	else if (c == '.') {
 		if (tg_peekc() == '.') {
-			if (tg_createtoken(t, "..", TG_T_DDOT,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "..";
+			type = TG_T_DDOT;
 
 			tg_getc();
 		}
 		else {
-			if (tg_createtoken(t, ".", TG_T_DOT,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = ".";
+			type = TG_T_DOT;
 		}
 	}
 	else if (c == ',') {
-		if (tg_createtoken(t, ",", TG_T_COMMA,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = ",";
+		type = TG_T_COMMA;
 	}
 	else if (c == ':') {
-		if (tg_createtoken(t, ":", TG_T_COLON,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = ":";
+		type = TG_T_COLON;
 	}
 	else if (c == ';') {
-		if (tg_createtoken(t, ";", TG_T_SEMICOL,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = ";";
+		type = TG_T_SEMICOL;
 	}
 	else if (c == '*') {
 		if (tg_peekc() == '=') {
-			if (tg_createtoken(t, "*=", TG_T_ASSIGNOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
-			
+			v = "*=";
+			type = TG_T_ASSIGNOP;
+
 			tg_getc();
 		}
 		else {
-			if (tg_createtoken(t, "*", TG_T_MULTOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "*";
+			type = TG_T_MULTOP;
 		}
 	}
 	else if (c == '/') {
 		if (tg_peekc() == '=') {
-			if (tg_createtoken(t, "/=", TG_T_ASSIGNOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "/=";
+			type = TG_T_ASSIGNOP;
 
 			tg_getc();
 		}
 		else {
-			if (tg_createtoken(t, "/", TG_T_MULTOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "/";
+			type = TG_T_MULTOP;
 		}
 	}
 	else if (c == '-') {
 		c = tg_peekc();
 		if (c == '-') {
-			if (tg_createtoken(t, "--", TG_T_STEPOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
-
+			v = "--";
+			type = TG_T_STEPOP;
+		
 			tg_getc();
 		}
 		else if (c == '=') {
-			if (tg_createtoken(t, "-=", TG_T_ASSIGNOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "-=";
+			type = TG_T_ASSIGNOP;
 
 			tg_getc();
 		}
 		else {
-			if (tg_createtoken(t, "-", TG_T_ADDOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "-";
+			type = TG_T_ADDOP;
 		}
 	}
 	else if (c == '+') {
 		c = tg_peekc();
 		if (c == '+') {
-			if (tg_createtoken(t, "++", TG_T_STEPOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "++";
+			type = TG_T_STEPOP;
 
 			tg_getc();
 		}
 		else if (c == '=') {
-			if (tg_createtoken(t, "+=", TG_T_ASSIGNOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "+=";
+			type = TG_T_ASSIGNOP;
 
 			tg_getc();
 		}
 		else {
-			if (tg_createtoken(t, "+", TG_T_ADDOP,
-					tg_curline, tg_curpos) < 0)
-				goto error;
+			v = "+";
+			type = TG_T_ADDOP;
 		}
 	}
 	else if (c == '{') {
-		if (tg_createtoken(t, "{", TG_T_LBRC,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = "{";
+		type = TG_T_LBRC;
 	}
 	else if (c == '}') {
-		if (tg_createtoken(t, "}", TG_T_RBRC,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = "}";
+		type = TG_T_RBRC;
 	}
 	else if (c == '[') {
-		if (tg_createtoken(t, "[", TG_T_LBRK,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = "[";
+		type = TG_T_LBRK;
 	}
 	else if (c == ']') {
-		if (tg_createtoken(t, "]", TG_T_RBRK,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = "]";
+		type = TG_T_RBRK;
 	}
 	else if (c == '?') {
-		if (tg_createtoken(t, "?", TG_T_QUEST,
-				tg_curline, tg_curpos) < 0)
-			goto error;
+		v = "?";
+		type = TG_T_QUEST;
 	}
 	else {
 		TG_SETERROR("Unknown token.");
 		goto error;
 	}
+
+	if (tg_createtoken(t, v, type, tg_curline, tg_curpos) < 0)
+		goto error;
 
 	return 0;
 
@@ -694,11 +663,13 @@ static int tg_gettoken(struct tg_token *t)
 	}
 
 	tbuf[0] = tbuf[1];
-	*t = tbuf[0];
+	
+	if (t != NULL)
+		*t = tbuf[0];
 
 	tg_nexttoken(tbuf + 1);
 
-	return t->type;
+	return tbuf[0].type;
 }
 
 int tg_peektoken(struct tg_token *t)
@@ -713,9 +684,10 @@ int tg_peektoken(struct tg_token *t)
 		return tbuf[0].type;
 	}
 
-	*t = tbuf[1];
+	if (t != NULL)
+		*t = tbuf[1];
 	
-	return t->type;
+	return tbuf[1].type;
 }
 
 // node API
@@ -802,7 +774,7 @@ int tg_indent(int t)
 	int i;
 
 	for (i = 0; i < t; ++i)
-		printf("\t");
+		printf("|   ");
 
 	return 0;
 }
@@ -929,9 +901,10 @@ static int tg_id(int ni)
 static int tg_val(int ni)
 {
 	struct tg_token t;
+	char strerr[1024];
 
 	tg_peektoken(&t);
-
+	
 	switch (t.type) {
 	case TG_T_ID:
 		TG_ERRQUIT(tg_id(ni));
@@ -955,8 +928,16 @@ static int tg_val(int ni)
 		TG_ERRQUIT(tg_nodeadd(ni, t.type, &t));
 		break;
 
+	case TG_T_ERROR:
+		tg_setparsererror(&t, t.val.str);
+		return (-1);
+
 	default:
-		// error
+		snprintf(strerr, 4096,
+			"Wrong token type: expected value, got %s.",
+			tg_strsym[t.type]);
+
+		tg_setparsererror(&t, strerr);
 		return (-1);
 	}
 
@@ -1045,9 +1026,10 @@ static int tg_address(int ni)
 {
 	struct tg_token t;
 	enum TG_TYPE type;
+	char strerr[1024];
 	int ani;
 
-	tg_val(ni);
+	TG_ERRQUIT(tg_val(ni));
 
 	while ((type = tg_peektoken(&t)) == TG_T_LPAR
 		|| type == TG_T_LBRK || type == TG_T_DOT) {
@@ -1071,6 +1053,11 @@ static int tg_address(int ni)
 			break;
 
 		default:
+			snprintf(strerr, 4096,
+				"Wrong token type: expected '(', '[' or '.', got %s.",
+				tg_strsym[t.type]);
+
+			tg_setparsererror(&t, strerr);
 			break;
 		}
 	}
@@ -1217,7 +1204,7 @@ static int tg_cat(int ni)
 	if (tg_nodeccnt(ani) == 1)
 		TG_ERRQUIT(ani = tg_nodegetchild(ani, 0));
 	
-	tg_nodeattach(ni, ani);
+	TG_ERRQUIT(tg_nodeattach(ni, ani));
 
 	while (tg_peektoken(&t) == TG_T_TILDA) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_TILDA));
@@ -1557,8 +1544,7 @@ static int tg_fortable(int ni)
 	TG_ERRQUIT(eni = tg_nodeadd(ni, TG_N_EXPR, NULL));
 	TG_ERRQUIT(tg_expr(eni));
 
-	tg_peektoken(&t);
-	if (t.type == TG_T_COLUMNS) {
+	if (tg_peektoken(&t) == TG_T_COLUMNS) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COLUMNS));
 		TG_ERRQUIT(tg_nodeadd(ni, TG_T_COLUMNS, &t));
 	}
@@ -1596,9 +1582,8 @@ static int tg_for(int ni)
 	
 	TG_ERRQUIT(tg_forexpr(nni));
 
-	if (tg_peektoken(&t) == TG_T_IN) {
+	if (tg_peektoken(&t) == TG_T_IN)
 		TG_ERRQUIT(tg_fortable(ni));
-	}
 	else
 		TG_ERRQUIT(tg_forclassic(ni));
 
