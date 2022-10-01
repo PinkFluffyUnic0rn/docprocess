@@ -190,6 +190,8 @@ static int tg_getc()
 	
 	cbuf[1] = _tg_getc(0);
 
+	// return ?
+
 error:
 	tg_curline = c.line;
 	tg_curpos = c.pos;
@@ -214,6 +216,8 @@ static int tg_getcraw()
 		goto error;
 	
 	cbuf[1] = _tg_getc(1);
+	
+	// return ?
 
 error:
 	tg_curline = c.line;
@@ -1677,7 +1681,7 @@ static int tg_stmt(int ni)
 	return 0;
 }
 
-int tg_template(const char *p)
+int tg_getparsetree(const char *p)
 {
 	struct tg_token t;
 	int type;

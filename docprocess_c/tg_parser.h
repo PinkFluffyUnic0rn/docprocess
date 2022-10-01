@@ -50,6 +50,6 @@ struct tg_node {
 	struct tg_darray children;
 };
 
-int tg_template(const char *p);
+int tg_getparsetree(const char *p);
 
 #endif
