@@ -6,14 +6,14 @@
 #include <math.h>
 
 #include "tg_dstring.h"
+#include "tg_darray.h"
 #include "tg_common.h"
 
 #define TG_STACKMAXDEPTH 64
-#define TG_FRAMEINCREMENT 16
+#define TG_FRAMEBLOCKSIZE 32
 
 struct tg_frame {
-	struct tg_val *start;
-	size_t size;
+	struct tg_darray blocks;
 	size_t valcount;
 };
 
@@ -24,9 +24,9 @@ void tg_initstack()
 {
 	int i;
 
-	for (i = 0; i < tg_stackdepth; ++i) {
-		tg_stack[i].start = NULL;
-		tg_stack[i].size = 0;
+	for (i = 0; i < TG_STACKMAXDEPTH; ++i) {
+		tg_darrinit(&(tg_stack[i].blocks),
+			sizeof(struct tg_val *));
 		tg_stack[i].valcount = 0;
 	}
 }
@@ -35,19 +35,22 @@ void tg_initstack()
 static void *tg_allocval()
 {
 	struct tg_frame *curframe;
-
-	curframe = tg_stack + tg_stackdepth;
-	if (curframe->size == curframe->valcount) {
-		curframe->size = (curframe->size + TG_FRAMEINCREMENT)
-			* sizeof(struct tg_val);
-		curframe->start = realloc(curframe->start,
-				curframe->size);
+	struct tg_val *p;
 	
-		TG_ASSERT(curframe->start != NULL,
+	curframe = tg_stack + tg_stackdepth;
+
+	if (curframe->valcount / TG_FRAMEBLOCKSIZE >= curframe->blocks.cnt) {	
+		p = malloc(sizeof(struct tg_val) * TG_FRAMEBLOCKSIZE);
+		TG_ASSERT(p != NULL,
 			"Cannot allocate new value in stack.");
+
+		tg_darrpush(&(curframe->blocks), &p);
 	}
 
-	return curframe->start + curframe->valcount++;
+	p = *((struct tg_val **) tg_darrget(&(curframe->blocks),
+		curframe->blocks.cnt - 1));
+
+	return p + ((curframe->valcount++) % TG_FRAMEBLOCKSIZE);
 }
 
 // start frame, call every time
@@ -68,19 +71,35 @@ int tg_startframe()
 void tg_endframe()
 {
 	struct tg_frame *curframe;
+	struct tg_val *p;
 	
 	curframe = tg_stack + tg_stackdepth;
-	
-	free(curframe->start);
 
-	curframe->start = NULL;
-	curframe->size = 0;
+	while (tg_darrpop(&(curframe->blocks), &p) >= 0)
+		free(p);
+
 	curframe->valcount = 0;
-
+	
 	--tg_stackdepth;
 }
 
-static int tg_hashbucket(const char *str)
+static void tg_inithash(struct tg_hash *h)
+{
+	int i;
+
+	h->buckets = malloc(sizeof(struct tg_val *) * 1024);
+	TG_ASSERT(h->buckets != NULL,
+		"Cannot allocate memory for hash");
+
+	for (i = 0; i < 1024; ++i)
+		h->buckets[i] = NULL;
+
+	h->bucketscount = 1024;
+	h->last = NULL;
+	h->count = 0;
+}
+
+static int tg_hashbucket(const char *str, int bucketscount)
 {
 	const char *p;
 	unsigned int r;
@@ -89,49 +108,73 @@ static int tg_hashbucket(const char *str)
 	for (p = str; *p != '\0'; ++p)
 		r += *p;
 	
-	return *p % TG_BUCKETSCOUNT;
+	return *p % bucketscount;
 }
 
-int tg_setvalattr(struct tg_val *val,
-		const char *key, struct tg_val *v)
+int tg_hashset(struct tg_hash *h, const char *key, struct tg_val *v)
 {
 	struct tg_val *p;
-	struct tg_val *l;
 	int b;
 
-	b = tg_hashbucket(key);
+	// need rehash
 
-	p = val->buckets[b];
-	while (p != NULL) {
- 		if (strcmp(key, p->key) == 0)
-			break;
+	b = tg_hashbucket(key, h->bucketscount);	
+	p = h->buckets[b];
 
-		if (p->next == NULL)
-			l = p;
+	if (p == NULL) {
+		h->buckets[b] = v;
+		tg_dstrcreate(&(v->key), key);
+		v->prev = NULL;
+		v->next = NULL;
+	}
+	else {
+		while (p != NULL) {
+			if (strcmp(key, p->key.str) == 0) {
+				if (p->prev != NULL) {
+					p->prev->next = v;
+					v->prev = p->prev->next;
+				}
+				
+				if (p->next != NULL) {
+					p->next->prev = v;
+					v->next = p->next->prev;
+				}
 
-		p = p->next;
+				tg_dstrcreatestatic(&(v->key), key);
+
+				// free p
+
+				break;
+			}
+
+			if (p->next == NULL) {
+				p->next = v;
+				v->prev = p->next;
+				tg_dstrcreate(&(v->key), key);
+				break;
+			}
+
+			p = p->next;
+		}
 	}
 
-	if (p != NULL) {
-		p->prev->next = v;
-		p->next->prev = v;
-	}
-	else
-		l->next = v;
+	h->last = v;
+	h->count++;
 
 	return 0;
 }
 
-struct tg_val *tg_getvalattr(struct tg_val *val, const char *key)
+struct tg_val *tg_hashget(struct tg_hash *h,
+	struct tg_val *val, const char *key)
 {
 	struct tg_val *p;
 	int b;
 
-	b = tg_hashbucket(key);
+	b = tg_hashbucket(key, h->bucketscount);
 
-	p = val->buckets[b];
+	p = h->buckets[b];
 	while (p != NULL) {
- 		if (strcmp(key, p->key) == 0)
+ 		if (strcmp(key, p->key.str) == 0)
 			break;
 
 		p = p->next;
@@ -152,15 +195,11 @@ struct tg_val *tg_createval(enum TG_VALTYPE t)
 		newv->floatval = 0.0;
 	else if (t == TG_VAL_STRING)
 		tg_dstrcreate(&(newv->strval), "");
-	else if (t == TG_VAL_ARRAY) {
-		newv->arrval.first = NULL;
-		newv->arrval.last = NULL;
-		newv->arrval.length = 0;
-	}
+	else if (t == TG_VAL_ARRAY)
+		tg_inithash(&(newv->arrval));
 
 	newv->type = t;
 	
-	newv->key = NULL;
 	newv->prev = NULL;
 	newv->next = NULL;
 
@@ -216,15 +255,24 @@ struct tg_val *tg_copyval(struct tg_val *v)
 	else if (v->type == TG_VAL_STRING)
 		tg_dstrcreate(&(newv->strval), v->strval.str);
 	else if (v->type == TG_VAL_ARRAY) {
-		struct tg_val *p;
-		
-		for (p = v->arrval.first; p != NULL; p = p->next)
-			tg_arrpush(newv, tg_copyval(p));
+		int i;
+
+		tg_inithash(&(v->arrval));
+
+		for (i = 0; i < v->arrval.bucketscount; ++i) {
+			if (v->arrval.buckets[i] != NULL) {
+				struct tg_val *p;
+				
+				for (p = v->arrval.buckets[i];
+					p != NULL; p = p->next) {
+					tg_hashset(&(v->arrval), p->key.str, p);
+				}
+			}
+		}
 	}
 
 	newv->type = v->type;
 	
-	newv->key = NULL;
 	newv->prev = NULL;
 	newv->next = NULL;
 
@@ -289,7 +337,6 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 		snprintf(buf, 1024, "%f", v->floatval);
 		tg_dstraddstr(&(newv->strval), buf);
 	}
-
 	else if (vt == TG_VAL_STRING && t != TG_VAL_ARRAY) {
 		newv = tg_createval(t);
 
@@ -301,21 +348,22 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 			tg_dstraddstr(&(newv->strval), v->strval.str);
 	}	
 	else if (vt != TG_VAL_ARRAY && t == TG_VAL_ARRAY) {
+
 		newv = tg_createval(t);
 
 		tg_arrpush(newv, tg_copyval(v));
 	}
 	else if (vt == TG_VAL_ARRAY && t != TG_VAL_ARRAY) {
-		if (v->arrval.length != 1) {
+		if (v->arrval.count != 1) {
 			TG_SETERROR("%s%s%s", "Trying to cast array,",
 				" that has more than to element to",
 				" a scalar type");
 			return NULL;
 		}
-
-		newv = tg_castval(v->arrval.first, t);
+		
+		newv = tg_castval(v->arrval.last, t);
 	}
-	else 
+	else
 		newv = tg_copyval(v);
 
 	return newv;
@@ -349,26 +397,19 @@ int tg_istrueval(struct tg_val *v)
 	else if (v->type == TG_VAL_STRING)
 		return strlen(v->strval.str);
 	else if (v->type == TG_VAL_ARRAY)
-		return v->arrval.length;
+		return v->arrval.count;
 
 	return 0;
 }
 
 void tg_arrpush(struct tg_val *arr, struct tg_val *v)
 {
+	char buf[1024];
+	
 	TG_ASSERT(arr->type == TG_VAL_ARRAY,
 		"Trying to push to a non-array value.");
 
-	if (arr->arrval.length == 0) {
-		arr->arrval.first = v;
-		arr->arrval.last = v;
-		arr->arrval.length = 1;
-	}
-	else {
-		arr->arrval.last->next = v;
-		v->prev = arr->arrval.last;
-		arr->arrval.last = v;
-
-		arr->arrval.length++;
-	}
+	snprintf(buf, 1024, "%ld", arr->arrval.count);
+	
+	tg_hashset(&(arr->arrval), buf, v);
 }

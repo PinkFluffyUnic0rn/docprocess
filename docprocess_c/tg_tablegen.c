@@ -8,7 +8,8 @@
 
 void printval(FILE *f, struct tg_val *v)
 {
-	struct tg_val *p;
+	int isfirst;
+	int i;
 
 	switch (v->type) {
 	case TG_VAL_EMPTY:
@@ -21,22 +22,34 @@ void printval(FILE *f, struct tg_val *v)
 		fprintf(f, "script");
 		break;
 	case TG_VAL_INT:
-		fprintf(f, "int {%d}", v->intval);
+		fprintf(f, "int{%d}", v->intval);
 		break;
 	case TG_VAL_FLOAT:
-		fprintf(f, "float {%f}", v->floatval);
+		fprintf(f, "float{%f}", v->floatval);
 		break;
 	case TG_VAL_STRING:
-		fprintf(f, "string {%s}", v->strval.str);
+		fprintf(f, "string{%s}", v->strval.str);
 		break;
 	case TG_VAL_ARRAY:
-		fprintf(f, "array {");
-		for (p = v->arrval.first; p != NULL; p = p->next) {
-			printval(f, p);
+		fprintf(f, "array{");
 
-			if (p->next != NULL)
-				fprintf(f, ", ");
+		isfirst = 1;
+		for (i = 0; i < v->arrval.bucketscount; ++i) {
+			if (v->arrval.buckets[i] != NULL) {
+				struct tg_val *p;
+				
+				for (p = v->arrval.buckets[i];
+					p != NULL; p = p->next) {
+				
+					if (!isfirst) fprintf(f, ", ");
+					isfirst = 0;
+
+					fprintf(f, "%s = ", p->key.str);
+					printval(f, p);	
+				}
+			}
 		}
+
 		fprintf(f, "}");
 
 		break;
@@ -59,12 +72,14 @@ int main()
 	printf("defined values:\n");
 	printval(stdout, v1);
 	printf("\n");
+	
 	printval(stdout, v2);
 	printf("\n");
 	printval(stdout, v3);
 	printf("\n");
 	printval(stdout, v4);
 	printf("\n");
+
 
 	v5 = tg_createval(TG_VAL_ARRAY);
 	tg_arrpush(v5, tg_stringval("321.35"));
@@ -160,7 +175,7 @@ int main()
 	printf("one-element array -> int: ");
 	printval(stdout, v19);
 	printf("\n");
-	
+
 	printf("one-element array -> float: ");
 	printval(stdout, v20);
 	printf("\n");

@@ -14,8 +14,8 @@ void tg_darrinit(struct tg_darray *darr, size_t sz)
 	darr->data = malloc(sz);
 	TG_ASSERT(darr->data != NULL,
 		"%s%s", "Cannot allocate memory while",
-		" initilizing a dynamyc array");
-
+		" initilizing a dynamic array");
+	
 	darr->cnt = 0;
 	darr->max = 1;
 }
@@ -27,17 +27,17 @@ int tg_darrpush(struct tg_darray *darr, void *el)
 
 	if (darr->cnt >= darr->max) {
 		char *p;
-
+		
 		p = realloc(darr->data, darr->sz * darr->max * 2);
 		TG_ASSERT(p != NULL, "%s%s", "Cannot allocate memory",
-			" for a dynamyc array");
+			" for a dynamic array");
 
 		darr->max *= 2;
 		darr->data = p;
 	}
 
 	memcpy(darr->data + darr->cnt * darr->sz, el, darr->sz);
-	
+
 	return darr->cnt++;
 }
 
@@ -47,7 +47,7 @@ int tg_darrpop(struct tg_darray *darr, void *el)
 	
 	if (darr->cnt == 0) {
 		TG_SETERROR("%s%s", "Trying to pop out of an empty",
-			" dynamyc array");
+			" dynamic array");
 		return (-1);
 	}
 

@@ -5,8 +5,6 @@
 
 #include "tg_dstring.h"
 
-#define TG_BUCKETSCOUNT 4
-
 enum TG_VALTYPE {
 	TG_VAL_EMPTY = 0,
 	TG_VAL_FUNCTION = 1,
@@ -17,10 +15,11 @@ enum TG_VALTYPE {
 	TG_VAL_ARRAY = 6,
 };
 
-struct tg_array {
-	struct tg_val *first;
+struct tg_hash {
+	struct tg_val **buckets;
 	struct tg_val *last;
-	size_t length;
+	size_t bucketscount;
+	size_t count;
 };
 
 struct tg_val {
@@ -28,14 +27,13 @@ struct tg_val {
 		struct tg_dstring strval;
 		int intval;
 		float floatval;
-		struct tg_array arrval;
+		struct tg_hash arrval;
 	};
 	enum TG_VALTYPE type;
 
-	// intrusive hash for attributes
-	struct tg_val *buckets[TG_BUCKETSCOUNT];	// attribute buckets
+	struct tg_hash *attrs;
 
-	char *key;					// key in hash
+	struct tg_dstring key;				// key in hash
 	struct tg_val *prev;				// prev node in bucket
 	struct tg_val *next;				// next node in bucket
 };
@@ -57,11 +55,6 @@ struct tg_val *tg_intval(int v);
 struct tg_val *tg_floatval(float v);
 
 struct tg_val *tg_stringval(const char *v);
-
-int tg_setvalattr(struct tg_val *val, const char *key,
-	struct tg_val *v);
-
-struct tg_val *tg_getvalattr(struct tg_val *val, const char *key);
 
 // attributes are not copied
 struct tg_val *tg_copyval(struct tg_val *v);
