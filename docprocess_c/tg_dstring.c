@@ -26,7 +26,7 @@ static int bufs4init = 0;
 static int bufs8init = 0;
 static int bufs16init = 0;
 
-static int tg_dstrbufsinit(struct tg_dstrbufs *bufs, size_t sz)
+static void tg_dstrbufsinit(struct tg_dstrbufs *bufs, size_t sz)
 {
 	char *buf;
 
@@ -35,24 +35,17 @@ static int tg_dstrbufsinit(struct tg_dstrbufs *bufs, size_t sz)
 	bufs->sz = sz;
 	bufs->lastid = 0;
 
-	if (tg_darrinit(&(bufs->bufs), sizeof(void *)) < 0)
-		return (-1);
+	tg_darrinit(&(bufs->bufs), sizeof(void *));
 
-	if ((buf = malloc(BUFSZ)) == NULL) {
-		TG_SETERROR("%s%s", "Cannot allocate memory while",
-			"initilizing a string buffer");		
-		return (-1);
-	}
-	
-	if (tg_darrpush(&(bufs->bufs), &buf) < 0)
-		return (-1);
+	buf = malloc(BUFSZ);
+	TG_ASSERT(buf != NULL, "%s%s", "Cannot allocate memory while",
+		"initilizing a string buffer");
+
+	tg_darrpush(&(bufs->bufs), &buf);
 
 	bufs->end = ((void **)bufs->bufs.data)[bufs->bufs.cnt - 1];
 	
-	if (tg_darrinit(&(bufs->free), sizeof(int)) < 0)
-		return (-1);
-
-	return 0;
+	tg_darrinit(&(bufs->free), sizeof(int));
 }
 
 static int tg_dstrbufsalloc(struct tg_dstrbufs *bufs, size_t len)
@@ -68,14 +61,12 @@ static int tg_dstrbufsalloc(struct tg_dstrbufs *bufs, size_t len)
 			+ BUFSZ - bufs->end < bufs->sz) {
 		char *buf;
 
-		if ((buf = malloc(BUFSZ)) == NULL) {
-			TG_SETERROR("%s%s", "Cannot allocate memory ",
-				" for a string buffer");		
-			return (-1);
-		}
+		buf = malloc(BUFSZ);
+		TG_ASSERT(buf != NULL,
+			"%s%s", "Cannot allocate memory ",
+			" for a string buffer");
 
-		if (tg_darrpush(&(bufs->bufs), &buf) < 0)
-			return (-1);
+		tg_darrpush(&(bufs->bufs), &buf);
 
 		bufs->end = ((void **)bufs->bufs.data)[bufs->bufs.cnt - 1];
 	}
@@ -97,49 +88,37 @@ static char *tg_dstrbufsget(struct tg_dstrbufs *bufs, int eln)
 	return ((void **) bufs->bufs.data)[bufn] + bufeln * bufs->sz;
 }
 
-static int tg_dstrbufsremove(struct tg_dstrbufs *bufs, int eln)
+static void tg_dstrbufsremove(struct tg_dstrbufs *bufs, int eln)
 {
 	assert(bufs != NULL);
 
-	if (tg_darrpush(&(bufs->free), &eln) < 0)
-		return (-1);
-
-	return 0;
+	tg_darrpush(&(bufs->free), &eln);
 }
 
 // init variables when clearing buf with wipe
-static int tg_dstrinitbuf()
+static void tg_dstrinitbuf()
 {
 	if (!bufs4init) {
-		if (tg_dstrbufsinit(&bufs4, 4) < 0)
-			return (-1);
-
+		tg_dstrbufsinit(&bufs4, 4);
 		bufs4init = 1;
 	}
 
 	if (!bufs8init) {
-		if (tg_dstrbufsinit(&bufs8, 8) < 0)
-			return (-1);
-
+		tg_dstrbufsinit(&bufs8, 8);
 		bufs8init = 1;
 	}
 
 	if (!bufs16init) {
-		if (tg_dstrbufsinit(&bufs16, 16) < 0)
-			return (-1);
-		
+		tg_dstrbufsinit(&bufs16, 16);
 		bufs16init = 1;
 	}
-
-	return 0;
 }
 
-int tg_dstralloc(struct tg_dstring *dstr, size_t len)
+void tg_dstralloc(struct tg_dstring *dstr, size_t len)
 {
 	struct tg_dstrbufs *bufs;
 	
-	if (tg_dstrinitbuf() < 0)
-		return (-1);
+	tg_dstrinitbuf();
 	
 	dstr->len = len;
 
@@ -157,11 +136,11 @@ int tg_dstralloc(struct tg_dstring *dstr, size_t len)
 	}
 	else {
 		dstr->bufs = 0;
-		if ((dstr->str = malloc(dstr->len + 1)) == NULL) {
-			TG_SETERROR("%s%s", "Cannot allocate memory ",
-				" for a dynamic string");
-			return (-1);
-		}
+
+		dstr->str = malloc(dstr->len + 1);
+		TG_ASSERT(dstr->str != NULL,
+			"%s%s", "Cannot allocate memory ",
+			" for a dynamic string")
 
 		dstr->sz = dstr->len + 1;
 
@@ -170,42 +149,33 @@ int tg_dstralloc(struct tg_dstring *dstr, size_t len)
 	}
 
 	if (dstr->bufs == 4 || dstr->bufs == 8 || dstr->bufs == 16) {
-		if ((dstr->eln = tg_dstrbufsalloc(bufs, dstr->len)) < 0)
-			return (-1);
-	
+		dstr->eln = tg_dstrbufsalloc(bufs, dstr->len);
 		dstr->str = tg_dstrbufsget(bufs, dstr->eln);
 	}
-
-	return 0;
 }
 
-int tg_dstrcreatestatic(struct tg_dstring *dstr, const char *src)
+void tg_dstrcreatestatic(struct tg_dstring *dstr, const char *src)
 {
 	dstr->bufs = 0;
 	dstr->str = (char *) src;
 	dstr->sz = 0;
 	dstr->len = strlen(src);
-
-	return 0;
 }
 
-int tg_dstrcreaten(struct tg_dstring *dstr, const char *src, size_t len)
+void tg_dstrcreaten(struct tg_dstring *dstr, const char *src, size_t len)
 {
-	if (tg_dstralloc(dstr, len) < 0)
-		return (-1);
-	
+	tg_dstralloc(dstr, len);
+
 	memcpy(dstr->str, src, len);
 	dstr->str[len] = '\0';
-
-	return 0;
 }
 
-int tg_dstrdestroy(struct tg_dstring *dstr)
+void tg_dstrdestroy(struct tg_dstring *dstr)
 {
 	struct tg_dstrbufs *bufs;
 
 	if (dstr->len == 0)
-		return 0;
+		return;
 	else if (dstr->len < 4)
 		bufs = &bufs4;
 	else if (dstr->len < 8)
@@ -217,15 +187,11 @@ int tg_dstrdestroy(struct tg_dstring *dstr)
 		free(dstr->str);
 	}
 
-	if (bufs != NULL) {
-		if (tg_dstrbufsremove(bufs, dstr->eln) < 0)
-			return (-1);
-	}
-
-	return 0;
+	if (bufs != NULL)
+		tg_dstrbufsremove(bufs, dstr->eln);
 }
 
-int tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
+void tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
 {
 	struct tg_dstring tmpdstr;
 
@@ -235,13 +201,11 @@ int tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
 			size_t l;
 
 			l = (dstr->len + len + 1) * 3 / 2;
-			if ((p = realloc(dstr->str, l)) == NULL) {
-				TG_SETERROR("%s%s%s", "Cannot"
-					" reallocate memory for a",
-					" dynamic string while",
-					" concatinating");
-					return (-1);
-			}
+			p = realloc(dstr->str, l);
+
+			TG_ASSERT(p != NULL, "%s%s",
+				"Cannot reallocate memory for a",
+				" dynamic string while concatinating");
 			
 			dstr->str = p;
 			dstr->sz = l;
@@ -252,11 +216,10 @@ int tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
 		
 		dstr->len = dstr->len + len;
 	
-		return 0;
+		return;
 	}
 
-	if (tg_dstralloc(&tmpdstr, dstr->len + len) < 0)
-		return (-1);
+	tg_dstralloc(&tmpdstr, dstr->len + len);
 	
 	memcpy(tmpdstr.str, dstr->str, dstr->len + 1);
 	memcpy(tmpdstr.str + dstr->len, src, len);
@@ -266,8 +229,6 @@ int tg_dstraddstrn(struct tg_dstring *dstr, const char *src, size_t len)
 	tg_dstrdestroy(dstr);
 
 	*dstr = tmpdstr;
-
-	return 0;
 }
 
 /*

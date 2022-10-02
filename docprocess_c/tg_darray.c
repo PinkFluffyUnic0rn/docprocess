@@ -5,22 +5,19 @@
 #include "tg_common.h"
 #include "tg_darray.h"
 
-int tg_darrinit(struct tg_darray *darr, size_t sz)
+void tg_darrinit(struct tg_darray *darr, size_t sz)
 {
 	assert(darr != NULL);
 	
 	darr->sz = sz;
 
-	if ((darr->data = malloc(sz)) == NULL) {
-		TG_SETERROR("%s%s", "Cannot allocate memory while",
-			" initilizing a dynamyc array");
-		return (-1);
-	}
+	darr->data = malloc(sz);
+	TG_ASSERT(darr->data != NULL,
+		"%s%s", "Cannot allocate memory while",
+		" initilizing a dynamyc array");
 
 	darr->cnt = 0;
 	darr->max = 1;
-
-	return 0;
 }
 
 int tg_darrpush(struct tg_darray *darr, void *el)
@@ -31,12 +28,9 @@ int tg_darrpush(struct tg_darray *darr, void *el)
 	if (darr->cnt >= darr->max) {
 		char *p;
 
-		if ((p = realloc(darr->data,
-			darr->sz * darr->max * 2)) == NULL) {
-			TG_SETERROR("%s%s", "Cannot allocate memory",
-				" for a dynamyc array");
-			return (-1);
-		}
+		p = realloc(darr->data, darr->sz * darr->max * 2);
+		TG_ASSERT(p != NULL, "%s%s", "Cannot allocate memory",
+			" for a dynamyc array");
 
 		darr->max *= 2;
 		darr->data = p;
@@ -67,11 +61,9 @@ int tg_darrpop(struct tg_darray *darr, void *el)
 	return 0;
 }
 
-int tg_darrclear(struct tg_darray *darr)
+void tg_darrclear(struct tg_darray *darr)
 {
 	free(darr->data);
-
-	return 0;
 }
 
 void *tg_darrget(struct tg_darray *darr, int n)

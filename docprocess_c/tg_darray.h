@@ -8,13 +8,13 @@ struct tg_darray {
 	size_t max;
 };
 
-int tg_darrinit(struct tg_darray *darr, size_t sz);
+void tg_darrinit(struct tg_darray *darr, size_t sz);
 
 int tg_darrpush(struct tg_darray *darr, void *el);
 
 int tg_darrpop(struct tg_darray *darr, void *el);
 
-int tg_darrclear(struct tg_darray *darr);
+void tg_darrclear(struct tg_darray *darr);
 
 void *tg_darrget(struct tg_darray *darr, int n);
 

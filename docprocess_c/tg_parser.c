@@ -53,9 +53,7 @@ static struct tg_darray nodes;
 
 static int tg_initparser(const char *path)
 {
-	if (tg_darrinit(&tg_text, sizeof(char *)) < 0)
-		return (-1);
-
+	tg_darrinit(&tg_text, sizeof(char *));
 	tg_path = path;
 
 	return 0;
@@ -250,8 +248,7 @@ static int tg_peekc()
 static int tg_createtoken(struct tg_token *t, const char *val,
 	enum TG_TYPE type, int line, int pos)
 {
-	if (tg_dstrcreate(&(t->val), val) < 0)
-		return (-1);
+	tg_dstrcreate(&(t->val), val);
 
 	t->type = type;
 	t->line = line;
@@ -282,8 +279,7 @@ static int tg_nexttoken(struct tg_token *t)
 	}
 
 	if (c == '\"') {
-		if (tg_dstrcreate(&(t->val), "") < 0)
-			goto error;
+		tg_dstrcreate(&(t->val), "");
 	
 		t->type = TG_T_STRING;
 		t->line = tg_curline;
@@ -305,9 +301,8 @@ static int tg_nexttoken(struct tg_token *t)
 				else if (c == '0')	c = '\0';
 					
 				if (c != '\n') {
-					if (tg_dstraddstrn(&(t->val),
-						(char *) &c, 1) < 0)
-						goto error;
+					tg_dstraddstrn(&(t->val),
+						(char *) &c, 1);
 				}
 
 				c = tg_getcraw();
@@ -319,9 +314,7 @@ static int tg_nexttoken(struct tg_token *t)
 			else if (c == TG_C_ERROR)
 				goto error;
 			
-			if (tg_dstraddstrn(&(t->val),
-				(char *) &c, 1) < 0)
-				goto error;
+			tg_dstraddstrn(&(t->val), (char *) &c, 1);
 
 			c = tg_getcraw();
 		}
@@ -335,8 +328,7 @@ static int tg_nexttoken(struct tg_token *t)
 	 	t->line = tg_curline;
 	 	t->pos = tg_curpos;
 		
-		if (tg_dstrcreaten(&(t->val), (char *) &c, 1) < 0)
-			goto error;
+		tg_dstrcreaten(&(t->val), (char *) &c, 1);
 
 		while (1) {
 			c = tg_peekc();
@@ -344,8 +336,7 @@ static int tg_nexttoken(struct tg_token *t)
 			if (!isalpha(c) && !isdigit(c) && c != '_')
 				break;
 		
-			if (tg_dstraddstrn(&(t->val), (char *) &c, 1) < 0)
-				goto error;
+			tg_dstraddstrn(&(t->val), (char *) &c, 1);
 
 			c = tg_getc();
 		}
@@ -379,8 +370,7 @@ static int tg_nexttoken(struct tg_token *t)
 	if (isdigit(c)) {
 		int p, e;
 
-		if (tg_dstrcreaten(&(t->val), (char *) &c, 1) < 0)
-			goto error;
+		tg_dstrcreaten(&(t->val), (char *) &c, 1);
 
 	 	t->type = TG_T_INT;
 	 	t->line = tg_curline;
@@ -394,9 +384,8 @@ static int tg_nexttoken(struct tg_token *t)
 				if (!isdigit(c))
 					break;
 
-				if (tg_dstraddstrn(&(t->val),
-					(char *) &c, 1) < 0)
-					goto error;
+				tg_dstraddstrn(&(t->val),
+					(char *) &c, 1);
 
 				c = tg_getc();
 			}
@@ -423,9 +412,8 @@ static int tg_nexttoken(struct tg_token *t)
 
 				c = tg_getc();
 
-				if (tg_dstraddstrn(&(t->val),
-					(char *) &c, 1) < 0)
-					goto error;
+				tg_dstraddstrn(&(t->val),
+					(char *) &c, 1);
 			}
 			else
 				break;
@@ -706,8 +694,7 @@ int tg_nodeadd(int pi, enum TG_TYPE type, struct tg_token *token)
 	if (token != NULL)
 		n.token = *token;
 
-	if (tg_darrinit(&(n.children), sizeof(int)) < 0)
-		return (-1);
+	tg_darrinit(&(n.children), sizeof(int));
 
 	n.parent = pi;
 
@@ -1690,8 +1677,7 @@ int tg_getparsetree(const char *p)
 	if (tg_initparser(p) < 0)
 		goto error;
 	
-	if (tg_darrinit(&nodes, sizeof(struct tg_node)) < 0)
-		goto error;
+	tg_darrinit(&nodes, sizeof(struct tg_node));
 
 	if ((ni = tg_nodeadd(-1, TG_N_TEMPLATE, NULL)) < 0)
 		goto error;

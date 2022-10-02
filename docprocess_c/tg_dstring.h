@@ -1,5 +1,5 @@
-#ifndef DSTRING_H
-#define DSTRING_H
+#ifndef TG_DSTRING_H
+#define TG_DSTRING_H
 
 struct tg_dstring {
 	int bufs;
@@ -17,17 +17,17 @@ struct tg_dstring {
 #define tg_dstraddstr(dstr, src) \
 	tg_dstraddstrn((dstr), (src), strlen((src)))
 
-int tg_dstrcreaten(struct tg_dstring *dstr, const char *src,
+void tg_dstrcreaten(struct tg_dstring *dstr, const char *src,
 	size_t len);
 
-int tg_dstrcreatestatic(struct tg_dstring *dstr, const char *src);
+void tg_dstrcreatestatic(struct tg_dstring *dstr, const char *src);
 
-int tg_dstraddstrn(struct tg_dstring *dstr, const char *src,
+void tg_dstraddstrn(struct tg_dstring *dstr, const char *src,
 	size_t len);
 
-int tg_dstrcat(struct tg_dstring *dstr1, struct tg_dstring *dstr2);
+void tg_dstrcat(struct tg_dstring *dstr1, struct tg_dstring *dstr2);
 
-int tg_dstrdestroy(struct tg_dstring *dstr);
+void tg_dstrdestroy(struct tg_dstring *dstr);
 
 // int tg_dstrwipe();
 
