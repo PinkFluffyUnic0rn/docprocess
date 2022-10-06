@@ -35,18 +35,16 @@ void printval(FILE *f, struct tg_val *v)
 
 		isfirst = 1;
 		for (i = 0; i < v->arrval.bucketscount; ++i) {
-			if (v->arrval.buckets[i] != NULL) {
-				struct tg_val *p;
-				
-				for (p = v->arrval.buckets[i];
-					p != NULL; p = p->next) {
-				
-					if (!isfirst) fprintf(f, ", ");
-					isfirst = 0;
+			struct tg_val *p;
+			
+			for (p = v->arrval.buckets[i];
+				p != NULL; p = p->next) {
+			
+				if (!isfirst) fprintf(f, ", ");
+				isfirst = 0;
 
-					fprintf(f, "%s = ", p->key.str);
-					printval(f, p);	
-				}
+				fprintf(f, "%s = ", p->key.str);
+				printval(f, p);	
 			}
 		}
 
@@ -183,6 +181,20 @@ int main()
 	printf("one-element array -> string: ");
 	printval(stdout, v21);
 	printf("\n");
+
+
+	struct tg_val *varr;
+	int i;
+
+	varr = tg_createval(TG_VAL_ARRAY);
+
+	for (i = 0; i < 10000000; ++i)
+		tg_arrpush(varr, tg_intval(i));
+	
+	printf("a very big array: ");
+	printval(stdout, varr);
+	printf("\n");
+
 
 	tg_endframe();
 
