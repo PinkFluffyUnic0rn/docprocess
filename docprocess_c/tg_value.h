@@ -63,6 +63,8 @@ int tg_istrueval(struct tg_val *v);
 
 void tg_arrpush(struct tg_val *arr, struct tg_val *v);
 
+void tg_printval(FILE *f, struct tg_val *v);
+
 // -------------------------------------------------------------------
 
 #endif

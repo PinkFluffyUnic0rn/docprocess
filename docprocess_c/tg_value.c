@@ -14,46 +14,18 @@
 
 TG_HASHED(struct tg_val, TG_HASH_ARRAY)
 
-struct tg_frame {
-	struct tg_darray blocks;
-	size_t valcount;
-};
-
-struct tg_frame tg_stack[TG_STACKMAXDEPTH];
+struct tg_allocator tg_stack[TG_STACKMAXDEPTH];
 int tg_stackdepth = 0;
 
 void tg_initstack()
 {
 	int i;
 
-	for (i = 0; i < TG_STACKMAXDEPTH; ++i) {
-		tg_darrinit(&(tg_stack[i].blocks),
-			sizeof(struct tg_val *));
-		tg_stack[i].valcount = 0;
-	}
+	for (i = 0; i < TG_STACKMAXDEPTH; ++i)
+		tg_allocinit(tg_stack + i, sizeof(struct tg_val));
 }
 
-// alloc value in stack
-static void *tg_allocval()
-{
-	struct tg_frame *curframe;
-	struct tg_val *p;
-	
-	curframe = tg_stack + tg_stackdepth;
-
-	if (curframe->valcount / TG_FRAMEBLOCKSIZE >= curframe->blocks.cnt) {	
-		p = malloc(sizeof(struct tg_val) * TG_FRAMEBLOCKSIZE);
-		TG_ASSERT(p != NULL,
-			"Cannot allocate new value in stack.");
-
-		tg_darrpush(&(curframe->blocks), &p);
-	}
-
-	p = *((struct tg_val **) tg_darrget(&(curframe->blocks),
-		curframe->blocks.cnt - 1));
-
-	return p + ((curframe->valcount++) % TG_FRAMEBLOCKSIZE);
-}
+#define tg_allocval() tg_alloc(tg_stack + tg_stackdepth)
 
 // start frame, call every time
 // when block starts
@@ -72,16 +44,8 @@ int tg_startframe()
 // allocated in this frame
 void tg_endframe()
 {
-	struct tg_frame *curframe;
-	struct tg_val *p;
-	
-	curframe = tg_stack + tg_stackdepth;
+	tg_allocdestroy(tg_stack + tg_stackdepth);
 
-	while (tg_darrpop(&(curframe->blocks), &p) >= 0)
-		free(p);
-
-	curframe->valcount = 0;
-	
 	--tg_stackdepth;
 }
 
@@ -302,4 +266,49 @@ void tg_arrpush(struct tg_val *arr, struct tg_val *v)
 	snprintf(buf, 1024, "%ld", arr->arrval.count);
 	
 	tg_hashset(TG_HASH_ARRAY, &(arr->arrval), buf, tg_copyval(v));
+}
+
+void tg_printval(FILE *f, struct tg_val *v)
+{
+	int isfirst;
+	const char *key;
+
+	switch (v->type) {
+	case TG_VAL_EMPTY:
+		fprintf(f, "empty");
+		break;
+	case TG_VAL_FUNCTION:
+		fprintf(f, "function");
+		break;
+	case TG_VAL_SCRIPT:
+		fprintf(f, "script");
+		break;
+	case TG_VAL_INT:
+		fprintf(f, "int{%d}", v->intval);
+		break;
+	case TG_VAL_FLOAT:
+		fprintf(f, "float{%f}", v->floatval);
+		break;
+	case TG_VAL_STRING:
+		fprintf(f, "string{%s}", v->strval.str);
+		break;
+	case TG_VAL_ARRAY:
+		fprintf(f, "array{");
+
+		isfirst = 1;
+
+		TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY,
+			v->arrval, key,
+			if (!isfirst) fprintf(f, ", ");
+		
+			isfirst = 0;
+
+			fprintf(f, "%s = ", key);
+			tg_printval(f, p);	
+		);
+
+		fprintf(f, "}");
+
+		break;
+	}
 }

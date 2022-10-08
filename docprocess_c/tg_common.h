@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "tg_darray.h"
+
 #define TG_MSGMAXSIZE (1024 * 1024)
 
 extern char tg_error[TG_MSGMAXSIZE];
@@ -144,8 +146,7 @@ void tg_hashset##NAME(struct tg_hash *h, const char *key, STRT *v)	\
 	h->count++;						\
 }								\
 								\
-STRT *tg_hashget##NAME(struct tg_hash *h,			\
-	STRT *val, const char *key)				\
+STRT *tg_hashget##NAME(struct tg_hash *h, const char *key)	\
 {								\
 	STRT *p;						\
 	int b;							\
@@ -171,10 +172,11 @@ STRT *tg_hashget##NAME(struct tg_hash *h,			\
 #define tg_hashset(NAME, h, key, v) \
 	tg_hashset##NAME((h), (key), (v))
 
-#define tg_hashget(NAME, h, val, key) \
-	tg_hashget##NAME((h), (val), (key))
+#define tg_hashget(NAME, h, key) \
+	tg_hashget##NAME((h), (key))
 
 #define TG_HASHFOREACH(STRT, NAME, h, KEY, ACTIONS)		\
+do {								\
 	int i;							\
 								\
 	for (i = 0; i < (h).bucketscount; ++i) {			\
@@ -187,6 +189,19 @@ STRT *tg_hashget##NAME(struct tg_hash *h,			\
 			KEY = p->key##NAME.str;			\
 			ACTIONS					\
 		}						\
-	}
+	}							\
+} while (0);
+
+struct tg_allocator {
+	struct tg_darray blocks;
+	size_t sz;
+	size_t valcount;
+};
+
+void tg_allocinit(struct tg_allocator *allocer, size_t sz);
+
+void *tg_alloc(struct tg_allocator *allocer);
+
+void tg_allocdestroy(struct tg_allocator *allocer);
 
 #endif
