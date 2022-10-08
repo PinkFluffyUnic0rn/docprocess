@@ -6,10 +6,26 @@
 #include "tg_parser.h"
 #include "tg_value.h"
 
+struct tg_symbol {
+	struct tg_val *p;
+	TG_HASHFIELDS(struct tg_symbol, TG_HASH_SYMBOL)
+};
+
+TG_HASHED(struct tg_symbol, TG_HASH_SYMBOL)
+
+struct tg_hash symtable;
+/*
+void tg_symboladd(const char *name, struct tg_val *v)
+{
+	
+
+	tg_hashset(TG_HASH_SYMBOL, symtable, name, (alloc symbol));
+}
+*/
 void printval(FILE *f, struct tg_val *v)
 {
 	int isfirst;
-	int i;
+	const char *key;
 
 	switch (v->type) {
 	case TG_VAL_EMPTY:
@@ -34,19 +50,16 @@ void printval(FILE *f, struct tg_val *v)
 		fprintf(f, "array{");
 
 		isfirst = 1;
-		for (i = 0; i < v->arrval.bucketscount; ++i) {
-			struct tg_val *p;
-			
-			for (p = v->arrval.buckets[i];
-				p != NULL; p = p->next) {
-			
-				if (!isfirst) fprintf(f, ", ");
-				isfirst = 0;
 
-				fprintf(f, "%s = ", p->key.str);
-				printval(f, p);	
-			}
-		}
+		TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY,
+			v->arrval, key,
+			if (!isfirst) fprintf(f, ", ");
+		
+			isfirst = 0;
+
+			fprintf(f, "%s = ", key);
+			printval(f, p);	
+		);
 
 		fprintf(f, "}");
 

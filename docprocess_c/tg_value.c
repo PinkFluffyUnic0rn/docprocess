@@ -12,8 +12,7 @@
 #define TG_STACKMAXDEPTH 64
 #define TG_FRAMEBLOCKSIZE 32
 
-#define TG_REHASHFACTOR 1.5
-//#define TG_REHASHFACTOR 2.0
+TG_HASHED(struct tg_val, TG_HASH_ARRAY)
 
 struct tg_frame {
 	struct tg_darray blocks;
@@ -86,141 +85,6 @@ void tg_endframe()
 	--tg_stackdepth;
 }
 
-static void _tg_inithash(struct tg_hash *h, size_t bucketscount)
-{
-	int i;
-
-	h->buckets = malloc(sizeof(struct tg_val *) * bucketscount);
-	TG_ASSERT(h->buckets != NULL,
-		"Cannot allocate memory for hash");
-
-	for (i = 0; i < bucketscount; ++i)
-		h->buckets[i] = NULL;
-
-	h->bucketscount = bucketscount;
-	h->last = NULL;
-	h->count = 0;
-}
-
-#define tg_inithash(h) _tg_inithash((h), 32)
-
-static int tg_hashbucket(const char *str, int bucketscount)
-{
-	const char *p;
-	unsigned int r;
-
-	r = 0;
-	for (p = str; *p != '\0'; ++p)
-		r += *p + (rand() % bucketscount);
-
-	return r % bucketscount;
-}
-
-void _tg_hashset(struct tg_hash *h, const char *key, struct tg_val *v,
-	int copyval);
-
-#define tg_hashset(h, key, v) _tg_hashset((h), (key), (v), 1)
-
-void tg_rehash(struct tg_hash *h)
-{
-	struct tg_hash hnew;
-	int i;
-
-	_tg_inithash(&hnew, (h->bucketscount + 1) * TG_REHASHFACTOR);
-
-	for (i = 0; i < h->bucketscount; ++i) {
-		struct tg_val *p;
-		struct tg_val *next;
-
-		for (p = h->buckets[i]; p != NULL;) {
-			next = p->next;
-		
-			tg_dstrdestroy(&(p->key));
-
-			_tg_hashset(&hnew, p->key.str, p, 0);
-			
-			p = next;
-		}
-	}
-
-	memcpy(h, &hnew, sizeof(struct tg_hash));
-}
-
-void _tg_hashset(struct tg_hash *h, const char *key, struct tg_val *v,
-	int copyval)
-{
-	struct tg_val *p;
-	int b;
-
-	if (copyval)
-		v = tg_copyval(v);
-
-	if (h->count > 0.8 * h->bucketscount)
-		tg_rehash(h);
-
-	b = tg_hashbucket(key, h->bucketscount);	
-	p = h->buckets[b];
-
-	v->prev = v->next = NULL;
-
-	if (p == NULL) {
-		h->buckets[b] = v;
-		tg_dstrcreate(&(v->key), key);
-		v->prev = NULL;
-		v->next = NULL;
-	}
-	else {
-		while (p != NULL) {
-			if (strcmp(key, p->key.str) == 0) {
-				if (p->prev != NULL) {
-					p->prev->next = v;
-					v->prev = p->prev->next;
-				}
-				
-				if (p->next != NULL) {
-					p->next->prev = v;
-					v->next = p->next->prev;
-				}
-
-				tg_dstrcreate(&(v->key), key);
-
-				break;
-			}
-
-			if (p->next == NULL) {
-				p->next = v;
-				v->prev = p->next;
-				tg_dstrcreate(&(v->key), key);
-				break;
-			}
-
-			p = p->next;
-		}
-	}
-
-	h->last = v;
-	h->count++;
-}
-
-struct tg_val *tg_hashget(struct tg_hash *h,
-	struct tg_val *val, const char *key)
-{
-	struct tg_val *p;
-	int b;
-
-	b = tg_hashbucket(key, h->bucketscount);
-
-	p = h->buckets[b];
-	while (p != NULL) {
- 		if (strcmp(key, p->key.str) == 0)
-			break;
-
-		p = p->next;
-	}
-
-	return p;
-}
-
 struct tg_val *tg_createval(enum TG_VALTYPE t)
 {
 	struct tg_val *newv;
@@ -234,13 +98,10 @@ struct tg_val *tg_createval(enum TG_VALTYPE t)
 	else if (t == TG_VAL_STRING)
 		tg_dstrcreate(&(newv->strval), "");
 	else if (t == TG_VAL_ARRAY)
-		tg_inithash(&(newv->arrval));
+		tg_inithash(TG_HASH_ARRAY, &(newv->arrval));
 
 	newv->type = t;
 	
-	newv->prev = NULL;
-	newv->next = NULL;
-
 	return newv;
 }
 
@@ -293,26 +154,18 @@ struct tg_val *tg_copyval(struct tg_val *v)
 	else if (v->type == TG_VAL_STRING)
 		tg_dstrcreate(&(newv->strval), v->strval.str);
 	else if (v->type == TG_VAL_ARRAY) {
-		int i;
+		const char *key;
 
-		tg_inithash(&(newv->arrval));
-		
-		for (i = 0; i < v->arrval.bucketscount; ++i) {
-			struct tg_val *p;
-			
-			if (v->arrval.buckets[i] == NULL)
-				continue;
-			
-			for (p = v->arrval.buckets[i];
-				p != NULL; p = p->next)
-				tg_hashset(&(newv->arrval), p->key.str, p);
-		}
+		tg_inithash(TG_HASH_ARRAY, &(newv->arrval));
+
+		TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY,
+			v->arrval, key,
+			tg_hashset(TG_HASH_ARRAY, &(newv->arrval),
+				key, tg_copyval(p));
+		);
 	}
 
 	newv->type = v->type;
-	
-	newv->prev = NULL;
-	newv->next = NULL;
 
 	return newv;
 }
@@ -386,10 +239,9 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 			tg_dstraddstr(&(newv->strval), v->strval.str);
 	}	
 	else if (vt != TG_VAL_ARRAY && t == TG_VAL_ARRAY) {
-
 		newv = tg_createval(t);
 
-		tg_arrpush(newv, v);	
+		tg_arrpush(newv, v);
 	}
 	else if (vt == TG_VAL_ARRAY && t != TG_VAL_ARRAY) {
 		if (v->arrval.count != 1) {
@@ -449,5 +301,5 @@ void tg_arrpush(struct tg_val *arr, struct tg_val *v)
 
 	snprintf(buf, 1024, "%ld", arr->arrval.count);
 	
-	tg_hashset(&(arr->arrval), buf, v);
+	tg_hashset(TG_HASH_ARRAY, &(arr->arrval), buf, tg_copyval(v));
 }

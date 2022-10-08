@@ -2,6 +2,8 @@
 #define COMMON_H
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define TG_MSGMAXSIZE (1024 * 1024)
 
@@ -17,5 +19,174 @@ do {						\
 		exit(1);			\
 	}					\
 } while (0);
+
+#define TG_REHASHFACTOR 1.5
+
+struct tg_hash {
+	void **buckets;
+	void *last;
+	size_t bucketscount;
+	size_t count;
+};
+
+#define TG_HASHFIELDS(STRT, NAME)	\
+struct tg_dstring key##NAME;		\
+STRT *prev##NAME;			\
+STRT *next##NAME;			\
+
+#define TG_HASHED(STRT, NAME)					\
+								\
+static void _tg_inithash##NAME(struct tg_hash *h, size_t bucketscount)	\
+{								\
+	int i;							\
+								\
+	h->buckets = malloc(sizeof(STRT *) * bucketscount);	\
+	TG_ASSERT(h->buckets != NULL,				\
+		"Cannot allocate memory for hash");		\
+								\
+	for (i = 0; i < bucketscount; ++i)			\
+		h->buckets[i] = NULL;				\
+								\
+	h->bucketscount = bucketscount;				\
+	h->last = NULL;					\
+	h->count = 0;						\
+}								\
+								\
+								\
+static int tg_hashbucket##NAME(const char *str, int bucketscount)	\
+{								\
+	const char *p;						\
+	unsigned int r;						\
+								\
+	r = 0;							\
+	for (p = str; *p != '\0'; ++p)				\
+		r += *p + (rand() % bucketscount);		\
+								\
+	return r % bucketscount;				\
+}								\
+								\
+void tg_hashset##NAME(struct tg_hash *h, const char *key, STRT *v);	\
+								\
+void tg_rehash##NAME(struct tg_hash *h)				\
+{								\
+	struct tg_hash hnew;					\
+	int i;							\
+								\
+	_tg_inithash##NAME(&hnew, (h->bucketscount + 1) * TG_REHASHFACTOR);	\
+								\
+	for (i = 0; i < h->bucketscount; ++i) {			\
+		STRT *p;					\
+		STRT *next;					\
+								\
+		for (p = h->buckets[i]; p != NULL;) {		\
+			next = p->next##NAME;			\
+								\
+			tg_dstrdestroy(&(p->key##NAME));	\
+								\
+			tg_hashset##NAME(&hnew, p->key##NAME.str, p);	\
+								\
+			p = next;				\
+		}						\
+	}							\
+								\
+	memcpy(h, &hnew, sizeof(struct tg_hash));		\
+}								\
+								\
+void tg_hashset##NAME(struct tg_hash *h, const char *key, STRT *v)	\
+{								\
+	STRT *p;						\
+	int b;							\
+								\
+	if (h->count > 0.8 * h->bucketscount)			\
+		tg_rehash##NAME(h);				\
+								\
+	b = tg_hashbucket##NAME(key, h->bucketscount);		\
+	p = h->buckets[b];					\
+								\
+	v->prev##NAME = v->next##NAME = NULL;			\
+								\
+	if (p == NULL) {					\
+		h->buckets[b] = v;				\
+		tg_dstrcreate(&(v->key##NAME), key);		\
+		v->prev##NAME = NULL;				\
+		v->next##NAME = NULL;				\
+	}							\
+	else {							\
+		while (p != NULL) {				\
+			if (strcmp(key, p->key##NAME.str) == 0) {	\
+				if (p->prev##NAME != NULL) {		\
+					p->prev##NAME->next##NAME = v;	\
+					v->prev##NAME = p->prev##NAME->next##NAME;	\
+				}				\
+								\
+				if (p->next##NAME != NULL) {		\
+					p->next##NAME->prev##NAME = v;	\
+					v->next##NAME = p->next##NAME->prev##NAME;	\
+				}				\
+								\
+				tg_dstrcreate(&(v->key##NAME), key);	\
+								\
+				break;				\
+			}					\
+								\
+			if (p->next##NAME == NULL) {		\
+				p->next##NAME = v;		\
+				v->prev##NAME = p->next##NAME;	\
+				tg_dstrcreate(&(v->key##NAME), key);	\
+				break;				\
+			}					\
+								\
+			p = p->next##NAME;			\
+		}						\
+	}							\
+								\
+	h->last = v;						\
+	h->count++;						\
+}								\
+								\
+STRT *tg_hashget##NAME(struct tg_hash *h,			\
+	STRT *val, const char *key)				\
+{								\
+	STRT *p;						\
+	int b;							\
+								\
+	b = tg_hashbucket##NAME(key, h->bucketscount);		\
+								\
+	p = h->buckets[b];					\
+	while (p != NULL) {					\
+ 		if (strcmp(key, p->key##NAME.str) == 0)		\
+			break;					\
+								\
+		p = p->next##NAME;				\
+	}							\
+								\
+	return p;						\
+}
+
+#define tg_hash(NAME)	tg_hash##NAME
+
+#define tg_inithash(NAME, h) \
+	_tg_inithash##NAME((h), 32);
+
+#define tg_hashset(NAME, h, key, v) \
+	tg_hashset##NAME((h), (key), (v))
+
+#define tg_hashget(NAME, h, val, key) \
+	tg_hashget##NAME((h), (val), (key))
+
+#define TG_HASHFOREACH(STRT, NAME, h, KEY, ACTIONS)		\
+	int i;							\
+								\
+	for (i = 0; i < (h).bucketscount; ++i) {			\
+		STRT *p;					\
+								\
+		if ((h).buckets[i] == NULL)			\
+			continue;				\
+								\
+		for (p = (h).buckets[i]; p != NULL; p = p->next##NAME) {		\
+			KEY = p->key##NAME.str;			\
+			ACTIONS					\
+		}						\
+	}
 
 #endif

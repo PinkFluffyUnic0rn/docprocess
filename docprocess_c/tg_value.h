@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 
+#include "tg_common.h"
 #include "tg_dstring.h"
 
 enum TG_VALTYPE {
@@ -13,13 +14,6 @@ enum TG_VALTYPE {
 	TG_VAL_FLOAT = 4,
 	TG_VAL_STRING = 5,
 	TG_VAL_ARRAY = 6,
-};
-
-struct tg_hash {
-	struct tg_val **buckets;
-	struct tg_val *last;
-	size_t bucketscount;
-	size_t count;
 };
 
 struct tg_val {
@@ -33,9 +27,7 @@ struct tg_val {
 
 	struct tg_hash *attrs;
 
-	struct tg_dstring key;				// key in hash
-	struct tg_val *prev;				// prev node in bucket
-	struct tg_val *next;				// next node in bucket
+	TG_HASHFIELDS(struct tg_val, TG_HASH_ARRAY)
 };
 
 // stack operations
