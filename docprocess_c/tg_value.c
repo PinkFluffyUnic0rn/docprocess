@@ -312,3 +312,183 @@ void tg_printval(FILE *f, struct tg_val *v)
 		break;
 	}
 }
+
+
+struct tg_val *tg_valcat(struct tg_val *v1, struct tg_val *v2)
+{
+	struct tg_val *r;
+	
+	if ((v1 = tg_castval(v1, TG_VAL_STRING)) == NULL)
+		return NULL;
+
+	if ((v2 = tg_castval(v2, TG_VAL_STRING)) == NULL)
+		return NULL;
+
+	r = tg_copyval(v1);
+
+	tg_dstraddstr(&(r->strval), v2->strval.str);
+
+	return r;
+}
+
+struct tg_val *_tg_numop(struct tg_val *v1, struct tg_val *v2,
+	enum TG_NUMOP op)
+{
+	struct tg_val *r;
+	
+	if ((v1 = tg_typeprom2val(v1, v2->type, TG_VAL_FLOAT)) == NULL)
+		return NULL;
+
+	if ((v2 = tg_typeprom2val(v2, v1->type, TG_VAL_FLOAT)) == NULL)
+		return NULL;
+
+	r = tg_createval(v1->type);
+
+	if (v1->type == TG_VAL_INT) {
+		if (op == TG_NUMOP_ADD)
+			r->intval = v1->intval + v2->intval;
+		else if (op == TG_NUMOP_SUB)
+			r->intval = v1->intval - v2->intval;
+		else if (op == TG_NUMOP_MULT)
+			r->intval = v1->intval * v2->intval;
+		else if (op == TG_NUMOP_DIV)
+			r->intval = v1->intval / v2->intval;
+	}
+	else if (v1->type == TG_VAL_FLOAT) {
+		if (op == TG_NUMOP_ADD)
+			r->intval = v1->floatval + v2->floatval;
+		else if (op == TG_NUMOP_SUB)
+			r->intval = v1->floatval - v2->floatval;
+		else if (op == TG_NUMOP_MULT)
+			r->intval = v1->floatval * v2->floatval;
+		else if (op == TG_NUMOP_DIV)
+			r->intval = v1->floatval / v2->floatval;
+	}
+	else if (v1->type == TG_VAL_EMPTY) {
+	}
+	else {
+		TG_SETERROR("%s", "Wrong value type.");
+		return NULL;
+	}
+
+	return r;
+}
+
+struct tg_val *tg_valor(struct tg_val *v1, struct tg_val *v2)
+{
+	struct tg_val *r;
+
+	r = tg_createval(TG_VAL_INT);
+
+	r->intval = tg_istrueval(v1) || tg_istrueval(v2);
+	
+	return r;
+}
+
+struct tg_val *tg_valand(struct tg_val *v1, struct tg_val *v2)
+{
+	struct tg_val *r;
+
+	r = tg_createval(TG_VAL_INT);
+
+	r->intval = tg_istrueval(v1) && tg_istrueval(v2);
+	
+	return r;
+}
+
+struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
+	enum TG_RELOP op)
+{
+	struct tg_val *r;
+
+	if ((v1 = tg_typeprom2val(v1, v2->type, TG_VAL_STRING)) == NULL)
+		return NULL;
+
+	if ((v2 = tg_typeprom2val(v2, v1->type, TG_VAL_STRING)) == NULL)
+		return NULL;
+
+	r = tg_createval(v1->type);
+
+	if (v1->type == TG_VAL_INT) {
+		if (op == TG_RELOP_EQUAL)
+			r->intval = v1->intval == v2->intval;
+		else if (op == TG_RELOP_NEQUAL)
+			r->intval = v1->intval != v2->intval;
+		else if (op == TG_RELOP_LESS)
+			r->intval = v1->intval < v2->intval;
+		else if (op == TG_RELOP_GREATER)
+			r->intval = v1->intval > v2->intval;
+		else if (op == TG_RELOP_LESSEQ)
+			r->intval = v1->intval <= v2->intval;
+		else if (op == TG_RELOP_GREATEREQ)
+			r->intval = v1->intval >= v2->intval;
+	}
+	else if (v1->type == TG_VAL_FLOAT) {
+		if (op == TG_RELOP_EQUAL)
+			r->intval = v1->floatval == v2->floatval;
+		else if (op == TG_RELOP_NEQUAL)
+			r->intval = v1->floatval != v2->floatval;
+		else if (op == TG_RELOP_LESS)
+			r->intval = v1->floatval < v2->floatval;
+		else if (op == TG_RELOP_GREATER)
+			r->intval = v1->floatval > v2->floatval;
+		else if (op == TG_RELOP_LESSEQ)
+			r->intval = v1->floatval <= v2->floatval;
+		else if (op == TG_RELOP_GREATEREQ)
+			r->intval = v1->floatval >= v2->floatval;
+	}
+	else if (v1->type == TG_VAL_STRING) {
+		int sr;
+
+		sr = strcmp(v1->strval.str, v2->strval.str);
+
+		if (op == TG_RELOP_EQUAL)
+			r->intval = (sr == 0);
+		else if (op == TG_RELOP_NEQUAL)
+			r->intval = (sr != 0);
+		else if (op == TG_RELOP_LESS)
+			r->intval = (sr < 0);
+		else if (op == TG_RELOP_GREATER)
+			r->intval = (sr > 0);
+		else if (op == TG_RELOP_LESSEQ)
+			r->intval = (sr <= 0);
+		else if (op == TG_RELOP_GREATEREQ)
+			r->intval = (sr >= 0);
+	}
+	else if (v1->type == TG_VAL_EMPTY) {
+	}
+	else {
+		TG_SETERROR("%s", "Wrong value type.");
+		return NULL;
+	}
+
+	return r;
+}
+
+/*
+struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2)
+{
+	struct tg_val r;
+
+	return NULL;
+}
+
+struct tg_val *tg_valindex(struct tg_val *v1, struct tg_val *v2)
+{
+	struct tg_val r;
+
+	return NULL;
+}
+*/
+
+struct tg_val *tg_valattr(struct tg_val *v1, const char *key)
+{
+	struct tg_val *r;
+
+	if ((r = tg_hashget(TG_HASH_ARRAY, v1->attrs, key)) == NULL) {
+		TG_SETERROR("No such attribute: %s", key);
+		return NULL;
+	}
+
+	return r;
+}
