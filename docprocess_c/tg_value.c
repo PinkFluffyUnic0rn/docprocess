@@ -331,6 +331,14 @@ struct tg_val *tg_valcat(struct tg_val *v1, struct tg_val *v2)
 	return r;
 }
 
+#define TG_NUMOPEXPR(r, v1, v2)					\
+do {								\
+	if (op == TG_NUMOP_ADD)		(r) = (v1) + (v2);	\
+	else if (op == TG_NUMOP_SUB)	(r) = (v1) - (v2);	\
+	else if (op == TG_NUMOP_MULT)	(r) = (v1) * (v2);	\
+	else if (op == TG_NUMOP_DIV)	(r) = (v1) / (v2);	\
+} while (0);
+
 struct tg_val *_tg_numop(struct tg_val *v1, struct tg_val *v2,
 	enum TG_NUMOP op)
 {
@@ -345,24 +353,10 @@ struct tg_val *_tg_numop(struct tg_val *v1, struct tg_val *v2,
 	r = tg_createval(v1->type);
 
 	if (v1->type == TG_VAL_INT) {
-		if (op == TG_NUMOP_ADD)
-			r->intval = v1->intval + v2->intval;
-		else if (op == TG_NUMOP_SUB)
-			r->intval = v1->intval - v2->intval;
-		else if (op == TG_NUMOP_MULT)
-			r->intval = v1->intval * v2->intval;
-		else if (op == TG_NUMOP_DIV)
-			r->intval = v1->intval / v2->intval;
+		TG_NUMOPEXPR(r->intval, v1->intval, v2->intval);
 	}
 	else if (v1->type == TG_VAL_FLOAT) {
-		if (op == TG_NUMOP_ADD)
-			r->intval = v1->floatval + v2->floatval;
-		else if (op == TG_NUMOP_SUB)
-			r->intval = v1->floatval - v2->floatval;
-		else if (op == TG_NUMOP_MULT)
-			r->intval = v1->floatval * v2->floatval;
-		else if (op == TG_NUMOP_DIV)
-			r->intval = v1->floatval / v2->floatval;
+		TG_NUMOPEXPR(r->floatval, v1->floatval, v2->floatval);
 	}
 	else if (v1->type == TG_VAL_EMPTY) {
 	}
@@ -396,6 +390,16 @@ struct tg_val *tg_valand(struct tg_val *v1, struct tg_val *v2)
 	return r;
 }
 
+#define TG_RELOPEXPR(r, v1, v2)					\
+do {									\
+	if (op == TG_RELOP_EQUAL)		(r) = (v1) == (v2);	\
+	else if (op == TG_RELOP_NEQUAL)		(r) = (v1) != (v2);	\
+	else if (op == TG_RELOP_LESS)		(r) = (v1) < (v2);	\
+	else if (op == TG_RELOP_GREATER)	(r) = (v1) > (v2);	\
+	else if (op == TG_RELOP_LESSEQ)		(r) = (v1) <= (v2);	\
+	else if (op == TG_RELOP_GREATEREQ)	(r) = (v1) >= (v2);	\
+} while (0);
+
 struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
 	enum TG_RELOP op)
 {
@@ -410,50 +414,17 @@ struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
 	r = tg_createval(v1->type);
 
 	if (v1->type == TG_VAL_INT) {
-		if (op == TG_RELOP_EQUAL)
-			r->intval = v1->intval == v2->intval;
-		else if (op == TG_RELOP_NEQUAL)
-			r->intval = v1->intval != v2->intval;
-		else if (op == TG_RELOP_LESS)
-			r->intval = v1->intval < v2->intval;
-		else if (op == TG_RELOP_GREATER)
-			r->intval = v1->intval > v2->intval;
-		else if (op == TG_RELOP_LESSEQ)
-			r->intval = v1->intval <= v2->intval;
-		else if (op == TG_RELOP_GREATEREQ)
-			r->intval = v1->intval >= v2->intval;
+		TG_RELOPEXPR(r->intval, v1->intval, v2->intval);
 	}
 	else if (v1->type == TG_VAL_FLOAT) {
-		if (op == TG_RELOP_EQUAL)
-			r->intval = v1->floatval == v2->floatval;
-		else if (op == TG_RELOP_NEQUAL)
-			r->intval = v1->floatval != v2->floatval;
-		else if (op == TG_RELOP_LESS)
-			r->intval = v1->floatval < v2->floatval;
-		else if (op == TG_RELOP_GREATER)
-			r->intval = v1->floatval > v2->floatval;
-		else if (op == TG_RELOP_LESSEQ)
-			r->intval = v1->floatval <= v2->floatval;
-		else if (op == TG_RELOP_GREATEREQ)
-			r->intval = v1->floatval >= v2->floatval;
+		TG_RELOPEXPR(r->intval, v1->floatval, v2->floatval);
 	}
 	else if (v1->type == TG_VAL_STRING) {
 		int sr;
 
 		sr = strcmp(v1->strval.str, v2->strval.str);
-
-		if (op == TG_RELOP_EQUAL)
-			r->intval = (sr == 0);
-		else if (op == TG_RELOP_NEQUAL)
-			r->intval = (sr != 0);
-		else if (op == TG_RELOP_LESS)
-			r->intval = (sr < 0);
-		else if (op == TG_RELOP_GREATER)
-			r->intval = (sr > 0);
-		else if (op == TG_RELOP_LESSEQ)
-			r->intval = (sr <= 0);
-		else if (op == TG_RELOP_GREATEREQ)
-			r->intval = (sr >= 0);
+		
+		TG_RELOPEXPR(r->intval, sr, 0);
 	}
 	else if (v1->type == TG_VAL_EMPTY) {
 	}
