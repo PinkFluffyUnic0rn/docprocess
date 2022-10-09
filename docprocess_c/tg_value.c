@@ -411,7 +411,7 @@ struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
 	if ((v2 = tg_typeprom2val(v2, v1->type, TG_VAL_STRING)) == NULL)
 		return NULL;
 
-	r = tg_createval(v1->type);
+	r = tg_createval(TG_VAL_INT);
 
 	if (v1->type == TG_VAL_INT) {
 		TG_RELOPEXPR(r->intval, v1->intval, v2->intval);

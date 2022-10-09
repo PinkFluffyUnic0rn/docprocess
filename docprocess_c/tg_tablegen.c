@@ -568,6 +568,505 @@ void operatortest()
 	tg_printval(stdout, vres);
 	printf("\n\n");
 
+///////////////////////////////////////////////////////////////////////
+
+	vres = tg_valcat(vint1, vint2);
+	printf("\tint ~ int:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valcat(vfloat1, vfloat2);
+	printf("\tfloat ~ float:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valcat(vstr1, vstr2);
+	printf("\tstr ~ str:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valcat(vnumstr1, vnumstr2);
+	printf("\tnstr ~ nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valcat(vint1, vfloat1);
+	printf("\tint ~ float:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valcat(vint1, vstr1);
+	printf("\tint ~ string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valcat(vint1, vstr1);
+	printf("\tint ~ nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valcat(vfloat1, vstr1);
+	printf("\tfloat ~ string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valcat(vfloat1, vnumstr1);
+	printf("\tfloat ~ nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valcat(vstr1, vnumstr1);
+	printf("\tstring ~ nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+	vres = tg_valeq(vint1, vint1);
+	printf("\tint == int (same):\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valeq(vint1, vint2);
+	printf("\tint == int:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valeq(vfloat1, vfloat2);
+	printf("\tfloat == float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valeq(vstr1, vstr2);
+	printf("\tstr == str:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valeq(vnumstr1, vnumstr2);
+	printf("\tnstr == nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valeq(vint1, vfloat1);
+	printf("\tint == float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valeq(vint1, vstr1);
+	printf("\tint == string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valeq(vint1, vstr1);
+	printf("\tint == nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valeq(vfloat1, vstr1);
+	printf("\tfloat == string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valeq(vfloat1, vnumstr1);
+	printf("\tfloat == nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valeq(vstr1, vnumstr1);
+	printf("\tstring == nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+	vres = tg_valneq(vint1, vint1);
+	printf("\tint != int (same):\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valneq(vint1, vint2);
+	printf("\tint != int:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valneq(vfloat1, vfloat2);
+	printf("\tfloat != float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valneq(vstr1, vstr2);
+	printf("\tstr != str:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valneq(vnumstr1, vnumstr2);
+	printf("\tnstr != nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valneq(vint1, vfloat1);
+	printf("\tint != float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valneq(vint1, vstr1);
+	printf("\tint != string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valneq(vint1, vstr1);
+	printf("\tint != nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valneq(vfloat1, vstr1);
+	printf("\tfloat != string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valneq(vfloat1, vnumstr1);
+	printf("\tfloat != nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valneq(vstr1, vnumstr1);
+	printf("\tstring != nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+	vres = tg_valls(vint1, vint1);
+	printf("\tint < int (same):\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valls(vint1, vint2);
+	printf("\tint < int:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valls(vfloat1, vfloat2);
+	printf("\tfloat < float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valls(vstr1, vstr2);
+	printf("\tstr < str:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valls(vnumstr1, vnumstr2);
+	printf("\tnstr < nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valls(vint1, vfloat1);
+	printf("\tint < float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valls(vint1, vstr1);
+	printf("\tint < string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valls(vint1, vstr1);
+	printf("\tint < nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valls(vfloat1, vstr1);
+	printf("\tfloat < string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valls(vfloat1, vnumstr1);
+	printf("\tfloat < nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valls(vstr1, vnumstr1);
+	printf("\tstring < nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+	vres = tg_valgr(vint1, vint1);
+	printf("\tint > int (same):\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgr(vint1, vint2);
+	printf("\tint > int:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgr(vfloat1, vfloat2);
+	printf("\tfloat > float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgr(vstr1, vstr2);
+	printf("\tstr > str:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgr(vnumstr1, vnumstr2);
+	printf("\tnstr > nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valgr(vint1, vfloat1);
+	printf("\tint > float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgr(vint1, vstr1);
+	printf("\tint > string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgr(vint1, vstr1);
+	printf("\tint > nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valgr(vfloat1, vstr1);
+	printf("\tfloat > string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgr(vfloat1, vnumstr1);
+	printf("\tfloat > nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valgr(vstr1, vnumstr1);
+	printf("\tstring > nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+	vres = tg_vallseq(vint1, vint1);
+	printf("\tint <= int (same):\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_vallseq(vint1, vint2);
+	printf("\tint <= int:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_vallseq(vfloat1, vfloat2);
+	printf("\tfloat <= float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_vallseq(vstr1, vstr2);
+	printf("\tstr <= str:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_vallseq(vnumstr1, vnumstr2);
+	printf("\tnstr <= nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_vallseq(vint1, vfloat1);
+	printf("\tint <= float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_vallseq(vint1, vstr1);
+	printf("\tint <= string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_vallseq(vint1, vstr1);
+	printf("\tint <= nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_vallseq(vfloat1, vstr1);
+	printf("\tfloat <= string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_vallseq(vfloat1, vnumstr1);
+	printf("\tfloat <= nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_vallseq(vstr1, vnumstr1);
+	printf("\tstring <= nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+	vres = tg_valgreq(vint1, vint1);
+	printf("\tint >= int (same):\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgreq(vint1, vint2);
+	printf("\tint >= int:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgreq(vfloat1, vfloat2);
+	printf("\tfloat >= float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgreq(vstr1, vstr2);
+	printf("\tstr >= str:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgreq(vnumstr1, vnumstr2);
+	printf("\tnstr >= nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valgreq(vint1, vfloat1);
+	printf("\tint >= float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgreq(vint1, vstr1);
+	printf("\tint >= string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgreq(vint1, vstr1);
+	printf("\tint >= nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valgreq(vfloat1, vstr1);
+	printf("\tfloat >= string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valgreq(vfloat1, vnumstr1);
+	printf("\tfloat >= nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valgreq(vstr1, vnumstr1);
+	printf("\tstring >= nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+	vres = tg_valand(vint1, vint1);
+	printf("\tint & int (same):\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valand(vint1, vint2);
+	printf("\tint & int:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valand(vfloat1, vfloat2);
+	printf("\tfloat & float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valand(vstr1, vstr2);
+	printf("\tstr & str:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valand(vnumstr1, vnumstr2);
+	printf("\tnstr & nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valand(vint1, vfloat1);
+	printf("\tint & float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valand(vint1, vstr1);
+	printf("\tint & string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valand(vint1, vstr1);
+	printf("\tint & nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valand(vfloat1, vstr1);
+	printf("\tfloat & string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valand(vfloat1, vnumstr1);
+	printf("\tfloat & nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valand(vstr1, vnumstr1);
+	printf("\tstring & nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+	vres = tg_valor(vint1, vint1);
+	printf("\tint | int (same):\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valor(vint1, vint2);
+	printf("\tint | int:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valor(vfloat1, vfloat2);
+	printf("\tfloat | float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valor(vstr1, vstr2);
+	printf("\tstr | str:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valor(vnumstr1, vnumstr2);
+	printf("\tnstr | nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valor(vint1, vfloat1);
+	printf("\tint | float:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valor(vint1, vstr1);
+	printf("\tint | string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valor(vint1, vstr1);
+	printf("\tint | nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valor(vfloat1, vstr1);
+	printf("\tfloat | string:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valor(vfloat1, vnumstr1);
+	printf("\tfloat | nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valor(vstr1, vnumstr1);
+	printf("\tstring | nstr:\t\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
 
 }
 
