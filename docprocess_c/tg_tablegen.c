@@ -36,147 +36,552 @@ struct tg_val *tg_symbolget(const char *name)
 	return sym->p;
 }
 
+void casttest()
+{
+	struct tg_val *vint, *vfloat, *vstr, *vnumstr;
+	struct tg_val *vintarr, *vfloatarr, *vstrarr, *vnumstrarr;
+	struct tg_val *varr;
+
+	// scalar values
+	printf("scalar values (%d %f %s %s):\n",
+		415, 522.34, "teststring", "832.23");
+
+	vint = tg_intval(415);
+	printf("\t");
+	tg_printval(stdout, vint);
+	printf("\n");
+
+	vfloat = tg_floatval(522.34);
+	printf("\t");
+	tg_printval(stdout, vfloat);
+	printf("\n");
+
+	vstr = tg_stringval("teststring");
+	printf("\t");
+	tg_printval(stdout, vstr);
+	printf("\n");
+
+	vnumstr = tg_stringval("832.23");
+	printf("\t");
+	tg_printval(stdout, vnumstr);
+	printf("\n\n");
+
+	// single-element arrays with scalar values
+	printf("single-element array values:\n");
+
+	vintarr = tg_createval(TG_VAL_ARRAY);
+	tg_arrpush(vintarr, vint);
+	printf("\t");
+	tg_printval(stdout, vintarr);
+	printf("\n");
+
+	vfloatarr = tg_createval(TG_VAL_ARRAY);
+	tg_arrpush(vfloatarr, vfloat);
+	printf("\t");
+	tg_printval(stdout, vfloatarr);
+	printf("\n");
+
+	vstrarr = tg_createval(TG_VAL_ARRAY);
+	tg_arrpush(vstrarr, vstr);
+	printf("\t");
+	tg_printval(stdout, vstrarr);
+	printf("\n");
+
+	vnumstrarr = tg_createval(TG_VAL_ARRAY);
+	tg_arrpush(vnumstrarr, vnumstr);
+	printf("\t");
+	tg_printval(stdout, vnumstrarr);
+	printf("\n\n");
+
+	// array value
+	varr = tg_createval(TG_VAL_ARRAY);
+
+	tg_arrpush(varr, vint);
+	tg_arrpush(varr, vfloat);
+	tg_arrpush(varr, vstr);
+	tg_arrpush(varr, vnumstr);
+	tg_arrpush(varr, vnumstrarr);
+
+	tg_printval(stdout, varr);
+	printf("\n");
+	printf("\n");
+
+	
+	//struct tg_val *v7, *v8, *v9, *v10, *v11, *v12, *v13, *v14;
+	struct tg_val *itofv, *itosv,
+		      *ftoiv, *ftosv,
+		      *stoiv, *stofv, *nstrtoiv, *nstrtofv;
+
+	printf("casting scalar types:\n");
+	
+	itofv = tg_castval(vint, TG_VAL_FLOAT);
+	printf("\tint -> float: ");
+	tg_printval(stdout, itofv);
+	printf("\n");
+
+	itosv = tg_castval(vint, TG_VAL_STRING);
+	printf("\tint -> string: ");
+	tg_printval(stdout, itosv);
+	printf("\n");
+
+	ftoiv = tg_castval(vfloat, TG_VAL_INT);
+	printf("\tfloat -> int: ");
+	tg_printval(stdout, ftoiv);
+	printf("\n");
+
+	ftosv = tg_castval(vfloat, TG_VAL_STRING);
+	printf("\tfloat -> string: ");
+	tg_printval(stdout, ftosv);
+	printf("\n");
+
+	stoiv = tg_castval(vstr, TG_VAL_INT);
+	printf("\tstring -> int: ");
+	tg_printval(stdout, stoiv);
+	printf("\n");
+
+	stofv = tg_castval(vstr, TG_VAL_FLOAT);
+	printf("\tstring -> float: ");
+	tg_printval(stdout, stofv);
+	printf("\n");
+
+	nstrtoiv = tg_castval(vnumstrarr, TG_VAL_INT);
+	nstrtofv = tg_castval(vnumstrarr, TG_VAL_FLOAT);
+
+	printf("\tnumeric string -> int: ");
+	tg_printval(stdout, nstrtoiv);
+	printf("\n");
+	printf("\tnumeric string -> float: ");
+	tg_printval(stdout, nstrtofv);
+	printf("\n");
+	printf("\n");
+
+
+	struct tg_val *itoav, *ftoav, *stoav, *nstoav,
+		*iarrtoiv, *iarrtofv, *iarrtosv,
+		*farrtoiv, *farrtofv, *farrtosv,
+		*sarrtoiv, *sarrtofv, *sarrtosv,
+		*nsarrtoiv, *nsarrtofv, *nsarrtosv;
+
+	printf("casting with arrays:\n");
+
+	itoav = tg_castval(vint, TG_VAL_ARRAY);
+	printf("\tint -> array: ");
+	tg_printval(stdout, itoav);
+	printf("\n");
+	
+	ftoav = tg_castval(vfloat, TG_VAL_ARRAY);
+	printf("\tfloat -> array: ");
+	tg_printval(stdout, ftoav);
+	printf("\n");
+	
+	stoav = tg_castval(vstr, TG_VAL_ARRAY);
+	printf("\tstring -> array: ");
+	tg_printval(stdout, stoav);
+	printf("\n");
+	
+	nstoav = tg_castval(vstr, TG_VAL_ARRAY);
+	printf("\tnumeric string -> array: ");
+	tg_printval(stdout, nstoav);
+	printf("\n");
+
+	iarrtoiv = tg_castval(vint, TG_VAL_INT);
+	printf("\tone-element array (int) -> int: ");
+	tg_printval(stdout, iarrtoiv);
+	printf("\n");
+
+	iarrtofv = tg_castval(vint, TG_VAL_FLOAT);
+	printf("\tone-element array (int) -> float: ");
+	tg_printval(stdout, iarrtofv);
+	printf("\n");
+		
+	iarrtosv = tg_castval(vint, TG_VAL_STRING);
+	printf("\tone-element array (int) -> string: ");
+	tg_printval(stdout, iarrtosv);
+	printf("\n");
+
+
+	farrtoiv = tg_castval(vfloat, TG_VAL_INT);
+	printf("\tone-element array (float) -> int: ");
+	tg_printval(stdout, farrtoiv);
+	printf("\n");
+
+	farrtofv = tg_castval(vfloat, TG_VAL_FLOAT);
+	printf("\tone-element array (float) -> float: ");
+	tg_printval(stdout, farrtofv);
+	printf("\n");
+		
+	farrtosv = tg_castval(vfloat, TG_VAL_STRING);
+	printf("\tone-element array (float) -> string: ");
+	tg_printval(stdout, farrtosv);
+	printf("\n");
+
+	sarrtoiv = tg_castval(vstr, TG_VAL_INT);
+	printf("\tone-element array (string) -> int: ");
+	tg_printval(stdout, sarrtoiv);
+	printf("\n");
+
+	sarrtofv = tg_castval(vstr, TG_VAL_FLOAT);
+	printf("\tone-element array (string) -> float: ");
+	tg_printval(stdout, sarrtofv);
+	printf("\n");
+		
+	sarrtosv = tg_castval(vstr, TG_VAL_STRING);
+	printf("\tone-element array (string) -> string: ");
+	tg_printval(stdout, sarrtosv);
+	printf("\n");
+
+	nsarrtoiv = tg_castval(vnumstr, TG_VAL_INT);
+	printf("\tone-element array (numeric string) -> int: ");
+	tg_printval(stdout, nsarrtoiv);
+	printf("\n");
+
+	nsarrtofv = tg_castval(vnumstr, TG_VAL_FLOAT);
+	printf("\tone-element array (numeric string) -> float: ");
+	tg_printval(stdout, nsarrtofv);
+	printf("\n");
+		
+	nsarrtosv = tg_castval(vnumstr, TG_VAL_STRING);
+	printf("\tone-element array (numeric string) -> string: ");
+	tg_printval(stdout, nsarrtosv);
+	printf("\n\n");
+
+}
+
+void arraytest(int bigarrsize, int deeparrsize)
+{
+	struct tg_val *vbigarr;
+	struct tg_val *vdeeparr;
+	struct tg_val *p;
+	int i;
+
+	vbigarr = tg_createval(TG_VAL_ARRAY);
+
+	for (i = 0; i < bigarrsize; ++i)
+		tg_arrpush(vbigarr, tg_intval(i));
+	
+	tg_printval(stdout, vbigarr);
+	printf("\n^ a big array");
+	printf("\n\n");
+
+	vdeeparr = tg_createval(TG_VAL_ARRAY);
+	tg_arrpush(vdeeparr, tg_stringval("test"));
+
+	for (i = 0; i < deeparrsize; ++i) {
+		p = tg_createval(TG_VAL_ARRAY);
+
+		tg_arrpush(p, vdeeparr);
+
+		vdeeparr = p;
+	}
+	
+	tg_printval(stdout, vdeeparr);
+	printf("\n^ a deep array");
+	printf("\n\n");
+}
+
+void operatortest()
+{
+	struct tg_val *vint1, *vint2,
+		*vfloat1, *vfloat2,
+		*vstr1, *vstr2,
+		*vnumstr1, *vnumstr2,
+		*varr1, *varr2,
+		*vsarr1, *vsarr2;
+
+	// scalar values
+	printf("scalar values (%d, %d, %f, %f, %s, %s, %s, %s):\n",
+		245, 83, 31.5, 812.49, "testing1", "testing2",
+		"532.2", "2836");
+
+	vint1 = tg_intval(245);
+	printf("\t");
+	tg_printval(stdout, vint1);
+	printf("\n");
+	
+	vint2 = tg_intval(83);
+	printf("\t");
+	tg_printval(stdout, vint2);
+	printf("\n");
+
+
+	vfloat1 = tg_floatval(31.5);
+	printf("\t");
+	tg_printval(stdout, vfloat1);
+	printf("\n");
+	
+	vfloat2 = tg_floatval(812.49);
+	printf("\t");
+	tg_printval(stdout, vfloat2);
+	printf("\n");
+
+	vstr1 = tg_stringval("testing1");
+	printf("\t");
+	tg_printval(stdout, vstr1);
+	printf("\n");
+
+	vstr2 = tg_stringval("testing2");
+	printf("\t");
+	tg_printval(stdout, vstr2);
+	printf("\n");
+
+	vnumstr1 = tg_stringval("532.2");
+	printf("\t");
+	tg_printval(stdout, vnumstr1);
+	printf("\n");
+
+	vnumstr2 = tg_stringval("2836");
+	printf("\t");
+	tg_printval(stdout, vnumstr2);
+	printf("\n");
+
+	varr1 = tg_createval(TG_VAL_ARRAY);
+	tg_arrpush(varr1, vint2);
+	tg_arrpush(varr1, vfloat1);
+	printf("\t");
+	tg_printval(stdout, varr1);
+	printf("\n");
+
+	varr2 = tg_createval(TG_VAL_ARRAY);
+	tg_arrpush(varr2, vint1);
+	tg_arrpush(varr2, vfloat2);
+	printf("\t");
+	tg_printval(stdout, varr2);
+	printf("\n");
+
+	vsarr1 = tg_createval(TG_VAL_ARRAY);
+	tg_arrpush(vsarr1, vint1);
+	printf("\t");
+	tg_printval(stdout, vsarr1);
+	printf("\n");
+
+	vsarr2 = tg_createval(TG_VAL_ARRAY);
+	tg_arrpush(vsarr2, vnumstr1);
+	printf("\t");
+	tg_printval(stdout, vsarr2);
+	printf("\n\n");
+
+	struct tg_val *vres;
+
+	vres = tg_valadd(vint1, vint2);
+	printf("\tint + int:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valadd(vfloat1, vfloat2);
+	printf("\tfloat + float:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valadd(vstr1, vstr2);
+	printf("\tstr + str:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valadd(vnumstr1, vnumstr2);
+	printf("\tnstr + nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valadd(vint1, vfloat1);
+	printf("\tint + float:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valadd(vint1, vstr1);
+	printf("\tint + string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valadd(vint1, vstr1);
+	printf("\tint + nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valadd(vfloat1, vstr1);
+	printf("\tfloat + string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valadd(vfloat1, vnumstr1);
+	printf("\tfloat + nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valadd(vstr1, vnumstr1);
+	printf("\tstring + nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+
+	vres = tg_valsub(vint1, vint2);
+	printf("\tint - int:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valsub(vfloat1, vfloat2);
+	printf("\tfloat - float:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valsub(vstr1, vstr2);
+	printf("\tstr - str:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valsub(vnumstr1, vnumstr2);
+	printf("\tnstr - nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valsub(vint1, vfloat1);
+	printf("\tint - float:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valsub(vint1, vstr1);
+	printf("\tint - string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valsub(vint1, vstr1);
+	printf("\tint - nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valsub(vfloat1, vstr1);
+	printf("\tfloat - string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valsub(vfloat1, vnumstr1);
+	printf("\tfloat - nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valsub(vstr1, vnumstr1);
+	printf("\tstring - nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+
+	vres = tg_valmult(vint1, vint2);
+	printf("\tint * int:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valmult(vfloat1, vfloat2);
+	printf("\tfloat * float:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valmult(vstr1, vstr2);
+	printf("\tstr * str:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valmult(vnumstr1, vnumstr2);
+	printf("\tnstr * nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valmult(vint1, vfloat1);
+	printf("\tint * float:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valmult(vint1, vstr1);
+	printf("\tint * string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valmult(vint1, vstr1);
+	printf("\tint * nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valmult(vfloat1, vstr1);
+	printf("\tfloat * string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valmult(vfloat1, vnumstr1);
+	printf("\tfloat * nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valmult(vstr1, vnumstr1);
+	printf("\tstring * nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+///////////////////////////////////////////////////////////////////////
+
+	vres = tg_valdiv(vint1, vint2);
+	printf("\tint / int:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valdiv(vfloat1, vfloat2);
+	printf("\tfloat / float:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valdiv(vstr1, vstr2);
+	printf("\tstr / str:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valdiv(vnumstr1, vnumstr2);
+	printf("\tnstr / nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valdiv(vint1, vfloat1);
+	printf("\tint / float:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valdiv(vint1, vstr1);
+	printf("\tint / string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valdiv(vint1, vstr1);
+	printf("\tint / nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valdiv(vfloat1, vstr1);
+	printf("\tfloat / string:\t");
+	tg_printval(stdout, vres);
+	printf("\n");
+
+	vres = tg_valdiv(vfloat1, vnumstr1);
+	printf("\tfloat / nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+	vres = tg_valdiv(vstr1, vnumstr1);
+	printf("\tstring / nstr:\t");
+	tg_printval(stdout, vres);
+	printf("\n\n");
+
+
+}
+
 int main()
 {
-	struct tg_val *v1, *v2, *v3, *v4, *v5, *v6;
-
 	tg_initstack();
 
 	tg_startframe();
 
-	v1 = tg_intval(415);
-	v2 = tg_floatval(522.34);
-	v3 = tg_stringval("teststring");
-	v4 = tg_stringval("832.23");
-
-	printf("defined values:\n");
-	tg_printval(stdout, v1);
-	printf("\n");
+	casttest();
 	
-	tg_printval(stdout, v2);
-	printf("\n");
-	tg_printval(stdout, v3);
-	printf("\n");
-	tg_printval(stdout, v4);
-	printf("\n");
-
-
-	v5 = tg_createval(TG_VAL_ARRAY);
-	tg_arrpush(v5, tg_stringval("321.35"));
-	tg_printval(stdout, v5);
-	printf("\n");
-
-	v6 = tg_createval(TG_VAL_ARRAY);
-
-	tg_arrpush(v6, v1);
-	tg_arrpush(v6, v2);
-	tg_arrpush(v6, v3);
-	tg_arrpush(v6, v4);
-	tg_arrpush(v6, v5);
-
-	tg_printval(stdout, v6);
-	printf("\n");
-	printf("\n");
-
-	struct tg_val *v7, *v8, *v9, *v10, *v11, *v12, *v13, *v14;
-
-	v7 = tg_castval(v1, TG_VAL_FLOAT);
-	v8 = tg_castval(v1, TG_VAL_STRING);
-
-	v9 = tg_castval(v2, TG_VAL_INT);
-	v10 = tg_castval(v2, TG_VAL_STRING);
-
-	v11 = tg_castval(v3, TG_VAL_INT);
-	v12 = tg_castval(v3, TG_VAL_FLOAT);
-
-	v13 = tg_castval(v4, TG_VAL_INT);
-	v14 = tg_castval(v4, TG_VAL_FLOAT);
-
-	printf("casting scalar types:\n");
-
-	printf("int -> float: ");
-	tg_printval(stdout, v7);
-	printf("\n");
-	printf("int -> string: ");
-	tg_printval(stdout, v8);
-	printf("\n");
-
-	printf("float -> int: ");
-	tg_printval(stdout, v9);
-	printf("\n");
-	printf("float -> string: ");
-	tg_printval(stdout, v10);
-	printf("\n");
-
-	printf("string -> int: ");
-	tg_printval(stdout, v11);
-	printf("\n");
-	printf("string -> float: ");
-	tg_printval(stdout, v12);
-	printf("\n");
-
-	printf("numeric string -> int: ");
-	tg_printval(stdout, v13);
-	printf("\n");
-	printf("numeric string -> float: ");
-	tg_printval(stdout, v14);
-	printf("\n");
-	printf("\n");
-
-
-	struct tg_val *v15, *v16, *v17, *v18, *v19, *v20, *v21;
-
-	printf("casting with arrays:\n");
-
-	v15 = tg_castval(v1, TG_VAL_ARRAY);
-	v16 = tg_castval(v2, TG_VAL_ARRAY);
-	v17 = tg_castval(v3, TG_VAL_ARRAY);
-	v18 = tg_castval(v4, TG_VAL_ARRAY);
-	v19 = tg_castval(v5, TG_VAL_INT);
-	v20 = tg_castval(v5, TG_VAL_FLOAT);
-	v21 = tg_castval(v5, TG_VAL_STRING);
-
-	printf("int -> array: ");
-	tg_printval(stdout, v15);
-	printf("\n");
+	arraytest(10, 10);
 	
-	printf("float -> array: ");
-	tg_printval(stdout, v16);
-	printf("\n");
-
-	printf("string -> array: ");
-	tg_printval(stdout, v17);
-	printf("\n");
-
-	printf("numeric string -> array: ");
-	tg_printval(stdout, v18);
-	printf("\n");
-
-	printf("one-element array -> int: ");
-	tg_printval(stdout, v19);
-	printf("\n");
-
-	printf("one-element array -> float: ");
-	tg_printval(stdout, v20);
-	printf("\n");
-		
-	printf("one-element array -> string: ");
-	tg_printval(stdout, v21);
-	printf("\n");
-
-
-	struct tg_val *varr;
-	int i;
-
-	varr = tg_createval(TG_VAL_ARRAY);
-
-	for (i = 0; i < 10000000; ++i)
-		tg_arrpush(varr, tg_intval(i));
-	
-	printf("a very big array: ");
-	tg_printval(stdout, varr);
-	printf("\n");
-
+	operatortest();
 
 	tg_endframe();
 
