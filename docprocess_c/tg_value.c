@@ -61,11 +61,14 @@ struct tg_val *tg_createval(enum TG_VALTYPE t)
 		newv->floatval = 0.0;
 	else if (t == TG_VAL_STRING)
 		tg_dstrcreate(&(newv->strval), "");
-	else if (t == TG_VAL_ARRAY)
-		tg_inithash(TG_HASH_ARRAY, &(newv->arrval));
+	else if (t == TG_VAL_ARRAY) {
+		tg_inithash(TG_HASH_ARRAY, &(newv->arrval.hash));
+		tg_darrinit(&(newv->arrval.arr),
+			sizeof(struct tg_val *));
+	}
 
 	newv->type = t;
-	
+
 	return newv;
 }
 
@@ -118,20 +121,33 @@ struct tg_val *tg_copyval(struct tg_val *v)
 	else if (v->type == TG_VAL_STRING)
 		tg_dstrcreate(&(newv->strval), v->strval.str);
 	else if (v->type == TG_VAL_ARRAY) {
-		const char *key;
+		int i;
 
-		tg_inithash(TG_HASH_ARRAY, &(newv->arrval));
+		tg_inithash(TG_HASH_ARRAY, &(newv->arrval.hash));
+		tg_darrinit(&(newv->arrval.arr),
+			sizeof(struct tg_val *));
 
-		TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY,
-			v->arrval, key,
-			tg_hashset(TG_HASH_ARRAY, &(newv->arrval),
-				key, tg_copyval(p));
-		);
+		for (i = 0; i < v->arrval.arr.cnt; ++i) {
+			struct tg_val *vv;
+
+			vv = *((struct tg_val **) tg_darrget(
+				&(v->arrval.arr), i));
+			vv = tg_copyval(vv);
+
+			tg_darrpush(&(newv->arrval.arr), &vv);
+		}
 	}
 
 	newv->type = v->type;
 
 	return newv;
+}
+
+// is_scalar(enum TG_VALTYPE t) ?
+
+int tg_isscalar(enum TG_VALTYPE t)
+{
+	return (t != TG_VAL_ARRAY && t != TG_VAL_TABLE);
 }
 
 struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
@@ -192,7 +208,7 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 		snprintf(buf, 1024, "%f", v->floatval);
 		tg_dstraddstr(&(newv->strval), buf);
 	}
-	else if (vt == TG_VAL_STRING && t != TG_VAL_ARRAY) {
+	else if (vt == TG_VAL_STRING && tg_isscalar(t)) {
 		newv = tg_createval(t);
 
 		if (t == TG_VAL_INT)
@@ -201,21 +217,51 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 			sscanf(v->strval.str, "%f", &(newv->floatval));
 		else
 			tg_dstraddstr(&(newv->strval), v->strval.str);
-	}	
-	else if (vt != TG_VAL_ARRAY && t == TG_VAL_ARRAY) {
+	}
+	else if (tg_isscalar(vt) && t == TG_VAL_ARRAY) {
 		newv = tg_createval(t);
 
 		tg_arrpush(newv, v);
 	}
-	else if (vt == TG_VAL_ARRAY && t != TG_VAL_ARRAY) {
-		if (v->arrval.count != 1) {
+	else if (tg_isscalar(vt) && t == TG_VAL_TABLE) {
+		// create 2d array
+		// copy v to [0,0]
+	}
+	else if (vt == TG_VAL_ARRAY && tg_isscalar(t)) {
+		struct tg_val **vv;
+
+		if (v->arrval.arr.cnt != 1) {
 			TG_SETERROR("%s%s%s", "Trying to cast array,",
 				" that has more than to element to",
 				" a scalar type");
 			return NULL;
 		}
 
-		newv = tg_castval(v->arrval.last, t);	
+		vv = tg_darrget(&(v->arrval.arr), 0);
+
+		newv = tg_castval(*vv, t);
+	}
+	else if (vt == TG_VAL_TABLE && tg_isscalar(t)) {
+		struct tg_val **vv;
+
+		if (v->arrval.arr.cnt != 1) {
+			TG_SETERROR("%s%s%s", "Trying to cast array,",
+				" that has more than to element to",
+				" a scalar type");
+			return NULL;
+		}
+
+		vv = tg_darrget(&(v->arrval.arr), 0);
+		vv = tg_darrget(&((*vv)->arrval.arr), 0);
+
+		newv = tg_castval(*vv, t);
+	}
+	else if (vt == TG_VAL_TABLE && t == TG_VAL_ARRAY) {
+		newv = tg_copyval(v);
+		newv->type = TG_VAL_TABLE;
+	}
+	else if (vt == TG_VAL_ARRAY && t == TG_VAL_TABLE) {
+		// assert that array is table-like
 	}
 	else
 		newv = tg_copyval(v);
@@ -251,27 +297,25 @@ int tg_istrueval(struct tg_val *v)
 	else if (v->type == TG_VAL_STRING)
 		return strlen(v->strval.str);
 	else if (v->type == TG_VAL_ARRAY)
-		return v->arrval.count;
+		return v->arrval.arr.cnt;
 
 	return 0;
 }
 
 void tg_arrpush(struct tg_val *arr, struct tg_val *v)
 {
-	char buf[1024];
+	struct tg_val *newv;
 	
-	TG_ASSERT(arr->type == TG_VAL_ARRAY,
-		"Trying to push to a non-array value.");
+	newv = tg_copyval(v);
 
-	snprintf(buf, 1024, "%ld", arr->arrval.count);
-	
-	tg_hashset(TG_HASH_ARRAY, &(arr->arrval), buf, tg_copyval(v));
+	tg_darrpush(&(arr->arrval.arr), &newv);
 }
 
 void tg_printval(FILE *f, struct tg_val *v)
 {
 	int isfirst;
-	const char *key;
+	int i;
+	struct tg_val **vv;
 
 	switch (v->type) {
 	case TG_VAL_EMPTY:
@@ -292,20 +336,22 @@ void tg_printval(FILE *f, struct tg_val *v)
 	case TG_VAL_STRING:
 		fprintf(f, "string{%s}", v->strval.str);
 		break;
+	case TG_VAL_TABLE:
 	case TG_VAL_ARRAY:
 		fprintf(f, "array{");
-
+		
 		isfirst = 1;
 
-		TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY,
-			v->arrval, key,
+		for (i = 0; i < v->arrval.arr.cnt; ++i) {
 			if (!isfirst) fprintf(f, ", ");
-		
+
 			isfirst = 0;
 
-			fprintf(f, "%s = ", key);
-			tg_printval(f, p);	
-		);
+			vv = tg_darrget(&(v->arrval.arr), i);
+
+			tg_printval(f, *vv);
+		}
+			
 
 		fprintf(f, "}");
 
@@ -436,14 +482,30 @@ struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
 	return r;
 }
 
-/*
-struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2)
+struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
+	int span)
 {
-	struct tg_val r;
+//	struct tg_val r;
+
+	if ((v1 = tg_typeprom2val(v1, v2->type, TG_VAL_TABLE)) == NULL)
+		return NULL;
+
+	if ((v2 = tg_typeprom2val(v2, v1->type, TG_VAL_TABLE)) == NULL)
+		return NULL;
+
+	if (span) {
+
+	}
+
+	// tg_table(struct tg_val)
+	// for every key in v1:
+	// 	cast v1[i]
+	// 		if v1[i] == TG_VAL_ARRAY
+	// 			return tg_val_none;
 
 	return NULL;
 }
-
+/*
 struct tg_val *tg_valindex(struct tg_val *v1, struct tg_val *v2)
 {
 	struct tg_val r;

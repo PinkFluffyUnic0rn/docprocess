@@ -19,7 +19,7 @@ struct tg_char {
 const char *tg_strsym[] = {
 	"identificator", "integer", "float", "quoted string",
 	"relational operator", "(", ")", "&", "|", "~", ",", "!",
-	"increment or decrement operator", ";", ":", "$",
+	"increment or decrement operator", ";", ":", "$", "^",
 	"addition or substraction operator",
 	"multiplication or division operator", "..",
 	"assignment operator", "?", "next to operator", "global",
@@ -500,7 +500,11 @@ static int tg_nexttoken(struct tg_token *t)
 	}
 	else if (c == '$') {
 		v = "$";
-		type = TG_T_DOL;
+		type = TG_T_REFOP;
+	}
+	else if (c == '%') {
+		v = "%";
+		type = TG_T_REFOP;
 	}
 	else if (c == '~') {
 		if (tg_peekc() == '=') {
@@ -1073,7 +1077,7 @@ static int tg_ref(int ni)
 {
 	struct tg_token t;
 	
-	TG_ERRQUIT(tg_gettokentype(&t, TG_T_DOL));
+	TG_ERRQUIT(tg_gettokentype(&t, TG_T_REFOP));
 
 	TG_ERRQUIT(tg_address(ni));
 
@@ -1115,7 +1119,7 @@ static int tg_unary(int ni)
 		TG_ERRQUIT(tg_prestep(ni));
 		break;
 
-	case TG_T_DOL:
+	case TG_T_REFOP:
 		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_REF, &t));
 		TG_ERRQUIT(tg_ref(ni));
 		break;

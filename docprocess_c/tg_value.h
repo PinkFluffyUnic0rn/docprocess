@@ -29,15 +29,30 @@ enum TG_VALTYPE {
 	TG_VAL_INT = 3,
 	TG_VAL_FLOAT = 4,
 	TG_VAL_STRING = 5,
-	TG_VAL_ARRAY = 6,
+	TG_VAL_TABLE = 6,
+	TG_VAL_ARRAY = 7,
 };
+
+// struct tg_array {
+// 	tg_hash (tg_val *) vals;
+// 	tg_array (tg_val *) keys;
+//	sturct tg_dstring *lastkey;
+// };
+//
+// tg_arrpush -- choose key automatically, append to the end
+// 	no-key values, only accessible by collation addressing?
+// tg_arrset(key, val) -- if key exists, replace, else append to the end
+// tg_arrget(key) -- if key is int, get by collation, else get by key
 
 struct tg_val {
 	union {
 		struct tg_dstring strval;
 		int intval;
 		float floatval;
-		struct tg_hash arrval;
+		struct {
+			struct tg_hash hash;
+			struct tg_darray arr;
+		} arrval;
 	};
 	enum TG_VALTYPE type;
 
@@ -104,11 +119,11 @@ struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
 struct tg_val *tg_valand(struct tg_val *v1, struct tg_val *v2);
 struct tg_val *tg_valor(struct tg_val *v1, struct tg_val *v2);
 
-/*
-struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2);
 
-struct tg_val *tg_valindex(struct tg_val *v1, struct tg_val *v2);
-*/
+struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
+	int span);
+
+//struct tg_val *tg_valindex(struct tg_val *v1, struct tg_val *v2);
 
 struct tg_val *tg_valattr(struct tg_val *v1, const char *key);
 

@@ -18,8 +18,16 @@ extern char tg_error[TG_MSGMAXSIZE];
 do {						\
 	if (!(expr)) {				\
 		fprintf(stderr, __VA_ARGS__);	\
+		fprintf(stderr, "\n");		\
 		exit(1);			\
 	}					\
+} while (0);
+
+#define TG_ERROR(...)			\
+do {					\
+	fprintf(stderr, __VA_ARGS__);	\
+	fprintf(stderr, "\n");		\
+	exit(1);			\
 } while (0);
 
 #define TG_REHASHFACTOR 1.5

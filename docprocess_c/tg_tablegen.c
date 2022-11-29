@@ -2,38 +2,174 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <errno.h>
+#include <unistd.h>
+#include <limits.h>
 
 #include "tg_parser.h"
 #include "tg_value.h"
 
+#define CONVERTERS_PATH "/home/qwerty/docprocess/docprocess_c/converters"
+
 // symbol table API
+enum TG_SYMTYPE {
+	TG_SYMTYPE_FUNC,
+	TG_SYMTYPE_VAL,
+	TG_SYMTYPE_INPUT
+};
+
+struct tg_function {
+	int argcount;
+};
+
+struct tg_input {
+	const char *type;
+	const char *path;
+};
+
 struct tg_symbol {
-	struct tg_val *p;
+	union {
+		struct tg_val *val;
+		struct tg_function *func;
+		struct tg_input *input;
+	};
+
+	enum TG_SYMTYPE type;
+
 	TG_HASHFIELDS(struct tg_symbol, TG_HASH_SYMBOL)
 };
 
 TG_HASHED(struct tg_symbol, TG_HASH_SYMBOL)
 
+struct tg_allocator funcalloc;
+struct tg_allocator inputalloc;
 struct tg_allocator symalloc;
 struct tg_hash symtable;
 
-void tg_symboladd(const char *name, struct tg_val *v)
+struct tg_val *csv_to_table(int f)
+{
+	return NULL;
+}
+
+struct tg_val *readsource(struct tg_input *in,
+	struct tg_val *argv, int argc)
+{
+	char conv[PATH_MAX];
+	FILE *f;
+	int pid;
+	int p[2];
+
+	snprintf(conv, PATH_MAX, "%s/in_%s", CONVERTERS_PATH, in->type);
+
+	if ((f = fopen(conv, "r")) != NULL) {
+		fprintf(stderr, "No converter for input type %s.",
+			in->type);
+		return tg_createval(TG_VAL_EMPTY);
+	}
+
+	if (pipe(p) < 0) {
+		fprintf(stderr, strerror(errno));
+		fclose(f);
+		return tg_createval(TG_VAL_EMPTY);
+	}
+
+	if ((pid = fork()) < 0) {
+		fprintf(stderr, strerror(errno));
+		fclose(f);
+		return tg_createval(TG_VAL_EMPTY);
+	}
+
+	if (pid == 0) {
+		char **args;
+		int i;
+		
+		close(p[0]);
+
+		TG_ASSERT(args = malloc(sizeof(char **) * (argc + 3)),
+			"Allocation error.");
+
+		// argv -- array?
+		for (i = 0; i < argc; ++i) {
+			struct tg_val *sv;
+
+			sv = tg_castval(argv + i + 2, TG_VAL_STRING);
+
+			TG_ASSERT(sv != NULL, tg_error);
+
+			args[i] = sv->strval.str;
+		}
+
+		args[0] = conv;
+
+		args[1] = malloc(PATH_MAX);
+		strcpy(args[1], in->path);
+
+		args[argc + 1] = NULL;
+
+		TG_ASSERT(execv(conv, args) >= 0, strerror(errno));
+	}
+
+	close(p[1]);
+	fclose(f);
+
+	return csv_to_table(p[1]);
+}
+
+void tg_symboladdval(const char *name, void *v, enum TG_SYMTYPE type)
 {
 	struct tg_symbol *sym;
 
 	sym = tg_alloc(&symalloc);
-	sym->p = v;
+
+	if (type == TG_SYMTYPE_VAL)
+		sym->val = v;
+	else if (type == TG_SYMTYPE_FUNC)
+		sym->func = v;
+	else if (type == TG_SYMTYPE_INPUT)
+		sym->input = v;
+
+	sym->type = type;
 
 	tg_hashset(TG_HASH_SYMBOL, &symtable, name, sym);
 }
 
-struct tg_val *tg_symbolget(const char *name)
+void *tg_symbolget(const char *name, enum TG_SYMTYPE type)
 {
 	struct tg_symbol *sym;
 
-	sym = tg_hashget(TG_HASH_SYMBOL, &symtable, name);
+	if ((sym = tg_hashget(TG_HASH_SYMBOL, &symtable, name)) == NULL)
+		return NULL;
 
-	return sym->p;
+	if (type == TG_SYMTYPE_VAL)
+		return sym->val;
+	else if (type == TG_SYMTYPE_VAL)
+		return sym->func;
+	else if (type == TG_SYMTYPE_INPUT)
+		return sym->input;
+	
+	TG_ERROR("Unknown symbol type: %d.", type);
+}
+
+struct tg_val *tg_symbolgetval(const char *name)
+{
+	struct tg_symbol *sym;
+
+	if ((sym = tg_hashget(TG_HASH_SYMBOL, &symtable, name)) == NULL)
+		return NULL;
+
+	if (sym->type == TG_SYMTYPE_VAL)
+		return sym->val;
+	if (sym->type == TG_SYMTYPE_INPUT) {
+		return readsource(sym->input, NULL, 1);
+	}
+	else if (sym->type == TG_SYMTYPE_FUNC) {
+		TG_ERROR("Cannot convert function %s to value.", name);
+		return NULL;
+	}
+		
+	TG_ERROR("Symbol %s has unknown type.", name);
+
+	return NULL;
 }
 
 void casttest()
@@ -1070,16 +1206,60 @@ void operatortest()
 
 }
 
+int tg_readsources(const char *sources)
+{
+	char s[4096];
+	char *p;
+
+	strcpy(s, sources);
+
+	p = strtok(s, ";");
+	do {
+		char ss[4096];
+		const char *name, *type, *path;
+		struct tg_input *input;
+		char *pp;
+
+		strcpy(ss, p);
+		pp = ss;
+
+		name = pp;
+		TG_ASSERT((pp = strchr(pp, ':')) != NULL,
+			"Error while reading sources list.");
+		*pp++ = '\0';
+
+		type = pp;
+		TG_ASSERT((pp = strchr(pp + 1, ':')) != NULL,
+			"Error while reading sources list.");
+		*pp++ = '\0';
+
+		path = pp;
+
+
+		input = tg_alloc(&inputalloc);
+		input->type = type;
+		input->path = path;
+
+		tg_symboladdval(name, input, TG_SYMTYPE_INPUT);
+	} while ((p = strtok(NULL, ";")) != NULL);
+
+	return 0;
+}
+
 int main()
 {
 	tg_initstack();
 
 	tg_startframe();
 
+
+//	tg_readsources("test1:csv:./test1.csv;test2:script:./test2.sh");
+
+	
 	casttest();
 	
-	arraytest(10, 10);
-	
+	arraytest(1000, 1000);
+
 	operatortest();
 
 	tg_endframe();

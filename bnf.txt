@@ -25,7 +25,7 @@ add		-> mult [addop mult]*						+
 mult		-> unary [multop unary]*					+
 unary		-> prestep | ref | not | sign | address				+
 prestep		-> stepop address
-ref 		-> '$' address							+
+ref 		-> refop address						+
 not		-> '!' address							+
 sign		-> addop address						+
 address		-> val [args | index | attr]*					+
@@ -45,5 +45,6 @@ nexttoop	-> '^' | '<-'							+
 relop		-> '==' | '^' | '!=' | '>=' | '<=' | '<' | '>'			+
 addop		-> '+' | '-'							+
 multop		-> '*' | '/'							+
+refop		-> '$' | '%'							+
 string 		-> ...								+
 fordir		-> cols | rows
