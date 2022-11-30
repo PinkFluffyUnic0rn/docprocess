@@ -315,7 +315,7 @@ void casttest()
 	tg_printval(stdout, stoav);
 	printf("\n");
 	
-	nstoav = tg_castval(vstr, TG_VAL_ARRAY);
+	nstoav = tg_castval(vnumstr, TG_VAL_ARRAY);
 	printf("\tnumeric string -> array: ");
 	tg_printval(stdout, nstoav);
 	printf("\n");

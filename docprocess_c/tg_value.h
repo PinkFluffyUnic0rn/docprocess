@@ -94,6 +94,17 @@ int tg_istrueval(struct tg_val *v);
 
 void tg_arrpush(struct tg_val *arr, struct tg_val *v);
 
+#define tg_arrgetr(v, p) \
+	(*((struct tg_val **) tg_darrget(&((v)->arrval.arr), (p))))
+
+#define TG_ARRFOREACH(v, pos, el, action) 			\
+do {								\
+	for ((pos) = 0; (pos) < (v)->arrval.arr.cnt; ++(pos)) {	\
+		(el) = tg_arrgetr((v), (pos));			\
+		action						\
+	}							\
+} while (0);
+
 void tg_printval(FILE *f, struct tg_val *v);
 
 struct tg_val *tg_valcat(struct tg_val *v1, struct tg_val *v2);

@@ -121,21 +121,20 @@ struct tg_val *tg_copyval(struct tg_val *v)
 	else if (v->type == TG_VAL_STRING)
 		tg_dstrcreate(&(newv->strval), v->strval.str);
 	else if (v->type == TG_VAL_ARRAY) {
+		struct tg_val *vv;
 		int i;
 
 		tg_inithash(TG_HASH_ARRAY, &(newv->arrval.hash));
 		tg_darrinit(&(newv->arrval.arr),
 			sizeof(struct tg_val *));
 
-		for (i = 0; i < v->arrval.arr.cnt; ++i) {
-			struct tg_val *vv;
+		TG_ARRFOREACH(v, i, vv,
+			{
+				vv = tg_copyval(vv);
 
-			vv = *((struct tg_val **) tg_darrget(
-				&(v->arrval.arr), i));
-			vv = tg_copyval(vv);
-
-			tg_darrpush(&(newv->arrval.arr), &vv);
-		}
+				tg_darrpush(&(newv->arrval.arr), &vv);
+			}
+		);
 	}
 
 	newv->type = v->type;
@@ -143,13 +142,12 @@ struct tg_val *tg_copyval(struct tg_val *v)
 	return newv;
 }
 
-// is_scalar(enum TG_VALTYPE t) ?
-
 int tg_isscalar(enum TG_VALTYPE t)
 {
 	return (t != TG_VAL_ARRAY && t != TG_VAL_TABLE);
 }
 
+// make reference version of tg_castval?
 struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 {
 	struct tg_val *newv;
@@ -224,44 +222,82 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 		tg_arrpush(newv, v);
 	}
 	else if (tg_isscalar(vt) && t == TG_VAL_TABLE) {
-		// create 2d array
-		// copy v to [0,0]
+		struct tg_val *vv;
+
+		newv = tg_createval(t);
+		vv = tg_createval(TG_VAL_ARRAY);
+
+		tg_arrpush(newv, vv);
+		tg_arrpush(vv, v);
 	}
 	else if (vt == TG_VAL_ARRAY && tg_isscalar(t)) {
-		struct tg_val **vv;
-
-		if (v->arrval.arr.cnt != 1) {
+		if (v->arrval.arr.cnt > 1) {
 			TG_SETERROR("%s%s%s", "Trying to cast array,",
 				" that has more than to element to",
 				" a scalar type");
 			return NULL;
 		}
 
-		vv = tg_darrget(&(v->arrval.arr), 0);
+		if (v->arrval.arr.cnt == 0)
+			return tg_createval(TG_VAL_EMPTY);
 
-		newv = tg_castval(*vv, t);
+		newv = tg_castval(tg_arrgetr(v, 0), t);
 	}
 	else if (vt == TG_VAL_TABLE && tg_isscalar(t)) {
-		struct tg_val **vv;
+		struct tg_val *vv;
 
-		if (v->arrval.arr.cnt != 1) {
-			TG_SETERROR("%s%s%s", "Trying to cast array,",
+		if (v->arrval.arr.cnt > 1) {
+			TG_SETERROR("%s%s%s", "Trying to cast a table,",
 				" that has more than to element to",
 				" a scalar type");
 			return NULL;
 		}
 
-		vv = tg_darrget(&(v->arrval.arr), 0);
-		vv = tg_darrget(&((*vv)->arrval.arr), 0);
+		if (v->arrval.arr.cnt == 0)
+			return tg_createval(TG_VAL_EMPTY);
 
-		newv = tg_castval(*vv, t);
+		vv = tg_arrgetr(v, 0);
+
+		if (vv->arrval.arr.cnt != 1) {
+			TG_SETERROR("%s%s%s", "Trying to cast a table,",
+				" that has more than to element to",
+				" a scalar type");
+			return NULL;
+		}
+
+		if (v->arrval.arr.cnt == 0)
+			return tg_createval(TG_VAL_EMPTY);
+
+		newv = tg_castval(tg_arrgetr(vv, 0), t);
 	}
 	else if (vt == TG_VAL_TABLE && t == TG_VAL_ARRAY) {
 		newv = tg_copyval(v);
 		newv->type = TG_VAL_TABLE;
 	}
 	else if (vt == TG_VAL_ARRAY && t == TG_VAL_TABLE) {
-		// assert that array is table-like
+		int i;
+
+		newv = tg_createval(t);
+
+		for (i = 0; i < v->arrval.arr.cnt; ++i) {
+			struct tg_val *vv, *vvv;
+			int j;
+
+			vv = tg_castval(tg_arrgetr(v, i), TG_VAL_ARRAY);
+
+			TG_ARRFOREACH(vv, j, vvv,
+				if (!tg_isscalar(vvv->type)) {
+					TG_SETERROR("%s%s%s%s",
+						"Trying to cast a ",
+						"array with no ",
+						"table-like structure ",
+						"to table.");
+					return NULL;
+				}
+			);
+
+			tg_arrpush(newv, vv);
+		}
 	}
 	else
 		newv = tg_copyval(v);
@@ -315,7 +351,6 @@ void tg_printval(FILE *f, struct tg_val *v)
 {
 	int isfirst;
 	int i;
-	struct tg_val **vv;
 
 	switch (v->type) {
 	case TG_VAL_EMPTY:
@@ -347,11 +382,8 @@ void tg_printval(FILE *f, struct tg_val *v)
 
 			isfirst = 0;
 
-			vv = tg_darrget(&(v->arrval.arr), i);
-
-			tg_printval(f, *vv);
+			tg_printval(f, tg_arrgetr(v, i));
 		}
-			
 
 		fprintf(f, "}");
 
