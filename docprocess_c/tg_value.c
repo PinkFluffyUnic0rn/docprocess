@@ -38,7 +38,8 @@ int tg_startframe()
 // allocated in this frame
 void tg_endframe()
 {
-	tg_allocdestroy(tg_stack + tg_stackdepth);
+	tg_allocdestroy(tg_stack + tg_stackdepth,
+		(void (*)(void *)) tg_freeval);
 
 	--tg_stackdepth;
 }
@@ -59,7 +60,15 @@ struct tg_val *tg_createval(enum TG_VALTYPE t)
 		newv->floatval = 0.0;
 	else if (t == TG_VAL_STRING)
 		tg_dstrcreate(&(newv->strval), "");
-	else if (t == TG_VAL_ARRAY || t == TG_VAL_TABLE) {
+	else if (t == TG_VAL_TABLE) {
+		tg_valsetattr(newv, "rows", tg_intval(0));
+		tg_valsetattr(newv, "cols", tg_intval(0));
+
+		tg_inithash(TG_HASH_ARRAY, &(newv->arrval.hash));
+		tg_darrinit(&(newv->arrval.arr),
+			sizeof(struct tg_val *));
+	}	
+	else if (t == TG_VAL_ARRAY) {
 		tg_inithash(TG_HASH_ARRAY, &(newv->arrval.hash));
 		tg_darrinit(&(newv->arrval.arr),
 			sizeof(struct tg_val *));
@@ -75,10 +84,15 @@ void tg_freeval(struct tg_val *v)
 	int i;
 	const char *key;
 
-	TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
-		tg_freeval(tg_valgetattrr(v, key));
-		tg_hashdel(TG_HASH_ARRAY, &(v->attrs), key);
-	);
+	if (v->type == TG_VAL_EMPTY)
+		return;
+
+	if (v->attrs.count > 0) {
+		TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
+			tg_freeval(tg_valgetattrr(v, key));
+			tg_hashdel(TG_HASH_ARRAY, &(v->attrs), key);
+		);
+	}
 
 	if (!tg_isscalar(v->type)) {
 		struct tg_val *vv;
@@ -87,6 +101,11 @@ void tg_freeval(struct tg_val *v)
 	
 		tg_darrclear(&(v->arrval.arr));
 	}
+
+//	if (v->type == TG_VAL_STRING)
+//		tg_dstrdestroy(&(v->strval));
+
+	v->type = TG_VAL_EMPTY;
 
 	tg_free(tg_stack + tg_stackdepth, v);
 }
@@ -704,7 +723,7 @@ static void tg_copytable(struct tg_val *dst, struct tg_val *src,
 		struct tg_val *dstrow, *srcrow;
 
 		dstrow = tg_arrgetre(dst, offr + i, tg_arrval());
-		srcrow = tg_arrgetr(src, i);
+		srcrow = tg_arrget(src, i);
 
 		for (j = 0; j < cols; ++j) {
 			if (i >= srcrows || j >= srccols) {
@@ -714,7 +733,7 @@ static void tg_copytable(struct tg_val *dst, struct tg_val *src,
 			}
 
 			tg_arrset(dstrow, offc + j,
-				tg_arrgetre(srcrow, j, tg_emptyval()));
+				tg_arrgete(srcrow, j, tg_emptyval()));
 		}
 	}
 

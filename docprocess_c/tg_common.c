@@ -15,7 +15,7 @@ void tg_allocinit(struct tg_allocator *allocer, size_t sz)
 void *tg_alloc(struct tg_allocator *allocer)
 {
 	void *p;
-
+	
 	if (tg_darrpop(&(allocer->freed), &p) >= 0)
 		return p;
 
@@ -23,7 +23,6 @@ void *tg_alloc(struct tg_allocator *allocer)
 		p = malloc(allocer->sz * TG_FRAMEBLOCKSIZE);
 		TG_ASSERT(p != NULL,
 			"Cannot allocate new value in stack.");
-
 		tg_darrpush(&(allocer->blocks), &p);
 	}
 
@@ -39,16 +38,24 @@ void tg_free(struct tg_allocator *allocer, void *p)
 	tg_darrpush(&(allocer->freed), &p);
 }
 
-void tg_allocdestroy(struct tg_allocator *allocer)
+void tg_allocdestroy(struct tg_allocator *allocer,
+	void (*destr)(void *))
 {
 	void *p;
 
-	while (tg_darrpop(&(allocer->blocks), &p) >= 0)
+	while (tg_darrpop(&(allocer->blocks), &p) >= 0) {
+		int i;
+
+		if (destr != NULL) {
+			for (i = 0; i < TG_FRAMEBLOCKSIZE; ++i)
+				destr(p + allocer->sz * i);
+		}
+		
 		free(p);
+	}
 
 	tg_darrclear(&(allocer->blocks));
 	tg_darrclear(&(allocer->freed));
 
 	allocer->valcount = 0;
-
 }

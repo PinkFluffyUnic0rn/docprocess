@@ -407,8 +407,6 @@ void arraytest(int bigarrsize, int deeparrsize)
 		tg_arrpush(pp, p);
 
 		pp = tg_arrgetr(pp, 0);
-	
-		tg_freeval(p);
 	}
 	
 	tg_arrpush(pp, tg_stringval("test"));
@@ -1253,6 +1251,8 @@ int tabletest()
 {
 	struct tg_val *s1, *s2, *s3, *s4, *s5, *s6, *s7, *t;
 	
+	tg_startframe();
+	
 	s1 = tg_stringval("test");
 	s2 = tg_stringval("asdf");
 	s3 = tg_stringval("sd");
@@ -1280,6 +1280,8 @@ int tabletest()
 	tg_printval(stdout, t);
 	printf("\n");
 	
+	tg_endframe();
+
 	return 0;
 }
 
@@ -1288,8 +1290,10 @@ int main()
 //	tg_initstack();
 
 	tg_startframe();
+	int i;
 
-	tabletest();
+	for (i = 0; i < 100000; ++i)
+		tabletest();
 
 //	tg_readsources("test1:csv:./test1.csv;test2:script:./test2.sh");
 
@@ -1301,7 +1305,7 @@ int main()
 	//arraytest(20000000, 0);
 
 	//operatortest();
-
+	
 	tg_endframe();
 
 	return 0;

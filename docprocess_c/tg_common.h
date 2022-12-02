@@ -152,7 +152,6 @@ void tg_hashset##NAME(struct tg_hash *h, const char *key, STRT *v)	\
 		}						\
 	}							\
 								\
-	h->last = v;						\
 	h->count++;						\
 }								\
 								\
@@ -190,6 +189,16 @@ void tg_hashdel##NAME(struct tg_hash *h, const char *key)	\
 	}							\
 								\
 	tg_dstrdestroy(&(p->key##NAME));			\
+								\
+	if (p->prev##NAME != NULL)				\
+		p->prev##NAME->next##NAME = p->next##NAME;	\
+	else							\
+		h->buckets[b] = p->next##NAME;			\
+								\
+	if (p->next##NAME != NULL)				\
+		p->next##NAME->prev##NAME = p->prev##NAME;	\
+								\
+	h->count--;						\
 }
 
 
@@ -237,6 +246,7 @@ void *tg_alloc(struct tg_allocator *allocer);
 
 void tg_free(struct tg_allocator *allocer, void *p);
 
-void tg_allocdestroy(struct tg_allocator *allocer);
+void tg_allocdestroy(struct tg_allocator *allocer,
+	void (*destr)(void *));
 
 #endif
