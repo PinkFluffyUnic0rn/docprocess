@@ -172,7 +172,26 @@ STRT *tg_hashget##NAME(struct tg_hash *h, const char *key)	\
 	}							\
 								\
 	return p;						\
+}								\
+								\
+void tg_hashdel##NAME(struct tg_hash *h, const char *key)	\
+{								\
+	STRT *p;						\
+	int b;							\
+								\
+	b = tg_hashbucket##NAME(key, h->bucketscount);		\
+								\
+	p = h->buckets[b];					\
+	while (p != NULL) {					\
+ 		if (strcmp(key, p->key##NAME.str) == 0)		\
+			break;					\
+								\
+		p = p->next##NAME;				\
+	}							\
+								\
+	tg_dstrdestroy(&(p->key##NAME));			\
 }
+
 
 #define tg_hash(NAME)	tg_hash##NAME
 
@@ -184,6 +203,9 @@ STRT *tg_hashget##NAME(struct tg_hash *h, const char *key)	\
 
 #define tg_hashget(NAME, h, key) \
 	tg_hashget##NAME((h), (key))
+
+#define tg_hashdel(NAME, h, key) \
+	tg_hashdel##NAME((h), (key))
 
 #define TG_HASHFOREACH(STRT, NAME, h, KEY, ACTIONS)		\
 do {								\
@@ -203,6 +225,7 @@ do {								\
 } while (0);
 
 struct tg_allocator {
+	struct tg_darray freed;
 	struct tg_darray blocks;
 	size_t sz;
 	size_t valcount;
@@ -211,6 +234,8 @@ struct tg_allocator {
 void tg_allocinit(struct tg_allocator *allocer, size_t sz);
 
 void *tg_alloc(struct tg_allocator *allocer);
+
+void tg_free(struct tg_allocator *allocer, void *p);
 
 void tg_allocdestroy(struct tg_allocator *allocer);
 

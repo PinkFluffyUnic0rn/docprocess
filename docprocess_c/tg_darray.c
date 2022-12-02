@@ -11,8 +11,7 @@ void tg_darrinit(struct tg_darray *darr, size_t sz)
 	
 	darr->sz = sz;
 
-	darr->data = malloc(sz);
-	TG_ASSERT(darr->data != NULL,
+	TG_ASSERT((darr->data = malloc(sz)) != NULL,
 		"%s%s", "Cannot allocate memory while",
 		" initilizing a dynamic array");
 	
@@ -26,7 +25,6 @@ int tg_darrset(struct tg_darray *darr, size_t pos, void *el)
 	assert(el != NULL);
 
 	darr->cnt = pos + 1;
-
 
 	if (pos >= darr->max) {
 		char *p;

@@ -51,8 +51,6 @@ struct tg_val {
 };
 
 // stack operations
-void tg_initstack();
-
 int tg_startframe();
 
 void tg_endframe();
@@ -61,6 +59,9 @@ void tg_endframe();
 
 // value operations
 struct tg_val *tg_createval(enum TG_VALTYPE t);
+
+void tg_freeval(struct tg_val *v);
+
 #define tg_emptyval() tg_createval(TG_VAL_EMPTY)
 #define tg_arrval() tg_createval(TG_VAL_ARRAY)
 struct tg_val *tg_intval(int v);
@@ -77,6 +78,7 @@ struct tg_val *tg_typeprom2val(struct tg_val *v1,
 	enum TG_VALTYPE v2type, enum TG_VALTYPE mtype);
 
 struct tg_val *tg_valgetattr(struct tg_val *v1, const char *key);
+struct tg_val *tg_valgetattrr(struct tg_val *v1, const char *key);
 void tg_valsetattr(struct tg_val *v, const char *key,
 	struct tg_val *attr);
 
