@@ -70,7 +70,7 @@ static int tg_hashbucket##NAME(const char *str, int bucketscount)	\
 								\
 	r = 0;							\
 	for (p = str; *p != '\0'; ++p)				\
-		r += *p + (rand() % bucketscount);		\
+		r += *p;					\
 								\
 	return r % bucketscount;				\
 }								\
@@ -126,12 +126,14 @@ void tg_hashset##NAME(struct tg_hash *h, const char *key, STRT *v)	\
 			if (strcmp(key, p->key##NAME.str) == 0) {	\
 				if (p->prev##NAME != NULL) {		\
 					p->prev##NAME->next##NAME = v;	\
-					v->prev##NAME = p->prev##NAME->next##NAME;	\
+					v->prev##NAME = p->prev##NAME;	\
 				}				\
+				else				\
+					h->buckets[b] = v;	\
 								\
 				if (p->next##NAME != NULL) {		\
 					p->next##NAME->prev##NAME = v;	\
-					v->next##NAME = p->next##NAME->prev##NAME;	\
+					v->next##NAME = p->next##NAME;	\
 				}				\
 								\
 				tg_dstrcreate(&(v->key##NAME), key);	\

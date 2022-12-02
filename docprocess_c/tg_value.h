@@ -33,17 +33,6 @@ enum TG_VALTYPE {
 	TG_VAL_ARRAY = 7,
 };
 
-// struct tg_array {
-// 	tg_hash (tg_val *) vals;
-// 	tg_array (tg_val *) keys;
-//	sturct tg_dstring *lastkey;
-// };
-//
-// tg_arrpush -- choose key automatically, append to the end
-// 	no-key values, only accessible by collation addressing?
-// tg_arrset(key, val) -- if key exists, replace, else append to the end
-// tg_arrget(key) -- if key is int, get by collation, else get by key
-
 struct tg_val {
 	union {
 		struct tg_dstring strval;
@@ -56,7 +45,7 @@ struct tg_val {
 	};
 	enum TG_VALTYPE type;
 
-	struct tg_hash *attrs;
+	struct tg_hash attrs;
 
 	TG_HASHFIELDS(struct tg_val, TG_HASH_ARRAY)
 };
@@ -72,17 +61,14 @@ void tg_endframe();
 
 // value operations
 struct tg_val *tg_createval(enum TG_VALTYPE t);
-
+#define tg_emptyval() tg_createval(TG_VAL_EMPTY)
+#define tg_arrval() tg_createval(TG_VAL_ARRAY)
 struct tg_val *tg_intval(int v);
-
 struct tg_val *tg_floatval(float v);
-
 struct tg_val *tg_stringval(const char *v);
 
-// attributes are not copied
 struct tg_val *tg_copyval(struct tg_val *v);
 
-// attributes are not copied
 struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t);
 
 struct tg_val *tg_typeprom1val(struct tg_val *v, enum TG_VALTYPE mtype);
@@ -90,12 +76,19 @@ struct tg_val *tg_typeprom1val(struct tg_val *v, enum TG_VALTYPE mtype);
 struct tg_val *tg_typeprom2val(struct tg_val *v1,
 	enum TG_VALTYPE v2type, enum TG_VALTYPE mtype);
 
-int tg_istrueval(struct tg_val *v);
+struct tg_val *tg_valgetattr(struct tg_val *v1, const char *key);
+void tg_valsetattr(struct tg_val *v, const char *key,
+	struct tg_val *attr);
 
 void tg_arrpush(struct tg_val *arr, struct tg_val *v);
-
-#define tg_arrgetr(v, p) \
-	(*((struct tg_val **) tg_darrget(&((v)->arrval.arr), (p))))
+void tg_arrset(struct tg_val *arr, int i, struct tg_val *v);
+struct tg_val *tg_arrget(struct tg_val *v, int i);
+struct tg_val *tg_arrgete(struct tg_val *v, int i, struct tg_val *e);
+struct tg_val *tg_arrgetr(struct tg_val *v, int i);
+struct tg_val *tg_arrgetre(struct tg_val *v, int i, struct tg_val *e);
+struct tg_val *tg_arrgeth(struct tg_val *v, const char *k);
+#define tg_arrgethr(v, k) \
+	tg_hashget(TG_HASH_ARRAY, &((v)->arrval.hash), (k));
 
 #define TG_ARRFOREACH(v, pos, el, action) 			\
 do {								\
@@ -106,6 +99,8 @@ do {								\
 } while (0);
 
 void tg_printval(FILE *f, struct tg_val *v);
+
+int tg_istrueval(struct tg_val *v);
 
 struct tg_val *tg_valcat(struct tg_val *v1, struct tg_val *v2);
 
@@ -130,13 +125,10 @@ struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
 struct tg_val *tg_valand(struct tg_val *v1, struct tg_val *v2);
 struct tg_val *tg_valor(struct tg_val *v1, struct tg_val *v2);
 
-
 struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
-	int span);
+	int vert, int span);
 
 //struct tg_val *tg_valindex(struct tg_val *v1, struct tg_val *v2);
-
-struct tg_val *tg_valattr(struct tg_val *v1, const char *key);
 
 // -------------------------------------------------------------------
 

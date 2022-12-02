@@ -387,7 +387,7 @@ void arraytest(int bigarrsize, int deeparrsize)
 {
 	struct tg_val *vbigarr;
 	struct tg_val *vdeeparr;
-	struct tg_val *p;
+	struct tg_val *p, *pp;
 	int i;
 
 	vbigarr = tg_createval(TG_VAL_ARRAY);
@@ -399,16 +399,17 @@ void arraytest(int bigarrsize, int deeparrsize)
 	printf("\n^ a big array");
 	printf("\n\n");
 
-	vdeeparr = tg_createval(TG_VAL_ARRAY);
-	tg_arrpush(vdeeparr, tg_stringval("test"));
+	vdeeparr = pp = tg_createval(TG_VAL_ARRAY);
 
 	for (i = 0; i < deeparrsize; ++i) {
 		p = tg_createval(TG_VAL_ARRAY);
 
-		tg_arrpush(p, vdeeparr);
+		tg_arrpush(pp, p);
 
-		vdeeparr = p;
+		pp = tg_arrgetr(pp, 0);
 	}
+	
+	tg_arrpush(pp, tg_stringval("test"));
 	
 	tg_printval(stdout, vdeeparr);
 	printf("\n^ a deep array");
@@ -1246,6 +1247,41 @@ int tg_readsources(const char *sources)
 	return 0;
 }
 
+int tabletest()
+{
+	struct tg_val *s1, *s2, *s3, *s4, *s5, *s6, *s7, *t;
+
+	s1 = tg_stringval("test");
+	s2 = tg_stringval("asdf");
+	s3 = tg_stringval("sd");
+	s4 = tg_stringval("asd");
+
+	s5 = t = tg_valnextto(s1, s2, 1, 0);
+	
+	t = tg_valnextto(t, s3, 1, 0);
+	
+	t = tg_valnextto(t, s4, 0, 0);
+
+	t = tg_valnextto(t, s5, 0, 0);
+
+
+	s6 = tg_valnextto(tg_intval(67), tg_stringval("432"), 0, 0);
+
+	t = tg_valnextto(t, s6, 1, 0);
+
+	s7 = tg_valnextto(tg_intval(67), tg_stringval("432"), 0, 0);
+	s7 = tg_valnextto(s7, s2, 0, 0);
+	s7 = tg_valnextto(s7, s2, 0, 0);
+	s7 = tg_valnextto(s7, s2, 0, 0);
+
+	t = tg_valnextto(t, s7, 1, 0);
+
+	tg_printval(stdout, t);
+	printf("\n");
+
+	return 0;
+}
+
 int main()
 {
 	tg_initstack();
@@ -1253,14 +1289,16 @@ int main()
 	tg_startframe();
 
 
+	tabletest();
+
 //	tg_readsources("test1:csv:./test1.csv;test2:script:./test2.sh");
 
 	
-	casttest();
+//	casttest();
 	
-	arraytest(1000, 1000);
+//	arraytest(10, 10);
 
-	operatortest();
+//	operatortest();
 
 	tg_endframe();
 

@@ -20,25 +20,29 @@ void tg_darrinit(struct tg_darray *darr, size_t sz)
 	darr->max = 1;
 }
 
-int tg_darrpush(struct tg_darray *darr, void *el)
+int tg_darrset(struct tg_darray *darr, size_t pos, void *el)
 {
 	assert(darr != NULL);
 	assert(el != NULL);
 
-	if (darr->cnt >= darr->max) {
+	darr->cnt = pos + 1;
+
+
+	if (pos >= darr->max) {
 		char *p;
-		
-		p = realloc(darr->data, darr->sz * darr->max * 2);
+	
+		darr->max = (pos + 1) * 2;
+
+		p = realloc(darr->data, darr->sz * darr->max);
 		TG_ASSERT(p != NULL, "%s%s", "Cannot allocate memory",
 			" for a dynamic array");
 
-		darr->max *= 2;
 		darr->data = p;
 	}
 
-	memcpy(darr->data + darr->cnt * darr->sz, el, darr->sz);
+	memcpy(darr->data + pos * darr->sz, el, darr->sz);
 
-	return darr->cnt++;
+	return pos;
 }
 
 int tg_darrpop(struct tg_darray *darr, void *el)

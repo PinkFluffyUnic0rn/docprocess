@@ -10,7 +10,9 @@ struct tg_darray {
 
 void tg_darrinit(struct tg_darray *darr, size_t sz);
 
-int tg_darrpush(struct tg_darray *darr, void *el);
+#define tg_darrpush(darr, el) tg_darrset((darr), (darr)->cnt, (el))
+
+int tg_darrset(struct tg_darray *darr, size_t pos, void *el);
 
 int tg_darrpop(struct tg_darray *darr, void *el);
 

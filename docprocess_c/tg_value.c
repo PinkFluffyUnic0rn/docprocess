@@ -54,6 +54,7 @@ struct tg_val *tg_createval(enum TG_VALTYPE t)
 	struct tg_val *newv;
 
 	newv = tg_allocval();
+	tg_inithash(TG_HASH_ARRAY, &(newv->attrs));
 
 	if (t == TG_VAL_INT)
 		newv->intval = 0;
@@ -61,7 +62,7 @@ struct tg_val *tg_createval(enum TG_VALTYPE t)
 		newv->floatval = 0.0;
 	else if (t == TG_VAL_STRING)
 		tg_dstrcreate(&(newv->strval), "");
-	else if (t == TG_VAL_ARRAY) {
+	else if (t == TG_VAL_ARRAY || t == TG_VAL_TABLE) {
 		tg_inithash(TG_HASH_ARRAY, &(newv->arrval.hash));
 		tg_darrinit(&(newv->arrval.arr),
 			sizeof(struct tg_val *));
@@ -71,7 +72,7 @@ struct tg_val *tg_createval(enum TG_VALTYPE t)
 
 	return newv;
 }
-
+				
 struct tg_val *tg_intval(int v)
 {
 	struct tg_val *newv;
@@ -111,8 +112,15 @@ struct tg_val *tg_stringval(const char *v)
 struct tg_val *tg_copyval(struct tg_val *v)
 {
 	struct tg_val *newv;
+	const char *key;
 
 	newv = tg_allocval();
+
+	tg_inithash(TG_HASH_ARRAY, &(newv->attrs));
+	TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
+		tg_valsetattr(newv, key, tg_valgetattr(v, key));
+	);
+
 
 	if (v->type == TG_VAL_INT)
 		newv->intval = v->intval;
@@ -120,7 +128,7 @@ struct tg_val *tg_copyval(struct tg_val *v)
 		newv->floatval = v->floatval;
 	else if (v->type == TG_VAL_STRING)
 		tg_dstrcreate(&(newv->strval), v->strval.str);
-	else if (v->type == TG_VAL_ARRAY) {
+	else if (v->type == TG_VAL_ARRAY || TG_VAL_ARRAY) {
 		struct tg_val *vv;
 		int i;
 
@@ -225,10 +233,14 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 		struct tg_val *vv;
 
 		newv = tg_createval(t);
+
+		tg_valsetattr(newv, "rows", tg_intval(1));
+		tg_valsetattr(newv, "cols", tg_intval(1));
+
 		vv = tg_createval(TG_VAL_ARRAY);
 
-		tg_arrpush(newv, vv);
 		tg_arrpush(vv, v);
+		tg_arrpush(newv, vv);
 	}
 	else if (vt == TG_VAL_ARRAY && tg_isscalar(t)) {
 		if (v->arrval.arr.cnt > 1) {
@@ -239,7 +251,7 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 		}
 
 		if (v->arrval.arr.cnt == 0)
-			return tg_createval(TG_VAL_EMPTY);
+			return tg_emptyval();
 
 		newv = tg_castval(tg_arrgetr(v, 0), t);
 	}
@@ -254,7 +266,7 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 		}
 
 		if (v->arrval.arr.cnt == 0)
-			return tg_createval(TG_VAL_EMPTY);
+			return tg_emptyval();
 
 		vv = tg_arrgetr(v, 0);
 
@@ -266,7 +278,7 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 		}
 
 		if (v->arrval.arr.cnt == 0)
-			return tg_createval(TG_VAL_EMPTY);
+			return tg_emptyval();
 
 		newv = tg_castval(tg_arrgetr(vv, 0), t);
 	}
@@ -275,18 +287,27 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 		newv->type = TG_VAL_TABLE;
 	}
 	else if (vt == TG_VAL_ARRAY && t == TG_VAL_TABLE) {
+		int cols;
 		int i;
 
 		newv = tg_createval(t);
 
+		tg_valsetattr(newv, "rows",
+			tg_intval(v->arrval.arr.cnt));
+
+		cols = 0;
 		for (i = 0; i < v->arrval.arr.cnt; ++i) {
-			struct tg_val *vv, *vvv;
+			struct tg_val *row, *cell;
 			int j;
 
-			vv = tg_castval(tg_arrgetr(v, i), TG_VAL_ARRAY);
+			row = tg_castval(tg_arrgetr(v, i),
+					TG_VAL_ARRAY);
 
-			TG_ARRFOREACH(vv, j, vvv,
-				if (!tg_isscalar(vvv->type)) {
+			if (row->arrval.arr.cnt > cols)
+				cols = row->arrval.arr.cnt;
+
+			TG_ARRFOREACH(row, j, cell,
+				if (!tg_isscalar(cell->type)) {
 					TG_SETERROR("%s%s%s%s",
 						"Trying to cast a ",
 						"array with no ",
@@ -296,7 +317,9 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 				}
 			);
 
-			tg_arrpush(newv, vv);
+			tg_arrpush(newv, row);
+
+			tg_valsetattr(newv, "cols", tg_intval(cols));
 		}
 	}
 	else
@@ -324,6 +347,21 @@ struct tg_val *tg_typeprom2val(struct tg_val *v1,
 	return tg_copyval(v1);
 }
 
+struct tg_val *tg_valgetattr(struct tg_val *v, const char *key)
+{
+	struct tg_val *r;
+
+	if ((r = tg_hashget(TG_HASH_ARRAY, &(v->attrs), key)) == NULL)
+		return tg_createval(TG_VAL_EMPTY);
+
+	return r;
+}
+
+void tg_valsetattr(struct tg_val *v, const char *key, struct tg_val *attr)
+{
+	tg_hashset(TG_HASH_ARRAY, &(v->attrs), key, tg_copyval(attr));
+}
+
 int tg_istrueval(struct tg_val *v)
 {
 	if (v->type == TG_VAL_INT)
@@ -341,10 +379,63 @@ int tg_istrueval(struct tg_val *v)
 void tg_arrpush(struct tg_val *arr, struct tg_val *v)
 {
 	struct tg_val *newv;
-	
+
 	newv = tg_copyval(v);
 
 	tg_darrpush(&(arr->arrval.arr), &newv);
+}
+
+void tg_arrset(struct tg_val *arr, int p, struct tg_val *v)
+{
+	struct tg_val *newv;
+
+	newv = tg_copyval(v);
+
+	tg_darrset(&(arr->arrval.arr), p, &newv);
+}
+
+static void tg_printtable(FILE *f, struct tg_val *v)
+{
+	int i, j;
+	int cols;
+	int rows;
+
+	rows = tg_valgetattr(v, "rows")->intval;
+	cols = tg_valgetattr(v, "cols")->intval;
+
+	fprintf(f, "table{\n");
+	
+	fprintf(f, "\t");
+	for (j = 0; j < cols * 11 + 1; ++j) fprintf(f, "-");
+	fprintf(f, "\n");
+
+	for (i = 0; i < rows; ++i) {
+		struct tg_val *row;
+
+		row = tg_arrgetr(v, i);
+			
+		fprintf(f, "\t|");
+		for (j = 0; j < cols; ++j) {
+			struct tg_val *cell;
+
+			cell = tg_arrgetr(row, j);
+
+			if (cell->type == TG_VAL_EMPTY)
+				fprintf(f, "%-10s|", "empty");
+			else if (cell->type == TG_VAL_INT)
+				fprintf(f, "%-10d|", cell->intval);
+			else if (cell->type == TG_VAL_FLOAT)
+				fprintf(f, "%-10f|", cell->floatval);
+			else if (cell->type == TG_VAL_STRING)
+				fprintf(f, "%-10s|", cell->strval.str);
+		}
+
+		fprintf(f, "\n\t");
+		for (j = 0; j < cols * 11 + 1; ++j) fprintf(f, "-");
+		fprintf(f, "\n");
+	}
+
+	fprintf(f, "}");
 }
 
 void tg_printval(FILE *f, struct tg_val *v)
@@ -372,6 +463,9 @@ void tg_printval(FILE *f, struct tg_val *v)
 		fprintf(f, "string{%s}", v->strval.str);
 		break;
 	case TG_VAL_TABLE:
+		tg_printtable(f, v);
+		break;
+
 	case TG_VAL_ARRAY:
 		fprintf(f, "array{");
 		
@@ -390,7 +484,6 @@ void tg_printval(FILE *f, struct tg_val *v)
 		break;
 	}
 }
-
 
 struct tg_val *tg_valcat(struct tg_val *v1, struct tg_val *v2)
 {
@@ -514,28 +607,128 @@ struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
 	return r;
 }
 
-struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
-	int span)
+struct tg_val *tg_arrgetr(struct tg_val *v, int i)
 {
-//	struct tg_val r;
+	struct tg_val **r;
 
-	if ((v1 = tg_typeprom2val(v1, v2->type, TG_VAL_TABLE)) == NULL)
+	r = tg_darrget(&(v->arrval.arr), i);
+
+	if (r == NULL)
 		return NULL;
 
-	if ((v2 = tg_typeprom2val(v2, v1->type, TG_VAL_TABLE)) == NULL)
+	return *((struct tg_val **) r);
+}
+
+struct tg_val *tg_arrget(struct tg_val *v, int i)
+{
+	struct tg_val *r;
+
+	if ((r = tg_arrgetr(v, i)) == NULL)
+		return tg_emptyval();
+
+	return tg_copyval(r);
+}
+
+struct tg_val *tg_arrgete(struct tg_val *v, int i, struct tg_val *e)
+{
+	struct tg_val *r;
+
+	if ((r = tg_arrgetr(v, i)) == NULL)
+		return tg_copyval(e);
+
+	return tg_copyval(r);
+}
+
+struct tg_val *tg_arrgetre(struct tg_val *v, int i, struct tg_val *e)
+{
+	struct tg_val **r;
+
+	r = tg_darrget(&(v->arrval.arr), i);
+
+	if (r == NULL) {
+		tg_arrset(v, i, e);
+		return tg_arrgetr(v, i);
+	}
+
+	return *((struct tg_val **) r);
+}
+
+struct tg_val *tg_arrgeth(struct tg_val *v, const char *k)
+{
+	struct tg_val *r;
+
+	if ((r = tg_hashget(TG_HASH_ARRAY,
+			&(v->arrval.hash), k)) == NULL)
+		return tg_createval(TG_VAL_EMPTY);
+
+	return tg_copyval(r);
+}
+
+static void tg_copytable(struct tg_val *dst, struct tg_val *src,
+	int offr, int offc, int rows, int cols)
+{
+	int i, j;
+	int srcrows, srccols;
+
+	srcrows = tg_valgetattr(src, "rows")->intval;
+	srccols = tg_valgetattr(src, "cols")->intval;
+
+	for (i = 0; i < rows; ++i) {
+		struct tg_val *dstrow, *srcrow;
+
+		dstrow = tg_arrgetre(dst, offr + i, tg_arrval());
+		srcrow = tg_arrgetr(src, i);
+
+		for (j = 0; j < cols; ++j) {
+			if (i >= srcrows || j >= srccols) {
+				tg_arrset(dstrow, offc + j,
+					tg_emptyval());
+				continue;
+			}
+
+			tg_arrset(dstrow, offc + j,
+				tg_arrgetre(srcrow, j, tg_emptyval()));
+		}
+	}
+
+	tg_valsetattr(dst, "rows", tg_intval(offr + rows));
+	tg_valsetattr(dst, "cols", tg_intval(offc + cols));
+}
+
+struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
+	int vert, int span)
+{
+	int t1rows, t1cols, t2rows, t2cols, maxrows, maxcols;
+	struct tg_val *r;
+
+	if ((v1 = tg_castval(v1, TG_VAL_TABLE)) == NULL)
+		return NULL;
+
+	if ((v2 = tg_castval(v2, TG_VAL_TABLE)) == NULL)
 		return NULL;
 
 	if (span) {
 
 	}
 
-	// tg_table(struct tg_val)
-	// for every key in v1:
-	// 	cast v1[i]
-	// 		if v1[i] == TG_VAL_ARRAY
-	// 			return tg_val_none;
+	t1rows = tg_valgetattr(v1, "rows")->intval;
+	t1cols = tg_valgetattr(v1, "cols")->intval;
+	t2rows = tg_valgetattr(v2, "rows")->intval;
+	t2cols = tg_valgetattr(v2, "cols")->intval;
 
-	return NULL;
+	maxrows = (t1rows > t2rows) ? t1rows : t2rows;
+	maxcols = (t1cols > t2cols) ? t1cols : t2cols;
+
+	r = tg_createval(TG_VAL_TABLE);
+
+	tg_copytable(r, v1, 0, 0,
+		vert ? t1rows : maxrows, vert ? maxcols : t1cols);
+
+	tg_copytable(r, v2,
+		vert ? t1rows : 0, vert ? 0 : t1cols, 
+		vert ? t2rows : maxrows, vert ? maxcols : t2cols);
+
+	return r;
 }
 /*
 struct tg_val *tg_valindex(struct tg_val *v1, struct tg_val *v2)
@@ -545,15 +738,3 @@ struct tg_val *tg_valindex(struct tg_val *v1, struct tg_val *v2)
 	return NULL;
 }
 */
-
-struct tg_val *tg_valattr(struct tg_val *v1, const char *key)
-{
-	struct tg_val *r;
-
-	if ((r = tg_hashget(TG_HASH_ARRAY, v1->attrs, key)) == NULL) {
-		TG_SETERROR("No such attribute: %s", key);
-		return NULL;
-	}
-
-	return r;
-}
