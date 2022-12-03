@@ -195,7 +195,7 @@ struct tg_val *tg_copyval(struct tg_val *v)
 	return newv;
 }
 
-// make reference version of tg_castval?
+// make a reference version of tg_castval?
 struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 {
 	struct tg_val *newv;
@@ -746,6 +746,53 @@ static void tg_copytable(struct tg_val *dst, struct tg_val *src,
 
 	tg_valsetattr(dst, "rows", tg_intval(offr + rows));
 	tg_valsetattr(dst, "cols", tg_intval(offc + cols));
+}
+
+// no assert
+static struct tg_val *tg_tablegetcellr(struct tg_val *t,
+	int row, int col)
+{
+	return tg_arrgetr(tg_arrgetr(t, row), col);
+}
+
+static struct tg_val *tg_tablespan(struct tg_val *t,
+	int newside, int vert)
+{
+	struct tg_val *r;
+	int rows, cols;
+	int oldside;
+	int otherside;
+	int i, j;
+
+	r = tg_createval(TG_VAL_TABLE);
+
+	rows = tg_valgetattr(t, "rows")->intval;
+	cols = tg_valgetattr(t, "cols")->intval;	
+
+	oldside = vert ? rows : cols;
+
+	tg_valsetattr(r, "rows", tg_intval(vert ? newside : rows));
+	tg_valsetattr(r, "cols", tg_intval(vert ? newside : cols));
+
+	if (newside <= oldside)
+		return tg_copyval(t);
+
+	otherside = vert ? cols : rows;
+
+	for (i = 0; i <= otherside; ++i) {
+		int p, pj;
+
+		p = pj = -1;
+		for (j = 0; j <= newside; ++j) {
+			int c;
+
+			c = (int) (oldside * (j - 1) / newside);
+
+			// ...
+		}
+	}
+
+	return r;
 }
 
 struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
