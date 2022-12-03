@@ -16,8 +16,8 @@ void *tg_alloc(struct tg_allocator *allocer)
 {
 	void *p;
 	
-//	if (tg_darrpop(&(allocer->freed), &p) >= 0)
-//		return p;
+	if (tg_darrpop(&(allocer->freed), &p) >= 0)
+		return p;
 
 	if (allocer->valcount / TG_FRAMEBLOCKSIZE >= allocer->blocks.cnt) {	
 		p = malloc(allocer->sz * TG_FRAMEBLOCKSIZE);
@@ -35,7 +35,7 @@ void *tg_alloc(struct tg_allocator *allocer)
 
 void tg_free(struct tg_allocator *allocer, void *p)
 {
-//	tg_darrpush(&(allocer->freed), &p);
+	tg_darrpush(&(allocer->freed), &p);
 }
 
 void tg_allocdestroy(struct tg_allocator *allocer,
@@ -44,26 +44,29 @@ void tg_allocdestroy(struct tg_allocator *allocer,
 	void *p;
 	size_t cursz;
 
-	cursz = allocer->valcount % TG_FRAMEBLOCKSIZE;
-
-	while (tg_darrpop(&(allocer->blocks), &p) >= 0) {
+	if (destr != NULL) {
 		int i;
 
-		if (destr != NULL) {
-			for (i = 0; i < cursz; ++i)
-				destr(p + allocer->sz * i);
-		}
-		
-		free(p);
+		cursz = allocer->valcount % TG_FRAMEBLOCKSIZE;
 
-		cursz = TG_FRAMEBLOCKSIZE;
+		for (i = allocer->blocks.cnt - 1; i >= 0; --i) {
+			int j;
+
+			p = *((void **) tg_darrget(&(allocer->blocks),
+				i));
+
+			for (j = 0; j < cursz; ++j)
+				destr(p + allocer->sz * j);
+		
+			cursz = TG_FRAMEBLOCKSIZE;
+		}
 	}
 
+	while (tg_darrpop(&(allocer->blocks), &p) >= 0)
+		free(p);
+
 	tg_darrclear(&(allocer->blocks));
-
-	// !!!
-//	tg_darrclear(&(allocer->freed));
-
+	tg_darrclear(&(allocer->freed));
 
 	allocer->valcount = 0;
 }

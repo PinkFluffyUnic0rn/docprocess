@@ -1315,12 +1315,15 @@ int main()
 		tg_endframe();
 	}
 
+	int i;
+	
 	for (i = 0; i < 100000; ++i) {
 		tg_startframe();
 		tabletest();
 		tg_endframe();
 	}
-*/	
+*/
+	
 	tabletest();
 	
 	casttest();
@@ -1332,7 +1335,7 @@ int main()
 	operatortest();
 	
 	tg_endframe();
-	
+
 	tg_destroyhash(TG_HASH_SYMBOL, &symtable);
 
 	return 0;
