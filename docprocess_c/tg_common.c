@@ -55,7 +55,7 @@ void tg_allocdestroy(struct tg_allocator *allocer,
 			p = *((void **) tg_darrget(&(allocer->blocks),
 				i));
 
-			for (j = 0; j < cursz; ++j)
+			for (j = cursz - 1; j >= 0; --j)
 				destr(p + allocer->sz * j);
 		
 			cursz = TG_FRAMEBLOCKSIZE;

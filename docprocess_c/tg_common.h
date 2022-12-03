@@ -211,7 +211,7 @@ void tg_hashdel##NAME(struct tg_hash *h, const char *key)	\
 #define tg_hash(NAME)	tg_hash##NAME
 
 #define tg_inithash(NAME, h) \
-	_tg_inithash##NAME((h), 32)
+	_tg_inithash##NAME((h), 4)
 
 #define tg_destroyhash(NAME, h) _tg_destroyhash##NAME(h)
 

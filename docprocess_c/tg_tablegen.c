@@ -1305,7 +1305,7 @@ int main()
 	tg_startframe();
 
 //	tg_readsources("test1:csv:./test1.csv;test2:script:./test2.sh");
-//
+
 /*
 	int i;
 
@@ -1314,7 +1314,8 @@ int main()
 		allocatortest();
 		tg_endframe();
 	}
-
+*/
+/*
 	int i;
 	
 	for (i = 0; i < 100000; ++i) {
@@ -1322,15 +1323,12 @@ int main()
 		tabletest();
 		tg_endframe();
 	}
-*/
-	
+*/	
 	tabletest();
 	
 	casttest();
 	
 	arraytest(100, 100);
-	//arraytest(0, 20000000);
-	//arraytest(20000000, 0);
 
 	operatortest();
 	
