@@ -1250,9 +1250,7 @@ int tg_readsources(const char *sources)
 int tabletest()
 {
 	struct tg_val *s1, *s2, *s3, *s4, *s5, *s6, *s7, *t;
-	
-	tg_startframe();
-	
+		
 	s1 = tg_stringval("test");
 	s2 = tg_stringval("asdf");
 	s3 = tg_stringval("sd");
@@ -1277,8 +1275,21 @@ int tabletest()
 
 	t = tg_valnextto(t, s7, 1, 0);
 
-	tg_printval(stdout, t);
-	printf("\n");
+//	tg_printval(stdout, t);
+//	printf("\n");
+
+	return 0;
+}
+
+int allocatortest()
+{
+	int i;
+
+	tg_startframe();
+	
+	for (i = 0; i < 1000; ++i) {
+		tg_stringval("test");
+	}
 	
 	tg_endframe();
 
@@ -1289,24 +1300,40 @@ int main()
 {
 //	tg_initstack();
 
-	tg_startframe();
-	int i;
+	tg_inithash(TG_HASH_SYMBOL, &symtable);
 
-	for (i = 0; i < 100000; ++i)
-		tabletest();
+	tg_startframe();
 
 //	tg_readsources("test1:csv:./test1.csv;test2:script:./test2.sh");
+//
+/*
+	int i;
 
+	for (i = 0; i < 100000; ++i) {
+		tg_startframe();
+		allocatortest();
+		tg_endframe();
+	}
+
+	for (i = 0; i < 100000; ++i) {
+		tg_startframe();
+		tabletest();
+		tg_endframe();
+	}
+*/	
+	tabletest();
 	
-	//casttest();
+	casttest();
 	
-	//arraytest(100, 100);
+	arraytest(100, 100);
 	//arraytest(0, 20000000);
 	//arraytest(20000000, 0);
 
-	//operatortest();
+	operatortest();
 	
 	tg_endframe();
+	
+	tg_destroyhash(TG_HASH_SYMBOL, &symtable);
 
 	return 0;
 }

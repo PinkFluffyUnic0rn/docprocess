@@ -58,10 +58,16 @@ static void _tg_inithash##NAME(struct tg_hash *h, size_t bucketscount)	\
 		h->buckets[i] = NULL;				\
 								\
 	h->bucketscount = bucketscount;				\
-	h->last = NULL;					\
 	h->count = 0;						\
 }								\
 								\
+static void _tg_destroyhash##NAME(struct tg_hash *h)		\
+{								\
+	free(h->buckets);					\
+								\
+	h->bucketscount = 0;					\
+	h->count = 0;						\
+}								\
 								\
 static int tg_hashbucket##NAME(const char *str, int bucketscount)	\
 {								\
@@ -205,7 +211,9 @@ void tg_hashdel##NAME(struct tg_hash *h, const char *key)	\
 #define tg_hash(NAME)	tg_hash##NAME
 
 #define tg_inithash(NAME, h) \
-	_tg_inithash##NAME((h), 32);
+	_tg_inithash##NAME((h), 32)
+
+#define tg_destroyhash(NAME, h) _tg_destroyhash##NAME(h)
 
 #define tg_hashset(NAME, h, key, v) \
 	tg_hashset##NAME((h), (key), (v))

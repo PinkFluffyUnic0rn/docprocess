@@ -84,15 +84,19 @@ void tg_freeval(struct tg_val *v)
 	int i;
 	const char *key;
 
-	if (v->type == TG_VAL_EMPTY)
+	if (v->type == TG_VAL_DELETED)
 		return;
 
-	if (v->attrs.count > 0) {
-		TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
-			tg_freeval(tg_valgetattrr(v, key));
-			tg_hashdel(TG_HASH_ARRAY, &(v->attrs), key);
-		);
-	}
+	if (v->type == TG_VAL_STRING)
+		tg_dstrdestroy(&(v->strval));
+
+	TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
+		tg_freeval(tg_valgetattrr(v, key));
+		tg_hashdel(TG_HASH_ARRAY, &(v->attrs), key);
+	);
+	
+
+	tg_destroyhash(TG_HASH_ARRAY, &(v->attrs));
 
 	if (!tg_isscalar(v->type)) {
 		struct tg_val *vv;
@@ -100,12 +104,11 @@ void tg_freeval(struct tg_val *v)
 		TG_ARRFOREACH(v, i, vv, tg_freeval(vv););
 	
 		tg_darrclear(&(v->arrval.arr));
+	
+		tg_destroyhash(TG_HASH_ARRAY, &(v->arrval.hash));
 	}
-
-//	if (v->type == TG_VAL_STRING)
-//		tg_dstrdestroy(&(v->strval));
-
-	v->type = TG_VAL_EMPTY;
+	
+	v->type = TG_VAL_DELETED;
 
 	tg_free(tg_stack + tg_stackdepth, v);
 }
@@ -321,6 +324,7 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 	}
 	else if (vt == TG_VAL_TABLE && t == TG_VAL_ARRAY) {
 		newv = tg_copyval(v);
+
 		newv->type = TG_VAL_TABLE;
 	}
 	else if (vt == TG_VAL_ARRAY && t == TG_VAL_TABLE) {
@@ -490,6 +494,9 @@ void tg_printval(FILE *f, struct tg_val *v)
 	int i;
 
 	switch (v->type) {
+	case TG_VAL_DELETED:
+		fprintf(f, "deleted");
+		break;
 	case TG_VAL_EMPTY:
 		fprintf(f, "empty");
 		break;
