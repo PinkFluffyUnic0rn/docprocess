@@ -70,3 +70,15 @@ void tg_allocdestroy(struct tg_allocator *allocer,
 
 	allocer->valcount = 0;
 }
+
+char *tg_strdup(const char *s)
+{
+	char *r;
+
+	TG_ASSERT((r = malloc(strlen(s))) != NULL,
+		"Error while allocating memory.");
+
+	strcpy(r, s);
+
+	return r;
+}

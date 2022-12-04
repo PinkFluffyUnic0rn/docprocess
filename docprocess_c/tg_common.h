@@ -257,4 +257,6 @@ void tg_free(struct tg_allocator *allocer, void *p);
 void tg_allocdestroy(struct tg_allocator *allocer,
 	void (*destr)(void *));
 
+char *tg_strdup(const char *s);
+
 #endif

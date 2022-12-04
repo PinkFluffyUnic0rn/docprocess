@@ -747,7 +747,7 @@ static void tg_copytable(struct tg_val *dst, struct tg_val *src,
 	tg_valsetattr(dst, "rows", tg_intval(offr + rows));
 	tg_valsetattr(dst, "cols", tg_intval(offc + cols));
 }
-
+/*
 // no assert
 static struct tg_val *tg_tablegetcellr(struct tg_val *t,
 	int row, int col)
@@ -788,13 +788,15 @@ static struct tg_val *tg_tablespan(struct tg_val *t,
 
 			c = (int) (oldside * (j - 1) / newside);
 
+			c = c; // !!!
+			p = p; // !!!
 			// ...
 		}
 	}
 
 	return r;
 }
-
+*/
 struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
 	int vert, int span)
 {
