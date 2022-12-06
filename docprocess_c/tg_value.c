@@ -778,7 +778,7 @@ static void tg_tablesetcellr(struct tg_val *t,
 #define TG_CELLINDEX(i, j, vert) \
 	((vert) ? (j) : (i)), ((vert) ? (i) : (j))
 
-static struct tg_val *tg_tablespan(struct tg_val *t,
+struct tg_val *tg_tablespan(struct tg_val *t,
 	int newside, int vert)
 {
 	struct tg_val *r;

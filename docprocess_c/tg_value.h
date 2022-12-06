@@ -128,6 +128,9 @@ struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
 struct tg_val *tg_valand(struct tg_val *v1, struct tg_val *v2);
 struct tg_val *tg_valor(struct tg_val *v1, struct tg_val *v2);
 
+struct tg_val *tg_tablespan(struct tg_val *t,
+	int newside, int vert);
+
 struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
 	int vert, int span);
 
