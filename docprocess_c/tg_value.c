@@ -762,14 +762,34 @@ static struct tg_val *tg_tablegetcellr(struct tg_val *t,
 	return tg_valgetattrr(v, key);
 }
 
+static struct tg_val *tg_tablegetcellre(struct tg_val *t,
+	int row, int col, const char *key, struct tg_val *e)
+{
+	struct tg_val *v, *a;
+
+
+	v = tg_arrgetre(tg_arrgetre(t, row, tg_arrval()), col,
+		((key == NULL) ? e : tg_emptyval()));
+
+	if (key == NULL)
+		return v;
+	
+	if ((a = tg_valgetattrr(v, key)) == NULL)
+		tg_valsetattr(v, key, e);
+	
+
+
+	return tg_valgetattrr(v, key);
+}
+
 static void tg_tablesetcellr(struct tg_val *t,
 	int r, int c, struct tg_val *v)
 {
 	struct tg_val *row;
 
-	if ((row = tg_arrgetr(t, r)) == NULL)
+	if ((row = tg_arrgetre(t, r, tg_arrval())) == NULL)
 		return;
-
+	
 	tg_arrset(row, c, v);
 
 	return;
@@ -795,75 +815,56 @@ struct tg_val *tg_tablespan(struct tg_val *t,
 	oldside = vert ? rows : cols;
 
 	tg_valsetattr(r, "rows", tg_intval(vert ? newside : rows));
-	tg_valsetattr(r, "cols", tg_intval(vert ? newside : cols));
+	tg_valsetattr(r, "cols", tg_intval(vert ? cols : newside));
 
 	if (newside <= oldside)
 		return tg_copyval(t);
 
 	otherside = vert ? cols : rows;
 
-	for (i = 0; i <= otherside; ++i) {
-		int pj;
+	for (i = 0; i < otherside; ++i) {
+		int pj, p;
 
-		pj = -1;
-		for (j = 0; j <= newside; ++j) {
+		p = pj = -1;
+		for (j = 0; j < newside; ++j) {
 			int c;
 
 			c = (int) (oldside * (j - 1) / newside);
 
-			if (vert ? (tg_tablegetcellr(t,
-				TG_CELLINDEX(i, c, vert),
-				"vspan") == NULL)
-				: tg_tablegetcellr(t,
-				TG_CELLINDEX(i, c, vert),
-	 			"hspan") == NULL) {
+			if ((vert ? (tg_tablegetcellre(t, TG_CELLINDEX(i, c, vert), "vspan", tg_intval(0))->intval < 0)
+				: (tg_tablegetcellre(t, TG_CELLINDEX(i, c, vert), "hspan", tg_intval(0))->intval < 0))
+				|| c == p) {
+	
+				tg_tablesetcellr(t, TG_CELLINDEX(i, j, vert), tg_emptyval());
+
 				if (pj >= 0) {
-					++(tg_tablegetcellr(t,
-						TG_CELLINDEX(i, c, vert),
-	 					vert ? "vspan" : "hspan")
-						->intval);
+					++(tg_tablegetcellre(r, TG_CELLINDEX(i, c, vert), vert ? "vspan" : "hspan", tg_intval(0))->intval);
 				}
-				
-				tg_tablegetcellr(t,
-					TG_CELLINDEX(i, j, vert),
-	 				"hspan")->intval 
-					= (vert ? tg_tablegetcellr(t,
-					TG_CELLINDEX(i, c, vert),
-	 				"hspan")->intval : -1);
-				tg_tablegetcellr(t,
-					TG_CELLINDEX(i, j, vert),
-	 				"vspan")->intval 
-					= (vert ? tg_tablegetcellr(t,
-					TG_CELLINDEX(i, c, vert),
-	 				"vspan")->intval : -1);
+			
+				tg_tablegetcellre(r, TG_CELLINDEX(i, j, vert), "hspan", tg_intval(0))->intval 
+					= (vert ? tg_tablegetcellre(t, TG_CELLINDEX(i, c, vert), "hspan", tg_intval(0))->intval : -1);
+				tg_tablegetcellre(r, TG_CELLINDEX(i, j, vert), "vspan", tg_intval(0))->intval 
+					= (vert ? -1 : tg_tablegetcellre(t, TG_CELLINDEX(i, c, vert), "vspan", tg_intval(0))->intval);
 			}
 			else {
+				p = c;
 				pj = j;
 			
 				tg_tablesetcellr(
-					t,
+					r,
 					TG_CELLINDEX(i, j, vert),
-					tg_tablegetcellr(t,
-						TG_CELLINDEX(i, c, vert),
-						NULL)
+					tg_tablegetcellr(t, TG_CELLINDEX(i, c, vert), NULL)
 				);
 
-				tg_tablegetcellr(t,
-					TG_CELLINDEX(i, j, vert),
-					"hspan")->intval 
-					= (vert ? tg_tablegetcellr(t,
-					TG_CELLINDEX(i, c, vert),
-					"span")->intval : 1);
+				tg_tablegetcellre(r, TG_CELLINDEX(i, j, vert), "hspan", tg_intval(0))->intval 
+					= (vert ? tg_tablegetcellre(t, TG_CELLINDEX(i, c, vert), "hspan", tg_intval(0))->intval : 1);
 
-				tg_tablegetcellr(t,
-					TG_CELLINDEX(i, j, vert),
-					"vspan")->intval 
-					= (vert ? 1 : tg_tablegetcellr(t,
-					TG_CELLINDEX(i, c, vert),
-					"vspan")->intval);
+				tg_tablegetcellre(r, TG_CELLINDEX(i, j, vert), "vspan", tg_intval(0))->intval 
+					= (vert ? 1 : tg_tablegetcellre(t, TG_CELLINDEX(i, c, vert), "vspan", tg_intval(0))->intval);
 			}
 		}
 	}
+			
 
 	return r;
 }

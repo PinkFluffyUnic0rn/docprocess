@@ -236,9 +236,10 @@ int main()
 	tg_readsourceslist(
 		"test1:csv:./test1.csv;test2:script:./test2.sh");
 
-	tg_printsymbols();
+//	tg_printsymbols();
 
-//	testvalues();
+	tg_testvalues();
+
 
 	tg_endframe();
 

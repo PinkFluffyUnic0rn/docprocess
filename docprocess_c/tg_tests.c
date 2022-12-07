@@ -8,7 +8,7 @@
 
 #include "tg_value.h"
 
-int tabletest()
+static int tabletest()
 {
 	struct tg_val *s1, *s2, *s3, *s4, *s5, *s6, *s7, *t;
 		
@@ -36,13 +36,29 @@ int tabletest()
 
 	t = tg_valnextto(t, s7, 1, 0);
 
-//	tg_printval(stdout, t);
-//	printf("\n");
+	tg_printval(stdout, t);
+	printf("\n");
 
 	return 0;
 }
 
-void operatortest()
+static void spantest()
+{
+	struct tg_val *s1, *s2, *s3;
+		
+	s1 = tg_stringval("test");
+//	s2 = tg_intval(23);
+
+//	s3 = tg_valnextto(s1, s2, 0, 0);
+
+	tg_printval(stdout, tg_castval(s1, TG_VAL_TABLE));
+	printf("\n");
+	tg_printval(stdout,
+		tg_tablespan(tg_castval(s1, TG_VAL_TABLE), 3, 1));
+	printf("\n");
+}
+
+static void operatortest()
 {
 	struct tg_val *vint1, *vint2,
 		*vfloat1, *vfloat2,
@@ -830,11 +846,10 @@ void operatortest()
 	printf("\tstring | nstr:\t\t");
 	tg_printval(stdout, vres);
 	printf("\n\n");
-
 }
 
 
-void casttest()
+static void casttest()
 {
 	struct tg_val *vint, *vfloat, *vstr, *vnumstr;
 	struct tg_val *vintarr, *vfloatarr, *vstrarr, *vnumstrarr;
@@ -1045,7 +1060,7 @@ void casttest()
 
 }
 
-void arraytest(int bigarrsize, int deeparrsize)
+static void arraytest(int bigarrsize, int deeparrsize)
 {
 	struct tg_val *vbigarr;
 	struct tg_val *vdeeparr;
@@ -1078,7 +1093,7 @@ void arraytest(int bigarrsize, int deeparrsize)
 	printf("\n\n");
 }
 
-int allocatortest()
+static int allocatortest()
 {
 	int i;
 
@@ -1093,7 +1108,7 @@ int allocatortest()
 	return 0;
 }
 
-void testvalues()
+void tg_testvalues()
 {
 /*
 	int i;
@@ -1113,11 +1128,13 @@ void testvalues()
 		tg_endframe();
 	}
 */	
-	tabletest();
+//	tabletest();
 	
-	casttest();
+//	casttest();
 	
-	arraytest(100, 100);
+//	arraytest(100, 100);
 
-	operatortest();
+//	operatortest();
+
+	spantest();
 }
