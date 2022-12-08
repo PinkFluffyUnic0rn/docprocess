@@ -78,10 +78,17 @@ struct tg_val *tg_typeprom1val(struct tg_val *v, enum TG_VALTYPE mtype);
 struct tg_val *tg_typeprom2val(struct tg_val *v1,
 	enum TG_VALTYPE v2type, enum TG_VALTYPE mtype);
 
-struct tg_val *tg_valgetattr(struct tg_val *v1, const char *key);
-struct tg_val *tg_valgetattrr(struct tg_val *v1, const char *key);
 void tg_valsetattr(struct tg_val *v, const char *key,
 	struct tg_val *attr);
+struct tg_val *tg_valgetattr(struct tg_val *v1, const char *key);
+struct tg_val *tg_valgetattrr(struct tg_val *v1, const char *key);
+struct tg_val *tg_valgetattrre(struct tg_val *v, const char *key,
+	struct tg_val *e);
+
+void tg_tablesetcellr(struct tg_val *t, int r, int c, struct tg_val *v);
+struct tg_val *tg_tablegetcellr(struct tg_val *t, int row, int col);
+struct tg_val *tg_tablegetcellre(struct tg_val *t,
+	int row, int col, struct tg_val *e);
 
 void tg_arrpush(struct tg_val *arr, struct tg_val *v);
 void tg_arrset(struct tg_val *arr, int i, struct tg_val *v);

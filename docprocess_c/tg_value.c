@@ -477,21 +477,32 @@ static void tg_printtable(FILE *f, struct tg_val *v)
 
 		row = tg_arrgetr(v, i);
 			
-		fprintf(f, "\t|");
+		fprintf(f, "\t");
 		for (j = 0; j < cols; ++j) {
 			struct tg_val *cell;
+//			struct tg_val *hspan, *vspan;
 
 			cell = tg_arrgetr(row, j);
+/*
+			hspan = tg_valgetattrr(cell, "hspan");
+			vspan = tg_valgetattrr(cell, "vspan");
+			
+			fprintf(f, "|%d,%d;",
+				(hspan != NULL) ? hspan->intval : 0,
+				(vspan != NULL) ? vspan->intval : 0);
+*/
+			fprintf(f, "|");
 
 			if (cell->type == TG_VAL_EMPTY)
-				fprintf(f, "%-15s|", "empty");
+				fprintf(f, "%-15s", "empty");
 			else if (cell->type == TG_VAL_INT)
-				fprintf(f, "%-15d|", cell->intval);
+				fprintf(f, "%-15d", cell->intval);
 			else if (cell->type == TG_VAL_FLOAT)
-				fprintf(f, "%-15f|", cell->floatval);
+				fprintf(f, "%-15f", cell->floatval);
 			else if (cell->type == TG_VAL_STRING)
-				fprintf(f, "%-15s|", cell->strval.str);
+				fprintf(f, "%-15s", cell->strval.str);
 		}
+		fprintf(f, "|");
 
 		fprintf(f, "\n\t");
 		for (j = 0; j < cols * 16 + 1; ++j) fprintf(f, "-");
@@ -761,19 +772,19 @@ static void tg_copytable(struct tg_val *dst, struct tg_val *src,
 	tg_valsetattr(dst, "cols", tg_intval(offc + cols));
 }
 
-static struct tg_val *tg_tablegetcellr(struct tg_val *t,
+struct tg_val *tg_tablegetcellr(struct tg_val *t,
 	int row, int col)
 {
 	return tg_arrgetr(tg_arrgetr(t, row), col);
 }
 
-static struct tg_val *tg_tablegetcellre(struct tg_val *t,
+struct tg_val *tg_tablegetcellre(struct tg_val *t,
 	int row, int col, struct tg_val *e)
 {
 	return tg_arrgetre(tg_arrgetre(t, row, tg_arrval()), col, e);
 }
 
-static void tg_tablesetcellr(struct tg_val *t,
+void tg_tablesetcellr(struct tg_val *t,
 	int r, int c, struct tg_val *v)
 {
 	struct tg_val *row;
@@ -789,8 +800,7 @@ static void tg_tablesetcellr(struct tg_val *t,
 #define TG_CELLINDEX(i, j, vert) \
 	((vert) ? (j) : (i)), ((vert) ? (i) : (j))
 
-struct tg_val *tg_tablespan(struct tg_val *t,
-	int newside, int vert)
+struct tg_val *tg_tablespan(struct tg_val *t, int newside, int vert)
 {
 	struct tg_val *r;
 	int rows, cols;
@@ -820,35 +830,29 @@ struct tg_val *tg_tablespan(struct tg_val *t,
 		for (j = 0; j < newside; ++j) {
 			int oldhspani, oldvspani;
 			struct tg_val *oldv, *newv;
-			struct tg_val *newhspan, *newvspan;
 			int c;
 
 			c = (int) (oldside * j / newside);
 
-			oldv = tg_tablegetcellr(t,
-					TG_CELLINDEX(i, c, vert));
-			oldhspani = tg_valgetattrre(oldv, "hspan",
-					tg_intval(0))->intval;
-			oldvspani = tg_valgetattrre(oldv, "vspan",
-					tg_intval(0))->intval;
+			oldv = tg_tablegetcellr(t, TG_CELLINDEX(i, c, vert));
+			oldhspani = tg_valgetattrre(oldv, "hspan", tg_intval(0))->intval;
+			oldvspani = tg_valgetattrre(oldv, "vspan", tg_intval(0))->intval;
 
-			newv = tg_tablegetcellre(r,
+			if ((vert ? (oldvspani < 0) : (oldhspani < 0)) || c == p) {
+				struct tg_val *newhspan, *newvspan;
+
+				tg_tablesetcellr(
+					r,
 					TG_CELLINDEX(i, j, vert),
 					tg_emptyval());
-			newhspan = tg_valgetattrre(newv, "hspan",
-					tg_intval(0));
-			newvspan = tg_valgetattrre(newv, "vspan",
-					tg_intval(0));
 
-			if ((vert ? (oldvspani < 0) : (oldhspani < 0))
-					|| c == p) {
-				tg_tablesetcellr(r,
-					TG_CELLINDEX(i, j, vert),
-					tg_emptyval());
+				newv = tg_tablegetcellr(r, TG_CELLINDEX(i, j, vert));
+				newhspan = tg_valgetattrre(newv, "hspan", tg_intval(0));
+				newvspan = tg_valgetattrre(newv, "vspan", tg_intval(0));
 
 				if (pj >= 0)
 					++((vert ? newvspan : newhspan)->intval);
-			
+
 				newhspan->intval = (vert ? oldhspani : -1);
 				newvspan->intval = (vert ? -1 : oldvspani);
 			}
@@ -856,11 +860,14 @@ struct tg_val *tg_tablespan(struct tg_val *t,
 				p = c;
 				pj = j;
 			
-				tg_tablesetcellr(r,
-					TG_CELLINDEX(i, j, vert), oldv);
+				tg_tablesetcellr(
+					r,
+					TG_CELLINDEX(i, j, vert),
+					oldv);
 
-				newhspan->intval = (vert ? oldhspani : 1);
-				newvspan->intval = (vert ? 1 : oldvspani);
+				newv = tg_tablegetcellr(r, TG_CELLINDEX(i, j, vert));
+				tg_valgetattrre(newv, "hspan", tg_intval(0))->intval = (vert ? oldhspani : 1);
+				tg_valgetattrre(newv, "vspan", tg_intval(0))->intval = (vert ? 1 : oldvspani);
 			}
 		}
 	}
