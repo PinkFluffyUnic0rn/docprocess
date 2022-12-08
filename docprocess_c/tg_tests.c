@@ -44,17 +44,39 @@ static int tabletest()
 
 static void spantest()
 {
-	struct tg_val *s1, *s2, *s3;
+	struct tg_val *s1, *s2, *s3, *s4;
 		
-	s1 = tg_stringval("test");
+//	s1 = tg_stringval("test");
 //	s2 = tg_intval(23);
 
 //	s3 = tg_valnextto(s1, s2, 0, 0);
 
+	s1 = tg_valnextto(tg_stringval("test"), tg_intval(32), 0, 0);
+	s1 = tg_valnextto(
+			s1,
+			tg_valnextto(
+				tg_intval(482),
+				tg_stringval("HELLO"), 
+				0, 0),
+			1, 0
+		);
+
 	tg_printval(stdout, tg_castval(s1, TG_VAL_TABLE));
 	printf("\n");
-	tg_printval(stdout,
-		tg_tablespan(tg_castval(s1, TG_VAL_TABLE), 3, 1));
+
+	s2 = tg_tablespan(tg_castval(s1, TG_VAL_TABLE), 3, 1);
+	
+	tg_printval(stdout, s2);
+	printf("\n");
+/*
+	s3 = tg_tablespan(tg_castval(s2, TG_VAL_TABLE), 5, 1);
+
+	tg_printval(stdout, s3);
+	printf("\n");
+*/	
+	s4 = tg_tablespan(tg_castval(s2, TG_VAL_TABLE), 3, 0);
+
+	tg_printval(stdout, s4);
 	printf("\n");
 }
 
