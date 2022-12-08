@@ -141,8 +141,6 @@ struct tg_val *tg_tablespan(struct tg_val *t,
 struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
 	int vert, int span);
 
-//struct tg_val *tg_valindex(struct tg_val *v1, struct tg_val *v2);
-
 // -------------------------------------------------------------------
 
 #endif

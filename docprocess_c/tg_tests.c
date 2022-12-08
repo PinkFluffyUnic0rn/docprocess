@@ -44,29 +44,38 @@ static int tabletest()
 
 static void spantest()
 {
-	struct tg_val *s1, *s2, *s3;
+	struct tg_val *s1, *s2;
 		
 	s1 = tg_valnextto(tg_stringval("test"), tg_intval(32), 0, 0);
-	s1 = tg_valnextto(
-			s1,
-			tg_valnextto(
-				tg_intval(482),
-				tg_stringval("HELLO"), 
-				0, 0),
-			1, 0
-		);
+	s1 = tg_valnextto(s1, tg_intval(2352), 0, 0);
+	s1 = tg_valnextto(s1, tg_stringval("asdsa"), 0, 0);
+
+	s2 = tg_valnextto(tg_intval(482), tg_stringval("HELLO"), 0, 0);
+	s2 = tg_valnextto(s2, tg_stringval("523"), 0, 0);
+	s2 = tg_valnextto(s2, tg_stringval("zds"), 0, 0);
+	s1 = tg_valnextto(s1, s2, 1, 0);
+
+	s2 = tg_valnextto(tg_stringval("234"), tg_stringval("value"), 0, 0);
+	s1 = tg_valnextto(s1, s2, 1, 1);
+
+	s1 = tg_valnextto(s1, tg_stringval("axs"), 1, 1);
+
+	s2 = tg_valnextto(tg_intval(234), tg_intval(5254), 1, 0);
+	s1 = tg_valnextto(s1, s2, 0, 1);
+
+	s1 = tg_valnextto(s1, tg_intval(32), 0, 1);
+	
+	s1 = tg_valnextto(s1, tg_stringval("xzda"), 1, 0);
+	
+	s2 = tg_valnextto(tg_intval(234), tg_intval(5254), 0, 0);
+	s1 = tg_valnextto(s1, s2, 1, 1);
+
+	s1 = tg_valnextto(s1, tg_stringval("dhj3h"), 0, 0);
+
+	s2 = tg_valnextto(tg_intval(-121), tg_stringval("xds"), 1, 0);
+	s1 = tg_valnextto(s1, s2, 0, 1);
 
 	tg_printval(stdout, tg_castval(s1, TG_VAL_TABLE));
-	printf("\n");
-
-	s2 = tg_tablespan(tg_castval(s1, TG_VAL_TABLE), 3, 1);
-	
-	tg_printval(stdout, s2);
-	printf("\n");
-	
-	s3 = tg_tablespan(tg_castval(s2, TG_VAL_TABLE), 3, 0);
-
-	tg_printval(stdout, s3);
 	printf("\n");
 }
 
@@ -1140,13 +1149,16 @@ void tg_testvalues()
 		tg_endframe();
 	}
 */	
-//	tabletest();
-	
-//	casttest();
-	
-//	arraytest(100, 100);
+		
+	allocatortest();
 
-//	operatortest();
+	tabletest();
+	
+	casttest();
+	
+	arraytest(100, 100);
+
+	operatortest();
 
 	spantest();
 }

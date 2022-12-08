@@ -480,27 +480,27 @@ static void tg_printtable(FILE *f, struct tg_val *v)
 		fprintf(f, "\t");
 		for (j = 0; j < cols; ++j) {
 			struct tg_val *cell;
-//			struct tg_val *hspan, *vspan;
+			struct tg_val *hspan, *vspan;
 
 			cell = tg_arrgetr(row, j);
-/*
+
 			hspan = tg_valgetattrr(cell, "hspan");
 			vspan = tg_valgetattrr(cell, "vspan");
 			
 			fprintf(f, "|%d,%d;",
-				(hspan != NULL) ? hspan->intval : 0,
-				(vspan != NULL) ? vspan->intval : 0);
-*/
-			fprintf(f, "|");
+				(hspan != NULL && hspan->intval > 0) ? hspan->intval : 0,
+				(vspan != NULL && vspan->intval > 0) ? vspan->intval : 0);
+
+	//		fprintf(f, "|");
 
 			if (cell->type == TG_VAL_EMPTY)
-				fprintf(f, "%-15s", "empty");
+				fprintf(f, "%-11s", "empty");
 			else if (cell->type == TG_VAL_INT)
-				fprintf(f, "%-15d", cell->intval);
+				fprintf(f, "%-11d", cell->intval);
 			else if (cell->type == TG_VAL_FLOAT)
-				fprintf(f, "%-15f", cell->floatval);
+				fprintf(f, "%-11f", cell->floatval);
 			else if (cell->type == TG_VAL_STRING)
-				fprintf(f, "%-15s", cell->strval.str);
+				fprintf(f, "%-11s", cell->strval.str);
 		}
 		fprintf(f, "|");
 
@@ -850,8 +850,13 @@ struct tg_val *tg_tablespan(struct tg_val *t, int newside, int vert)
 				newhspan = tg_valgetattrre(newv, "hspan", tg_intval(0));
 				newvspan = tg_valgetattrre(newv, "vspan", tg_intval(0));
 
-				if (pj >= 0)
-					++((vert ? newvspan : newhspan)->intval);
+				if (pj >= 0) {
+					++(tg_valgetattrre(
+						tg_tablegetcellr(r, TG_CELLINDEX(i, pj, vert)),
+						(vert ? "vspan" : "hspan"),
+						tg_intval(0))->intval
+					);
+				}
 
 				newhspan->intval = (vert ? oldhspani : -1);
 				newvspan->intval = (vert ? -1 : oldvspani);
@@ -892,10 +897,9 @@ struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
 	t2rows = tg_valgetattr(v2, "rows")->intval;
 	t2cols = tg_valgetattr(v2, "cols")->intval;
 
-	// untested, disabled!
-	if (span && 0) { //////////////// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		v1 = tg_tablespan(v1, vert ? t2cols : t2rows, vert);
-		v2 = tg_tablespan(v2, vert ? t1cols : t1rows, vert);
+	if (span) {
+		v1 = tg_tablespan(v1, vert ? t2cols : t2rows, !vert);
+		v2 = tg_tablespan(v2, vert ? t1cols : t1rows, !vert);
 	}
 
 	maxrows = (t1rows > t2rows) ? t1rows : t2rows;
@@ -912,11 +916,3 @@ struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
 
 	return r;
 }
-/*
-struct tg_val *tg_valindex(struct tg_val *v1, struct tg_val *v2)
-{
-	struct tg_val r;
-
-	return NULL;
-}
-*/
