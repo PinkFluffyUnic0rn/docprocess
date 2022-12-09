@@ -84,6 +84,8 @@ void tg_freeval(struct tg_val *v)
 	int i;
 	const char *key;
 
+	TG_ASSERT(v != NULL, "Cannot free value");
+
 	if (v->type == TG_VAL_DELETED)
 		return;
 
@@ -94,9 +96,9 @@ void tg_freeval(struct tg_val *v)
 		tg_freeval(tg_valgetattrr(v, key));
 		tg_hashdel(TG_HASH_ARRAY, &(v->attrs), key);
 	);
-	
 
 	tg_destroyhash(TG_HASH_ARRAY, &(v->attrs));
+
 
 	if (!tg_isscalar(v->type)) {
 		struct tg_val *vv;
@@ -144,6 +146,8 @@ struct tg_val *tg_floatval(float v)
 struct tg_val *tg_stringval(const char *v)
 {
 	struct tg_val *newv;
+	
+	TG_ASSERT(v != NULL, "Cannot create string value");
 
 	newv = tg_allocval();
 	
@@ -159,6 +163,8 @@ struct tg_val *tg_copyval(struct tg_val *v)
 {
 	struct tg_val *newv;
 	const char *key;
+	
+	TG_ASSERT(v != NULL, "Cannot copy value");
 
 	newv = tg_allocval();
 	tg_inithash(TG_HASH_ARRAY, &(newv->attrs));
@@ -200,6 +206,8 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 {
 	struct tg_val *newv;
 	enum TG_VALTYPE vt;
+
+	TG_ASSERT(v != NULL, "Cannot cast value");
 
 	vt = v->type;
 
@@ -371,6 +379,8 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 
 struct tg_val *tg_typeprom1val(struct tg_val *v, enum TG_VALTYPE mtype)
 {
+	TG_ASSERT(v != NULL, "Cannot cast value");
+
 	if (v->type > mtype)
 		return tg_castval(v, mtype);
 
@@ -380,6 +390,8 @@ struct tg_val *tg_typeprom1val(struct tg_val *v, enum TG_VALTYPE mtype)
 struct tg_val *tg_typeprom2val(struct tg_val *v1,
 	enum TG_VALTYPE v2type, enum TG_VALTYPE mtype)
 {
+	TG_ASSERT(v1 != NULL, "Cannot cast value");
+
 	if (v1->type > mtype || v2type > mtype)
 		return tg_castval(v1, mtype);
 	else if (v1->type < v2type)
@@ -391,6 +403,9 @@ struct tg_val *tg_typeprom2val(struct tg_val *v1,
 struct tg_val *tg_valgetattrr(struct tg_val *v, const char *key)
 {
 	struct tg_val *r;
+	
+	TG_ASSERT(v != NULL, "Cannot get value attribute");
+	TG_ASSERT(key != NULL, "Cannot get value attribute");
 
 	if ((r = tg_hashget(TG_HASH_ARRAY, &(v->attrs), key)) == NULL)
 		return NULL;
@@ -402,6 +417,10 @@ struct tg_val *tg_valgetattrre(struct tg_val *v, const char *key,
 	struct tg_val *e)
 {
 	struct tg_val *r;
+	
+	TG_ASSERT(v != NULL, "Cannot get value attribute");
+	TG_ASSERT(key != NULL, "Cannot get value attribute");
+	TG_ASSERT(e != NULL, "Cannot get value attribute");
 
 	if ((r = tg_valgetattrr(v, key)) != NULL)
 		return r;
@@ -414,6 +433,9 @@ struct tg_val *tg_valgetattrre(struct tg_val *v, const char *key,
 struct tg_val *tg_valgetattr(struct tg_val *v, const char *key)
 {
 	struct tg_val *r;
+	
+	TG_ASSERT(v != NULL, "Cannot get value attribute");
+	TG_ASSERT(key != NULL, "Cannot get value attribute");
 
 	if ((r = tg_valgetattrr(v, key)) == NULL)
 		return tg_createval(TG_VAL_EMPTY);
@@ -423,11 +445,17 @@ struct tg_val *tg_valgetattr(struct tg_val *v, const char *key)
 
 void tg_valsetattr(struct tg_val *v, const char *key, struct tg_val *attr)
 {
+	TG_ASSERT(v != NULL, "Cannot set value attribute");
+	TG_ASSERT(key != NULL, "Cannot set value attribute");
+	TG_ASSERT(attr != NULL, "Cannot set value attribute");
+
 	tg_hashset(TG_HASH_ARRAY, &(v->attrs), key, tg_copyval(attr));
 }
 
 int tg_istrueval(struct tg_val *v)
 {
+	TG_ASSERT(v != NULL, "Cannot check value's trueness");
+
 	if (v->type == TG_VAL_INT)
 		return v->intval;
 	else if (v->type == TG_VAL_FLOAT)
@@ -444,6 +472,10 @@ void tg_arrpush(struct tg_val *arr, struct tg_val *v)
 {
 	struct tg_val *newv;
 
+	TG_ASSERT(arr != NULL, "Cannot push to value");
+	TG_ASSERT(!tg_isscalar(arr->type), "Cannot push to value");
+	TG_ASSERT(v != NULL, "Cannot push to value");
+
 	newv = tg_copyval(v);
 
 	tg_darrpush(&(arr->arrval.arr), &newv);
@@ -452,6 +484,10 @@ void tg_arrpush(struct tg_val *arr, struct tg_val *v)
 void tg_arrset(struct tg_val *arr, int p, struct tg_val *v)
 {
 	struct tg_val *newv;
+
+	TG_ASSERT(arr != NULL, "Cannot set array value");
+	TG_ASSERT(!tg_isscalar(arr->type), "Cannot set array value");
+	TG_ASSERT(v != NULL, "Cannot set array value");
 
 	newv = tg_copyval(v);
 
@@ -462,6 +498,9 @@ static void tg_printtable(FILE *f, struct tg_val *v)
 {
 	int i, j;
 	int cols, rows;
+	
+	TG_ASSERT(f != NULL, "Cannot print table");
+	TG_ASSERT(v != NULL, "Cannot print table");
 
 	rows = tg_valgetattr(v, "rows")->intval;
 	cols = tg_valgetattr(v, "cols")->intval;
@@ -469,7 +508,7 @@ static void tg_printtable(FILE *f, struct tg_val *v)
 	fprintf(f, "table{\n");
 	
 	fprintf(f, "\t");
-	for (j = 0; j < cols * 16 + 1; ++j) fprintf(f, "-");
+	for (j = 0; j < cols * 15 + 1; ++j) fprintf(f, "-");
 	fprintf(f, "\n");
 
 	for (i = 0; i < rows; ++i) {
@@ -488,24 +527,24 @@ static void tg_printtable(FILE *f, struct tg_val *v)
 			vspan = tg_valgetattrr(cell, "vspan");
 			
 			fprintf(f, "|%d,%d;",
-				(hspan != NULL && hspan->intval > 0) ? hspan->intval : 0,
-				(vspan != NULL && vspan->intval > 0) ? vspan->intval : 0);
-
-	//		fprintf(f, "|");
+				(hspan != NULL && hspan->intval > 0)
+					? hspan->intval : 0,
+				(vspan != NULL && vspan->intval > 0)
+					? vspan->intval : 0);
 
 			if (cell->type == TG_VAL_EMPTY)
-				fprintf(f, "%-11s", "empty");
+				fprintf(f, "%-10s", "empty");
 			else if (cell->type == TG_VAL_INT)
-				fprintf(f, "%-11d", cell->intval);
+				fprintf(f, "%-10d", cell->intval);
 			else if (cell->type == TG_VAL_FLOAT)
-				fprintf(f, "%-11f", cell->floatval);
+				fprintf(f, "%-10f", cell->floatval);
 			else if (cell->type == TG_VAL_STRING)
-				fprintf(f, "%-11s", cell->strval.str);
+				fprintf(f, "%-10s", cell->strval.str);
 		}
 		fprintf(f, "|");
 
 		fprintf(f, "\n\t");
-		for (j = 0; j < cols * 16 + 1; ++j) fprintf(f, "-");
+		for (j = 0; j < cols * 15 + 1; ++j) fprintf(f, "-");
 		fprintf(f, "\n");
 	}
 
@@ -516,6 +555,9 @@ void tg_printval(FILE *f, struct tg_val *v)
 {
 	int isfirst;
 	int i;
+	
+	TG_ASSERT(f != NULL, "Cannot print value");
+	TG_ASSERT(v != NULL, "Cannot print value");
 
 	switch (v->type) {
 	case TG_VAL_DELETED:
@@ -565,6 +607,9 @@ struct tg_val *tg_valcat(struct tg_val *v1, struct tg_val *v2)
 {
 	struct tg_val *r;
 	
+	TG_ASSERT(v1 != NULL, "Cannot cancatenate strings");
+	TG_ASSERT(v2 != NULL, "Cannot cancatenate strings");
+	
 	if ((v1 = tg_castval(v1, TG_VAL_STRING)) == NULL)
 		return NULL;
 
@@ -590,7 +635,10 @@ struct tg_val *_tg_numop(struct tg_val *v1, struct tg_val *v2,
 	enum TG_NUMOP op)
 {
 	struct tg_val *r;
-	
+		
+	TG_ASSERT(v1 != NULL, "Cannot operate on numbers");
+	TG_ASSERT(v2 != NULL, "Cannot operate on numbers");
+
 	if ((v1 = tg_typeprom2val(v1, v2->type, TG_VAL_FLOAT)) == NULL)
 		return NULL;
 
@@ -618,6 +666,9 @@ struct tg_val *_tg_numop(struct tg_val *v1, struct tg_val *v2,
 struct tg_val *tg_valor(struct tg_val *v1, struct tg_val *v2)
 {
 	struct tg_val *r;
+	
+	TG_ASSERT(v1 != NULL, "Cannot operate on numbers");
+	TG_ASSERT(v2 != NULL, "Cannot operate on numbers");
 
 	r = tg_createval(TG_VAL_INT);
 
@@ -629,6 +680,9 @@ struct tg_val *tg_valor(struct tg_val *v1, struct tg_val *v2)
 struct tg_val *tg_valand(struct tg_val *v1, struct tg_val *v2)
 {
 	struct tg_val *r;
+	
+	TG_ASSERT(v1 != NULL, "Cannot operate on numbers");
+	TG_ASSERT(v2 != NULL, "Cannot operate on numbers");
 
 	r = tg_createval(TG_VAL_INT);
 
@@ -651,6 +705,9 @@ struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
 	enum TG_RELOP op)
 {
 	struct tg_val *r;
+	
+	TG_ASSERT(v1 != NULL, "Cannot compare values");
+	TG_ASSERT(v2 != NULL, "Cannot compare values");
 
 	if ((v1 = tg_typeprom2val(v1, v2->type, TG_VAL_STRING)) == NULL)
 		return NULL;
@@ -687,6 +744,9 @@ struct tg_val *tg_arrgetr(struct tg_val *v, int i)
 {
 	struct tg_val **r;
 
+	TG_ASSERT(v != NULL, "Cannot get array value");
+	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
+
 	r = tg_darrget(&(v->arrval.arr), i);
 
 	if (r == NULL)
@@ -699,6 +759,9 @@ struct tg_val *tg_arrget(struct tg_val *v, int i)
 {
 	struct tg_val *r;
 
+	TG_ASSERT(v != NULL, "Cannot get array value");
+	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
+
 	if ((r = tg_arrgetr(v, i)) == NULL)
 		return tg_emptyval();
 
@@ -708,6 +771,10 @@ struct tg_val *tg_arrget(struct tg_val *v, int i)
 struct tg_val *tg_arrgete(struct tg_val *v, int i, struct tg_val *e)
 {
 	struct tg_val *r;
+
+	TG_ASSERT(v != NULL, "Cannot get array value");
+	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
+	TG_ASSERT(e != NULL, "Cannot get array value");
 
 	if ((r = tg_arrgetr(v, i)) == NULL)
 		return tg_copyval(e);
@@ -719,6 +786,10 @@ struct tg_val *tg_arrgetre(struct tg_val *v, int i, struct tg_val *e)
 {
 	struct tg_val **r;
 
+	TG_ASSERT(v != NULL, "Cannot get array value");
+	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
+	TG_ASSERT(e != NULL, "Cannot get array value");
+
 	r = tg_darrget(&(v->arrval.arr), i);
 	
 	if (r == NULL) {
@@ -726,13 +797,16 @@ struct tg_val *tg_arrgetre(struct tg_val *v, int i, struct tg_val *e)
 		return tg_arrgetr(v, i);
 	}
 
-
 	return *((struct tg_val **) r);
 }
 
 struct tg_val *tg_arrgeth(struct tg_val *v, const char *k)
 {
 	struct tg_val *r;
+
+	TG_ASSERT(v != NULL, "Cannot get array value");
+	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
+	TG_ASSERT(k != NULL, "Cannot get array value");
 
 	if ((r = tg_hashget(TG_HASH_ARRAY,
 			&(v->arrval.hash), k)) == NULL)
@@ -746,6 +820,11 @@ static void tg_copytable(struct tg_val *dst, struct tg_val *src,
 {
 	int i, j;
 	int srcrows, srccols;
+
+	TG_ASSERT(dst != NULL, "Cannot copy table");
+	TG_ASSERT(dst->type == TG_VAL_TABLE, "Cannot copy table");
+	TG_ASSERT(src != NULL, "Cannot copy table");
+	TG_ASSERT(src->type == TG_VAL_TABLE, "Cannot copy table");
 
 	srcrows = tg_valgetattr(src, "rows")->intval;
 	srccols = tg_valgetattr(src, "cols")->intval;	
@@ -775,12 +854,19 @@ static void tg_copytable(struct tg_val *dst, struct tg_val *src,
 struct tg_val *tg_tablegetcellr(struct tg_val *t,
 	int row, int col)
 {
+	TG_ASSERT(t != NULL, "Cannot get table's cell");
+	TG_ASSERT(t->type == TG_VAL_TABLE, "Cannot get table's cell");
+
 	return tg_arrgetr(tg_arrgetr(t, row), col);
 }
 
 struct tg_val *tg_tablegetcellre(struct tg_val *t,
 	int row, int col, struct tg_val *e)
 {
+	TG_ASSERT(t != NULL, "Cannot get table's cell");
+	TG_ASSERT(t->type == TG_VAL_TABLE, "Cannot get table's cell");
+	TG_ASSERT(e != NULL, "Cannot get table's cell");
+
 	return tg_arrgetre(tg_arrgetre(t, row, tg_arrval()), col, e);
 }
 
@@ -788,6 +874,10 @@ void tg_tablesetcellr(struct tg_val *t,
 	int r, int c, struct tg_val *v)
 {
 	struct tg_val *row;
+
+	TG_ASSERT(t != NULL, "Cannot get table's cell");
+	TG_ASSERT(t->type == TG_VAL_TABLE, "Cannot get table's cell");
+	TG_ASSERT(v != NULL, "Cannot get table's cell");
 
 	if ((row = tg_arrgetre(t, r, tg_arrval())) == NULL)
 		return;
@@ -807,6 +897,9 @@ struct tg_val *tg_tablespan(struct tg_val *t, int newside, int vert)
 	int oldside;
 	int otherside;
 	int i, j;
+
+	TG_ASSERT(t != NULL, "Cannot span table");
+	TG_ASSERT(t->type == TG_VAL_TABLE, "Cannot span table");
 
 	r = tg_createval(TG_VAL_TABLE);
 
@@ -838,7 +931,7 @@ struct tg_val *tg_tablespan(struct tg_val *t, int newside, int vert)
 			oldhspani = tg_valgetattrre(oldv, "hspan", tg_intval(0))->intval;
 			oldvspani = tg_valgetattrre(oldv, "vspan", tg_intval(0))->intval;
 
-			if ((vert ? (oldvspani < 0) : (oldhspani < 0)) || c == p) {
+			if ((vert ? oldvspani : oldhspani) < 0 || c == p) {
 				struct tg_val *newhspan, *newvspan;
 
 				tg_tablesetcellr(
@@ -885,6 +978,9 @@ struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
 {
 	int t1rows, t1cols, t2rows, t2cols, maxrows, maxcols;
 	struct tg_val *r;
+
+	TG_ASSERT(v1 != NULL, "Cannot make complex table");
+	TG_ASSERT(v2 != NULL, "Cannot make complex table");
 
 	if ((v1 = tg_castval(v1, TG_VAL_TABLE)) == NULL)
 		return NULL;

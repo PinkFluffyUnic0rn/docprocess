@@ -14,13 +14,15 @@ extern char tg_error[TG_MSGMAXSIZE];
 #define TG_SETERROR(...)				\
 	snprintf(tg_error, TG_MSGMAXSIZE - 1, __VA_ARGS__)
 
-#define TG_ASSERT(expr, ...)			\
-do {						\
-	if (!(expr)) {				\
-		fprintf(stderr, __VA_ARGS__);	\
-		fprintf(stderr, "\n");		\
-		exit(1);			\
-	}					\
+#define TG_ASSERT(expr, ...)					\
+do {								\
+	if (!(expr)) {						\
+		fprintf(stderr, "file %s, line %d: %s: ",	\
+			__FILE__, __LINE__, __func__);		\
+		fprintf(stderr, __VA_ARGS__);			\
+		fprintf(stderr, "\n");				\
+		exit(1);					\
+	}							\
 } while (0);
 
 #define TG_ERROR(...)			\
