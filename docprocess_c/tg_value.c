@@ -159,7 +159,7 @@ struct tg_val *tg_stringval(const char *v)
 	return newv;
 }
 
-struct tg_val *tg_copyval(struct tg_val *v)
+struct tg_val *tg_copyval(const struct tg_val *v)
 {
 	struct tg_val *newv;
 	const char *key;
@@ -202,7 +202,7 @@ struct tg_val *tg_copyval(struct tg_val *v)
 }
 
 // make a reference version of tg_castval?
-struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
+struct tg_val *tg_castval(const struct tg_val *v, enum TG_VALTYPE t)
 {
 	struct tg_val *newv;
 	enum TG_VALTYPE vt;
@@ -377,7 +377,8 @@ struct tg_val *tg_castval(struct tg_val *v, enum TG_VALTYPE t)
 	return newv;
 }
 
-struct tg_val *tg_typeprom1val(struct tg_val *v, enum TG_VALTYPE mtype)
+struct tg_val *tg_typeprom1val(const struct tg_val *v,
+	enum TG_VALTYPE mtype)
 {
 	TG_ASSERT(v != NULL, "Cannot cast value");
 
@@ -387,7 +388,7 @@ struct tg_val *tg_typeprom1val(struct tg_val *v, enum TG_VALTYPE mtype)
 	return tg_copyval(v);
 }
 
-struct tg_val *tg_typeprom2val(struct tg_val *v1,
+struct tg_val *tg_typeprom2val(const struct tg_val *v1,
 	enum TG_VALTYPE v2type, enum TG_VALTYPE mtype)
 {
 	TG_ASSERT(v1 != NULL, "Cannot cast value");
@@ -400,7 +401,7 @@ struct tg_val *tg_typeprom2val(struct tg_val *v1,
 	return tg_copyval(v1);
 }
 
-struct tg_val *tg_valgetattrr(struct tg_val *v, const char *key)
+struct tg_val *tg_valgetattrr(const struct tg_val *v, const char *key)
 {
 	struct tg_val *r;
 	
@@ -414,7 +415,7 @@ struct tg_val *tg_valgetattrr(struct tg_val *v, const char *key)
 }
 
 struct tg_val *tg_valgetattrre(struct tg_val *v, const char *key,
-	struct tg_val *e)
+	const struct tg_val *e)
 {
 	struct tg_val *r;
 	
@@ -430,7 +431,7 @@ struct tg_val *tg_valgetattrre(struct tg_val *v, const char *key,
 	return tg_valgetattrr(v, key);
 }
 
-struct tg_val *tg_valgetattr(struct tg_val *v, const char *key)
+struct tg_val *tg_valgetattr(const struct tg_val *v, const char *key)
 {
 	struct tg_val *r;
 	
@@ -443,7 +444,8 @@ struct tg_val *tg_valgetattr(struct tg_val *v, const char *key)
 	return tg_copyval(r);
 }
 
-void tg_valsetattr(struct tg_val *v, const char *key, struct tg_val *attr)
+void tg_valsetattr(struct tg_val *v, const char *key,
+	const struct tg_val *attr)
 {
 	TG_ASSERT(v != NULL, "Cannot set value attribute");
 	TG_ASSERT(key != NULL, "Cannot set value attribute");
@@ -452,7 +454,7 @@ void tg_valsetattr(struct tg_val *v, const char *key, struct tg_val *attr)
 	tg_hashset(TG_HASH_ARRAY, &(v->attrs), key, tg_copyval(attr));
 }
 
-int tg_istrueval(struct tg_val *v)
+int tg_istrueval(const struct tg_val *v)
 {
 	TG_ASSERT(v != NULL, "Cannot check value's trueness");
 
@@ -468,7 +470,7 @@ int tg_istrueval(struct tg_val *v)
 	return 0;
 }
 
-void tg_arrpush(struct tg_val *arr, struct tg_val *v)
+void tg_arrpush(struct tg_val *arr, const struct tg_val *v)
 {
 	struct tg_val *newv;
 
@@ -481,7 +483,7 @@ void tg_arrpush(struct tg_val *arr, struct tg_val *v)
 	tg_darrpush(&(arr->arrval.arr), &newv);
 }
 
-void tg_arrset(struct tg_val *arr, int p, struct tg_val *v)
+void tg_arrset(struct tg_val *arr, int p, const struct tg_val *v)
 {
 	struct tg_val *newv;
 
@@ -494,7 +496,7 @@ void tg_arrset(struct tg_val *arr, int p, struct tg_val *v)
 	tg_darrset(&(arr->arrval.arr), p, &newv);
 }
 
-static void tg_printtable(FILE *f, struct tg_val *v)
+static void tg_printtable(FILE *f, const struct tg_val *v)
 {
 	int i, j;
 	int cols, rows;
@@ -551,7 +553,7 @@ static void tg_printtable(FILE *f, struct tg_val *v)
 	fprintf(f, "}");
 }
 
-void tg_printval(FILE *f, struct tg_val *v)
+void tg_printval(FILE *f, const struct tg_val *v)
 {
 	int isfirst;
 	int i;
@@ -603,7 +605,8 @@ void tg_printval(FILE *f, struct tg_val *v)
 	}
 }
 
-struct tg_val *tg_valcat(struct tg_val *v1, struct tg_val *v2)
+struct tg_val *tg_valcat(const struct tg_val *v1,
+	const struct tg_val *v2)
 {
 	struct tg_val *r;
 	
@@ -631,8 +634,8 @@ do {								\
 	else if (op == TG_NUMOP_DIV)	(r) = (v1) / (v2);	\
 } while (0);
 
-struct tg_val *_tg_numop(struct tg_val *v1, struct tg_val *v2,
-	enum TG_NUMOP op)
+struct tg_val *_tg_numop(const struct tg_val *v1,
+	const struct tg_val *v2, enum TG_NUMOP op)
 {
 	struct tg_val *r;
 		
@@ -663,7 +666,8 @@ struct tg_val *_tg_numop(struct tg_val *v1, struct tg_val *v2,
 	return r;
 }
 
-struct tg_val *tg_valor(struct tg_val *v1, struct tg_val *v2)
+struct tg_val *tg_valor(const struct tg_val *v1,
+	const struct tg_val *v2)
 {
 	struct tg_val *r;
 	
@@ -677,7 +681,8 @@ struct tg_val *tg_valor(struct tg_val *v1, struct tg_val *v2)
 	return r;
 }
 
-struct tg_val *tg_valand(struct tg_val *v1, struct tg_val *v2)
+struct tg_val *tg_valand(const struct tg_val *v1,
+	const struct tg_val *v2)
 {
 	struct tg_val *r;
 	
@@ -701,8 +706,8 @@ do {									\
 	else if (op == TG_RELOP_GREATEREQ)	(r) = (v1) >= (v2);	\
 } while (0);
 
-struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
-	enum TG_RELOP op)
+struct tg_val *_tg_valcmp(const struct tg_val *v1,
+	const struct tg_val *v2, enum TG_RELOP op)
 {
 	struct tg_val *r;
 	
@@ -740,7 +745,7 @@ struct tg_val *_tg_valcmp(struct tg_val *v1, struct tg_val *v2,
 	return r;
 }
 
-struct tg_val *tg_arrgetr(struct tg_val *v, int i)
+struct tg_val *tg_arrgetr(const struct tg_val *v, int i)
 {
 	struct tg_val **r;
 
@@ -755,7 +760,7 @@ struct tg_val *tg_arrgetr(struct tg_val *v, int i)
 	return *((struct tg_val **) r);
 }
 
-struct tg_val *tg_arrget(struct tg_val *v, int i)
+struct tg_val *tg_arrget(const struct tg_val *v, int i)
 {
 	struct tg_val *r;
 
@@ -768,7 +773,8 @@ struct tg_val *tg_arrget(struct tg_val *v, int i)
 	return tg_copyval(r);
 }
 
-struct tg_val *tg_arrgete(struct tg_val *v, int i, struct tg_val *e)
+struct tg_val *tg_arrgete(struct tg_val *v, int i,
+	const struct tg_val *e)
 {
 	struct tg_val *r;
 
@@ -782,7 +788,8 @@ struct tg_val *tg_arrgete(struct tg_val *v, int i, struct tg_val *e)
 	return tg_copyval(r);
 }
 
-struct tg_val *tg_arrgetre(struct tg_val *v, int i, struct tg_val *e)
+struct tg_val *tg_arrgetre(struct tg_val *v, int i,
+	const struct tg_val *e)
 {
 	struct tg_val **r;
 
@@ -800,7 +807,7 @@ struct tg_val *tg_arrgetre(struct tg_val *v, int i, struct tg_val *e)
 	return *((struct tg_val **) r);
 }
 
-struct tg_val *tg_arrgeth(struct tg_val *v, const char *k)
+struct tg_val *tg_arrgeth(const struct tg_val *v, const char *k)
 {
 	struct tg_val *r;
 
@@ -815,7 +822,7 @@ struct tg_val *tg_arrgeth(struct tg_val *v, const char *k)
 	return tg_copyval(r);
 }
 
-static void tg_copytable(struct tg_val *dst, struct tg_val *src,
+static void tg_copytable(struct tg_val *dst, const struct tg_val *src,
 	int offr, int offc, int rows, int cols)
 {
 	int i, j;
@@ -973,29 +980,30 @@ struct tg_val *tg_tablespan(struct tg_val *t, int newside, int vert)
 	return r;
 }
 
-struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
-	int vert, int span)
+struct tg_val *tg_valnextto(const struct tg_val *v1,
+	const struct tg_val *v2, int vert, int span)
 {
 	int t1rows, t1cols, t2rows, t2cols, maxrows, maxcols;
+	struct tg_val *vc1, *vc2;
 	struct tg_val *r;
 
 	TG_ASSERT(v1 != NULL, "Cannot make complex table");
 	TG_ASSERT(v2 != NULL, "Cannot make complex table");
 
-	if ((v1 = tg_castval(v1, TG_VAL_TABLE)) == NULL)
+	if ((vc1 = tg_castval(v1, TG_VAL_TABLE)) == NULL)
 		return NULL;
 
-	if ((v2 = tg_castval(v2, TG_VAL_TABLE)) == NULL)
+	if ((vc2 = tg_castval(v2, TG_VAL_TABLE)) == NULL)
 		return NULL;
 
-	t1rows = tg_valgetattr(v1, "rows")->intval;
-	t1cols = tg_valgetattr(v1, "cols")->intval;
-	t2rows = tg_valgetattr(v2, "rows")->intval;
-	t2cols = tg_valgetattr(v2, "cols")->intval;
+	t1rows = tg_valgetattr(vc1, "rows")->intval;
+	t1cols = tg_valgetattr(vc1, "cols")->intval;
+	t2rows = tg_valgetattr(vc2, "rows")->intval;
+	t2cols = tg_valgetattr(vc2, "cols")->intval;
 
 	if (span) {
-		v1 = tg_tablespan(v1, vert ? t2cols : t2rows, !vert);
-		v2 = tg_tablespan(v2, vert ? t1cols : t1rows, !vert);
+		vc1 = tg_tablespan(vc1, vert ? t2cols : t2rows, !vert);
+		vc2 = tg_tablespan(vc2, vert ? t1cols : t1rows, !vert);
 	}
 
 	maxrows = (t1rows > t2rows) ? t1rows : t2rows;
@@ -1003,10 +1011,10 @@ struct tg_val *tg_valnextto(struct tg_val *v1, struct tg_val *v2,
 
 	r = tg_createval(TG_VAL_TABLE);
 
-	tg_copytable(r, v1, 0, 0,
+	tg_copytable(r, vc1, 0, 0,
 		vert ? t1rows : maxrows, vert ? maxcols : t1cols);
 
-	tg_copytable(r, v2,
+	tg_copytable(r, vc2,
 		vert ? t1rows : 0, vert ? 0 : t1cols, 
 		vert ? t2rows : maxrows, vert ? maxcols : t2cols);
 

@@ -19,7 +19,7 @@ struct tg_char {
 const char *tg_strsym[] = {
 	"identificator", "integer", "float", "quoted string",
 	"relational operator", "(", ")", "&", "|", "~", ",", "!",
-	"increment or decrement operator", ";", ":", "$", "^",
+	"increment or decrement operator", ";", ":", "cell reference",
 	"addition or substraction operator",
 	"multiplication or division operator", "..",
 	"assignment operator", "?", "next to operator", "global",
@@ -1654,6 +1654,8 @@ static int tg_stmt(int ni)
 		TG_ERRQUIT(tg_return(nni));
 		break;
 
+	// block
+
 	case TG_T_BREAK:
 		TG_ERRQUIT(tg_nodeadd(ni, TG_T_BREAK, &t));
 		break;
@@ -1696,8 +1698,6 @@ int tg_getparsetree(const char *p)
 				goto error;
 		}
 	}
-
-	tg_printnode(ni, 0);
 
 	tg_finilizeparser();
 

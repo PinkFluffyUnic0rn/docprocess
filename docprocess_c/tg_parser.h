@@ -50,6 +50,12 @@ struct tg_node {
 	struct tg_darray children;
 };
 
+int tg_nodeccnt(int ni);
+
+int tg_nodegetchild(int ni, int i);
+
 int tg_getparsetree(const char *p);
+
+int tg_printnode(int ni, int depth);
 
 #endif

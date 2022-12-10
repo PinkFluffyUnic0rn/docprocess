@@ -163,7 +163,7 @@ void tg_hashset##NAME(struct tg_hash *h, const char *key, STRT *v)	\
 	h->count++;						\
 }								\
 								\
-STRT *tg_hashget##NAME(struct tg_hash *h, const char *key)	\
+STRT *tg_hashget##NAME(const struct tg_hash *h, const char *key)	\
 {								\
 	STRT *p;						\
 	int b;							\

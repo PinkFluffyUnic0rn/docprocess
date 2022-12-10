@@ -225,8 +225,34 @@ int tg_readsourceslist(const char *sources)
 	return 0;
 }
 
+int tg_funcdef(int n)
+{
+
+	return 0;
+}
+
+int tg_stmt(int n)
+{
+
+	return 0;
+}
+
+int tg_template(int n)
+{
+	int i;
+
+	for (i = 0; i < tg_nodeccnt(n); ++i) {
+		tg_funcdef(tg_nodegetchild(n, i));
+		tg_stmt(tg_nodegetchild(n, i));
+	}
+
+	return 0;
+}
+
 int main()
 {
+	int tpl;
+	
 	tg_allocinit(&symalloc, sizeof(struct tg_symbol)); 
 	
 	tg_inithash(TG_HASH_SYMBOL, &symtable);
@@ -236,9 +262,14 @@ int main()
 	tg_readsourceslist(
 		"test1:csv:./test1.csv;test2:script:./test2.sh");
 
-//	tg_printsymbols();
+	tpl = tg_getparsetree("test.txt");
 
-	tg_testvalues();
+	tg_printnode(tpl, 0);
+
+	int tg_template(int n);
+
+//	tg_printsymbols();
+//	tg_testvalues();
 
 
 	tg_endframe();
