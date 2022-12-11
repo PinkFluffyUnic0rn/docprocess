@@ -33,8 +33,7 @@ enum TG_TYPE {
 	TG_N_ARGS,		TG_N_ATTR
 };
 
-extern const char *tg_tstrsym[];
-extern const char *tg_nstrsym[];
+extern const char *tg_strsym[];
 
 struct tg_token {
 	struct tg_dstring val;
@@ -54,8 +53,12 @@ int tg_nodeccnt(int ni);
 
 int tg_nodegetchild(int ni, int i);
 
-int tg_getparsetree(const char *p);
+enum TG_TYPE tg_nodegettype(int ni);
+
+struct tg_token *tg_nodegettoken(int ni);
 
 int tg_printnode(int ni, int depth);
+
+int tg_getparsetree(const char *p);
 
 #endif

@@ -231,19 +231,83 @@ int tg_funcdef(int n)
 	return 0;
 }
 
-int tg_stmt(int n)
+int tg_for(int ni)
 {
 
 	return 0;
 }
 
-int tg_template(int n)
+int tg_if(int ni)
+{
+
+	return 0;
+}
+
+int tg_return(int ni)
+{
+
+	return 0;
+}
+
+int tg_break(int ni)
+{
+
+	return 0;
+}
+
+int tg_continue(int ni)
+{
+
+	return 0;
+}
+
+int tg_expr(int ni)
+{
+	// return first childs result
+	// if more children, just run them
+	//
+	// in tg_assignment:
+	// 	r = tg_ternary(ni);
+	//
+	// 	if ni->type == ASSIGNMENT
+	// 		r = perform assign
+	//	
+	//	return r
+
+	return 0;
+}
+
+int tg_template(int ni)
 {
 	int i;
 
-	for (i = 0; i < tg_nodeccnt(n); ++i) {
-		tg_funcdef(tg_nodegetchild(n, i));
-		tg_stmt(tg_nodegetchild(n, i));
+	for (i = 0; i < tg_nodeccnt(ni); ++i) {
+		int ci;
+
+		ci = tg_nodegetchild(ni, i);
+
+		switch (tg_nodegettype(ci)) {
+		case TG_N_FUNCDEF:
+			TG_ERRQUIT(tg_funcdef(ci));
+		case TG_N_FOR:
+			TG_ERRQUIT(tg_for(ci));
+			break;
+		case TG_N_IF:
+			TG_ERRQUIT(tg_if(ci));
+			break;
+		case TG_N_RETURN:
+			break;
+		case TG_T_BREAK:
+			break;
+		case TG_T_CONTINUE:
+			break;
+		case TG_N_EXPR:
+			TG_ERRQUIT(tg_expr(ci));
+			break;
+		default:
+			TG_ERROR("Unexpected node type: %s",
+				tg_strsym[tg_nodegettype(ci)]);
+		}
 	}
 
 	return 0;
@@ -266,7 +330,7 @@ int main()
 
 	tg_printnode(tpl, 0);
 
-	int tg_template(int n);
+	tg_template(tpl);
 
 //	tg_printsymbols();
 //	tg_testvalues();

@@ -25,12 +25,16 @@ do {								\
 	}							\
 } while (0);
 
-#define TG_ERROR(...)			\
-do {					\
-	fprintf(stderr, __VA_ARGS__);	\
-	fprintf(stderr, "\n");		\
-	exit(1);			\
+#define TG_ERROR(...)					\
+do {							\
+	fprintf(stderr, "file %s, line %d: %s: ",	\
+		__FILE__, __LINE__, __func__);		\
+	fprintf(stderr, __VA_ARGS__);			\
+	fprintf(stderr, "\n");				\
+	exit(1);					\
 } while (0);
+
+#define TG_ERRQUIT(v) do { if ((v) < 0) return (-1); } while (0)
 
 #define TG_REHASHFACTOR 1.5
 

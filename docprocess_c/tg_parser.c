@@ -764,6 +764,16 @@ int tg_nodegetchild(int ni, int i)
 	return *pci;
 }
 
+enum TG_TYPE tg_nodegettype(int ni)
+{
+	return ((struct tg_node *) tg_darrget(&nodes, ni))->type;
+}
+
+struct tg_token *tg_nodegettoken(int ni)
+{
+	return &(((struct tg_node *) tg_darrget(&nodes, ni))->token);
+}
+
 int tg_indent(int t)
 {
 	int i;
@@ -827,8 +837,6 @@ int tg_printnode(int ni, int depth)
 }
 
 // syntax analizer
-
-#define TG_ERRQUIT(v) do { if ((v) < 0) return (-1); } while (0)
 
 static int tg_expr(int ni);
 static int tg_assign(int ni);
