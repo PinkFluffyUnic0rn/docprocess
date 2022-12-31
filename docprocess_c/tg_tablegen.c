@@ -350,9 +350,60 @@ struct tg_val *tg_ternary(int ni)
 	return NULL;
 }
 
+struct tg_val *tg_getlvalue(int ni)
+{
+	int i;
+	
+	if (tg_nodegettype(ni) == TG_N_ID) {
+		// get symbol id
+		// return value
+	}
+
+	if (tg_nodegettype(ni) != TG_N_ADDRESS) {
+		//error
+		return NULL;
+	}
+
+	if (tg_nodegettype(tg_nodegetchild(ni, 0)) != TG_N_ID) {
+		//error
+		return NULL;
+	}
+
+	// get symbol id
+
+	for (i = 1; i < tg_nodeccnt(ni); ++i) {
+		if (tg_nodegettype(tg_nodegetchild(ni, i)) == TG_N_ARGS) {
+			//error
+			return NULL;
+		}
+
+		// if attr
+		// 	return tg_getattrr
+		// if index
+		// 	if (has ref or it's a range)	?
+		// 		error		?
+		//	return
+	}
+}
+
 struct tg_val *tg_assign(int ni)
 {
-	return NULL;
+	int i;
+	struct tg_val *r;
+		
+	r = run_node(tg_nodegetchild(ni, 0));
+
+	for (i = tg_nodeccnt(ni) - 1; i == 0; --i) {
+	//	run_node(tg_nodegetchild(ni, i));
+	}
+
+	return r;
+	// get result r from last node
+	// for each node from ccnt - 1 to 0
+	// 	check that node is lvalue
+	// 	assign r to it
+	// 	return r
+
 }
 
 struct tg_val *tg_expr(int ni)
