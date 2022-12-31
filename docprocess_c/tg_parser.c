@@ -896,7 +896,9 @@ static int tg_id(int ni)
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_ID));
 
-	TG_ERRQUIT(tg_nodeadd(ni, TG_N_ID, &t));
+	ni = tg_nodeadd(ni, TG_N_ID, NULL);
+
+	TG_ERRQUIT(tg_nodeadd(ni, TG_T_ID, &t));
 
 	return 0;
 }
@@ -928,7 +930,9 @@ static int tg_val(int ni)
 	case TG_T_STRING:
 		TG_ERRQUIT(tg_gettoken(&t));
 	
-		TG_ERRQUIT(tg_nodeadd(ni, TG_N_CONST, &t));
+		ni = tg_nodeadd(ni, TG_N_CONST, NULL);
+
+		TG_ERRQUIT(tg_nodeadd(ni, t.type, &t));
 		break;
 
 	case TG_T_ERROR:

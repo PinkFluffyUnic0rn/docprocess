@@ -50,6 +50,14 @@ struct tg_allocator symalloc;
 
 struct tg_hash symtable;
 
+struct tg_val *tg_valprinterr(struct tg_val *v)
+{
+	if (v == NULL)
+		TG_WARNING("%s", tg_error);
+
+	return v;
+}
+
 struct tg_val *csv_to_table(int f)
 {
 	return NULL;
@@ -241,27 +249,25 @@ struct tg_val *tg_if(int ni)
 
 struct tg_val *tg_for(int ni)
 {
-
 	return NULL;
 }
 
 struct tg_val *tg_block(int ni)
 {
-
 	return NULL;
 }
 
 struct tg_val *tg_identificator(int ni)
 {
-	// this and tg_const only TG_N_* that can have a token attached
-	return tg_symbolgetval(tg_nodegettoken(ni)->val.str);
+	return tg_symbolgetval(tg_nodegettoken(tg_nodegetchild(ni, 0))
+		->val.str);
 }
 
 struct tg_val *tg_const(int ni)
 {
 	struct tg_token *t;
 
-	t = tg_nodegettoken(ni);
+	t = tg_nodegettoken(tg_nodegetchild(ni, 0));
 
 	if (t->type == TG_T_STRING)
 		return tg_stringval(t->val.str);
@@ -284,7 +290,7 @@ struct tg_val *tg_prestep(int ni)
 	
 	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
 	
-	return tg_valadd(r, tg_intval(1));
+	return tg_valprinterr(tg_valadd(r, tg_intval(1)));
 }
 
 struct tg_val *tg_sign(int ni)
@@ -324,9 +330,9 @@ struct tg_val *tg_mult(int ni)
 		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i + 1)));
 		
 		if (strcmp(s, "*") == 0)
-			TG_NULLQUIT(r = tg_valmult(r, v));
+			TG_NULLQUIT(tg_valprinterr(r = tg_valmult(r, v)));
 		else if (strcmp(s, "/") == 0)
-			TG_NULLQUIT(r = tg_valdiv(r, v));
+			TG_NULLQUIT(tg_valprinterr(r = tg_valdiv(r, v)));
 	}
 
 	return r;
@@ -347,9 +353,9 @@ struct tg_val *tg_add(int ni)
 		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i + 1)));
 		
 		if (strcmp(s, "+") == 0)
-			TG_NULLQUIT(r = tg_valadd(r, v));
+			TG_NULLQUIT(tg_valprinterr(r = tg_valadd(r, v)));
 		else if (strcmp(s, "-") == 0)
-			TG_NULLQUIT(r = tg_valsub(r, v));
+			TG_NULLQUIT(tg_valprinterr(r = tg_valsub(r, v)));
 	}
 
 	return r;
@@ -367,8 +373,7 @@ struct tg_val *tg_cat(int ni)
 	
 		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i)));
 		
-		// print cast error?	
-		TG_NULLQUIT(r = tg_valcat(r, v));
+		TG_NULLQUIT(tg_valprinterr(r = tg_valcat(r, v)));
 	}
 
 	return r;
@@ -396,10 +401,14 @@ struct tg_val *tg_nextto(int ni)
 			++i;
 		}
 		
-		if (strcmp(s, "->") == 0)
-			TG_NULLQUIT(r = tg_valnextto(r, v, 0, span));
-		else if (strcmp(s, "^") == 0)
-			TG_NULLQUIT(r = tg_valnextto(r, v, 1, span));
+		if (strcmp(s, "->") == 0) {
+			TG_NULLQUIT(tg_valprinterr(r = tg_valnextto(r,
+				v, 0, span)));
+		}
+		else if (strcmp(s, "^") == 0) {
+			TG_NULLQUIT(tg_valprinterr(r = tg_valnextto(r,
+				v, 1, span)));
+		}
 	}
 
 	return r;
@@ -416,17 +425,17 @@ struct tg_val *tg_rel(int ni)
 	s = tg_nodegettoken(tg_nodegetchild(ni, 2))->val.str;
 
 	if (strcmp(s, "=") == 0)
-		return tg_valeq(r1, r2);
+		return tg_valprinterr(tg_valeq(r1, r2));
 	else if (strcmp(s, "!=") == 0)
-		return tg_valneq(r1, r2);
+		return tg_valprinterr(tg_valneq(r1, r2));
 	else if (strcmp(s, "<") == 0)
-		return tg_valls(r1, r2);
+		return tg_valprinterr(tg_valls(r1, r2));
 	else if (strcmp(s, ">") == 0)
-		return tg_valgr(r1, r2);
+		return tg_valprinterr(tg_valgr(r1, r2));
 	else if (strcmp(s, "<=") == 0)
-		return tg_vallseq(r1, r2);
+		return tg_valprinterr(tg_vallseq(r1, r2));
 	else if (strcmp(s, ">=") == 0)
-		return tg_valgreq(r1, r2);
+		return tg_valprinterr(tg_valgreq(r1, r2));
 
 	TG_WARNING("Unknown relation operator: %s", s);
 
