@@ -295,7 +295,11 @@ struct tg_val *tg_prestep(int ni)
 
 struct tg_val *tg_sign(int ni)
 {
-	return NULL;
+	struct tg_val *r;
+	
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+	
+	return tg_valprinterr(tg_valmult(r, tg_intval(-1)));
 }
 
 struct tg_val *tg_not(int ni)
