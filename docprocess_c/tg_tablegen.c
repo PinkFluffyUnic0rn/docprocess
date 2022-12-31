@@ -124,7 +124,7 @@ void tg_symboladd(const char *name, struct tg_symbol *s)
 	tg_hashset(TG_HASH_SYMBOL, &symtable, name, s);
 }
 
-void *tg_symbolget(const char *name, enum TG_SYMTYPE type)
+void *tg_symbolget(const char *name)
 {
 	return tg_hashget(TG_HASH_SYMBOL, &symtable, name);
 }
@@ -141,11 +141,12 @@ struct tg_val *tg_symbolgetval(const char *name)
 	if (sym->type == TG_SYMTYPE_INPUT)
 		return readsource(&(sym->input), NULL, 1);
 	else if (sym->type == TG_SYMTYPE_FUNC) {
-		TG_ERROR("Cannot convert function %s to value.", name);
+		TG_WARNING("Cannot convert function %s to value.",
+			name);
 		return NULL;
 	}
 		
-	TG_ERROR("Symbol %s has unknown type.", name);
+	TG_WARNING("Symbol %s has unknown type.", name);
 
 	return NULL;
 }
@@ -347,43 +348,30 @@ struct tg_val *tg_or(int ni)
 
 struct tg_val *tg_ternary(int ni)
 {
+	// run_node for child(0) to r
+	// if istrue(r);
+	// 	return run_node(child(1))
+	// else
+	// 	return run_node(child(2))
 	return NULL;
 }
 
-struct tg_val *tg_getlvalue(int ni)
+struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
 {
-	int i;
-	
-	if (tg_nodegettype(ni) == TG_N_ID) {
-		// get symbol id
-		// return value
-	}
+	struct tg_symbol *s;
 
-	if (tg_nodegettype(ni) != TG_N_ADDRESS) {
-		//error
+	if (tg_nodegettype(ni) != TG_N_ID) {
+		TG_WARNING("Trying to assign into rvalue.");
 		return NULL;
 	}
 
-	if (tg_nodegettype(tg_nodegetchild(ni, 0)) != TG_N_ID) {
-		//error
-		return NULL;
-	}
+	s = tg_alloc(&symalloc);
+	s->type = TG_SYMTYPE_VARIABLE;
+	s->var.val = v;
 
-	// get symbol id
+	tg_symboladd(tg_nodegettoken(ni)->val.str, s);
 
-	for (i = 1; i < tg_nodeccnt(ni); ++i) {
-		if (tg_nodegettype(tg_nodegetchild(ni, i)) == TG_N_ARGS) {
-			//error
-			return NULL;
-		}
-
-		// if attr
-		// 	return tg_getattrr
-		// if index
-		// 	if (has ref or it's a range)	?
-		// 		error		?
-		//	return
-	}
+	return tg_createval(TG_VAL_EMPTY);
 }
 
 struct tg_val *tg_assign(int ni)
@@ -391,19 +379,12 @@ struct tg_val *tg_assign(int ni)
 	int i;
 	struct tg_val *r;
 		
-	r = run_node(tg_nodegetchild(ni, 0));
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
 
-	for (i = tg_nodeccnt(ni) - 1; i == 0; --i) {
-	//	run_node(tg_nodegetchild(ni, i));
-	}
+	for (i = tg_nodeccnt(ni) - 1; i == 0; --i)
+		TG_NULLQUIT(tg_setlvalue(tg_nodegetchild(ni, i), r));
 
 	return r;
-	// get result r from last node
-	// for each node from ccnt - 1 to 0
-	// 	check that node is lvalue
-	// 	assign r to it
-	// 	return r
-
 }
 
 struct tg_val *tg_expr(int ni)
@@ -411,10 +392,10 @@ struct tg_val *tg_expr(int ni)
 	int i;
 	struct tg_val *r;
 		
-	r = run_node(tg_nodegetchild(ni, 0));
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
 
 	for (i = 1; i < tg_nodeccnt(ni); ++i)
-		run_node(tg_nodegetchild(ni, i));
+		TG_NULLQUIT(run_node(tg_nodegetchild(ni, i)));
 
 	return r;
 }
@@ -424,14 +405,14 @@ struct tg_val *tg_template(int ni)
 	int i;
 
 	for (i = 0; i < tg_nodeccnt(ni); ++i)
-		run_node(tg_nodegetchild(ni, i));
+		TG_NULLQUIT(run_node(tg_nodegetchild(ni, i)));
 
 	return 0;
 }
 
 struct tg_val *tg_unexpected(int ni)
 {
-	TG_ERROR("Unexpected node type: %s",
+	TG_WARNING("Unexpected node type: %s",
 		tg_strsym[tg_nodegettype(ni)]);
 
 	return NULL;
