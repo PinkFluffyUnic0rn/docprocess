@@ -225,92 +225,192 @@ int tg_readsourceslist(const char *sources)
 	return 0;
 }
 
-int tg_funcdef(int n)
+struct tg_val *run_node(int ni);
+
+struct tg_val *tg_funcdef(int n)
 {
 
-	return 0;
+	return NULL;
 }
 
-int tg_for(int ni)
+struct tg_val *tg_if(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_for(int ni)
 {
 
-	return 0;
+	return NULL;
 }
 
-int tg_if(int ni)
+struct tg_val *tg_block(int ni)
 {
 
-	return 0;
+	return NULL;
 }
 
-int tg_return(int ni)
+struct tg_val *tg_attr(int ni)
 {
-
-	return 0;
+	return NULL;
 }
 
-int tg_break(int ni)
+struct tg_val *tg_args(int ni)
 {
-
-	return 0;
+	return NULL;
 }
 
-int tg_continue(int ni)
+struct tg_val *tg_index(int ni)
 {
-
-	return 0;
+	return NULL;
 }
 
-int tg_expr(int ni)
+struct tg_val *tg_identificator(int ni)
 {
-	// return first childs result
-	// if more children, just run them
-	//
-	// in tg_assignment:
-	// 	r = tg_ternary(ni);
-	//
-	// 	if ni->type == ASSIGNMENT
-	// 		r = perform assign
-	//	
-	//	return r
-
-	return 0;
+	return NULL;
 }
 
-int tg_template(int ni)
+struct tg_val *tg_const(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_valhandler(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_address(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_prestep(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_sign(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_not(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_ref(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_unary(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_mult(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_add(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_cat(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_nextto(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_rel(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_and(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_or(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_ternary(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_assign(int ni)
+{
+	return NULL;
+}
+
+struct tg_val *tg_expr(int ni)
+{
+	int i;
+	struct tg_val *r;
+		
+	r = run_node(tg_nodegetchild(ni, 0));
+
+	for (i = 1; i < tg_nodeccnt(ni); ++i)
+		run_node(tg_nodegetchild(ni, i));
+
+	return r;
+}
+
+struct tg_val *tg_template(int ni)
 {
 	int i;
 
-	for (i = 0; i < tg_nodeccnt(ni); ++i) {
-		int ci;
-
-		ci = tg_nodegetchild(ni, i);
-
-		switch (tg_nodegettype(ci)) {
-		case TG_N_FUNCDEF:
-			TG_ERRQUIT(tg_funcdef(ci));
-		case TG_N_FOR:
-			TG_ERRQUIT(tg_for(ci));
-			break;
-		case TG_N_IF:
-			TG_ERRQUIT(tg_if(ci));
-			break;
-		case TG_N_RETURN:
-			break;
-		case TG_T_BREAK:
-			break;
-		case TG_T_CONTINUE:
-			break;
-		case TG_N_EXPR:
-			TG_ERRQUIT(tg_expr(ci));
-			break;
-		default:
-			TG_ERROR("Unexpected node type: %s",
-				tg_strsym[tg_nodegettype(ci)]);
-		}
-	}
+	for (i = 0; i < tg_nodeccnt(ni); ++i)
+		run_node(tg_nodegetchild(ni, i));
 
 	return 0;
+}
+
+struct tg_val *tg_unexpected(int ni)
+{
+	TG_ERROR("Unexpected node type: %s",
+		tg_strsym[tg_nodegettype(ni)]);
+
+	return NULL;
+}
+
+struct tg_val *(* node_handler[])(int) = {
+	tg_template,	tg_funcdef,	tg_unexpected,
+	tg_unexpected, 	tg_unexpected,	tg_if,
+	tg_for,		tg_unexpected,	tg_unexpected,
+	tg_unexpected,	tg_block,	tg_expr,
+	tg_assign,	tg_ternary,	tg_or,
+	tg_and,		tg_rel,		tg_nextto,
+	tg_unexpected,	tg_cat,		tg_add,
+	tg_mult,	tg_unary,	tg_ref,
+	tg_not,		tg_sign, 	tg_prestep,
+	tg_address,	tg_valhandler,	tg_identificator,
+	tg_const,	tg_index,	tg_unexpected,
+	tg_unexpected,	tg_args,	tg_attr
+};
+
+struct tg_val *run_node(int ni)
+{
+	int t;
+
+	t = tg_nodegettype(ni) - TG_N_TEMPLATE;
+
+	if (t < 0 || t > TG_N_ATTR)
+		return tg_unexpected(ni);
+	
+	return node_handler[t](ni);
 }
 
 int main()
