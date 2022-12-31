@@ -115,6 +115,8 @@ void tg_printval(FILE *f, const struct tg_val *v);
 
 int tg_istrueval(const struct tg_val *v);
 
+// negate: cast to double or int, change sign
+
 struct tg_val *tg_valcat(const struct tg_val *v1,
 	const struct tg_val *v2);
 

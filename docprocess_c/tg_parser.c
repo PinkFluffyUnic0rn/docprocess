@@ -1150,22 +1150,22 @@ static int tg_unary(int ni)
 
 	switch(t.type) {
 	case TG_T_STEPOP:
-		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_PRESTEP, &t));
+		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_PRESTEP, NULL));
 		TG_ERRQUIT(tg_prestep(ni));
 		break;
 
 	case TG_T_REFOP:
-		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_REF, &t));
+		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_REF, NULL));
 		TG_ERRQUIT(tg_ref(ni));
 		break;
 
 	case TG_T_NOT:
-		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_NOT, &t));
+		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_NOT, NULL));
 		TG_ERRQUIT(tg_not(ni));
 		break;
 
 	case TG_T_ADDOP:
-		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_SIGN, &t));
+		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_SIGN, NULL));
 		TG_ERRQUIT(tg_sign(ni));
 		break;
 
@@ -1204,7 +1204,7 @@ static int tg_add(int ni)
 	struct tg_token t;
 	int mni;
 
-	TG_ERRQUIT(mni = tg_nodeadd(-1, TG_N_MULT, &t));
+	TG_ERRQUIT(mni = tg_nodeadd(-1, TG_N_MULT, NULL));
 	TG_ERRQUIT(tg_mult(mni));
 
 	if (tg_nodeccnt(mni) == 1)
@@ -1217,7 +1217,7 @@ static int tg_add(int ni)
 
 		TG_ERRQUIT(tg_nodeadd(ni, TG_T_ADDOP, &t));
 
-		TG_ERRQUIT(mni = tg_nodeadd(-1, TG_N_MULT, &t));
+		TG_ERRQUIT(mni = tg_nodeadd(-1, TG_N_MULT, NULL));
 		TG_ERRQUIT(tg_mult(mni));
 	
 		if (tg_nodeccnt(mni) == 1)
@@ -1247,7 +1247,7 @@ static int tg_cat(int ni)
 	
 		TG_ERRQUIT(tg_nodeadd(ni, TG_T_TILDA, &t));
 
-		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADD, &t));
+		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADD, NULL));
 		TG_ERRQUIT(tg_add(ani));
 	
 		if (tg_nodeccnt(ani) == 1)
@@ -1277,7 +1277,7 @@ static int tg_nextto(int ni)
 	struct tg_token t;
 	int cni;
 
-	TG_ERRQUIT(cni = tg_nodeadd(-1, TG_N_CAT, &t));
+	TG_ERRQUIT(cni = tg_nodeadd(-1, TG_N_CAT, NULL));
 	TG_ERRQUIT(tg_cat(cni));
 
 	if (tg_nodeccnt(cni) == 1)
@@ -1290,7 +1290,7 @@ static int tg_nextto(int ni)
 	
 		TG_ERRQUIT(tg_nodeadd(ni, TG_T_NEXTTOOP, &t));
 
-		TG_ERRQUIT(cni = tg_nodeadd(-1, TG_N_CAT, &t));
+		TG_ERRQUIT(cni = tg_nodeadd(-1, TG_N_CAT, NULL));
 		TG_ERRQUIT(tg_cat(cni));
 
 		if (tg_nodeccnt(cni) == 1)
@@ -1298,8 +1298,16 @@ static int tg_nextto(int ni)
 		
 		TG_ERRQUIT(tg_nodeattach(ni, cni));
 
-		if (tg_peektoken(&t) == TG_T_COLON)
-			TG_ERRQUIT(tg_nexttoopts(ni));
+		if (tg_peektoken(&t) == TG_T_COLON) {
+			int oni;
+
+			TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_NEXTTOOPTS,
+				NULL));
+
+			TG_ERRQUIT(tg_nexttoopts(oni));
+	
+			TG_ERRQUIT(tg_nodeattach(ni, oni));
+		}
 	}
 
 	return 0;
@@ -1310,7 +1318,7 @@ static int tg_rel(int ni)
 	struct tg_token t;
 	int nni;
 
-	TG_ERRQUIT(nni = tg_nodeadd(-1, TG_N_NEXTTO, &t));
+	TG_ERRQUIT(nni = tg_nodeadd(-1, TG_N_NEXTTO, NULL));
 	TG_ERRQUIT(tg_nextto(nni));
 	
 	if (tg_nodeccnt(nni) == 1)
@@ -1323,7 +1331,7 @@ static int tg_rel(int ni)
 	
 		TG_ERRQUIT(tg_nodeadd(ni, TG_T_RELOP, &t));
 
-		TG_ERRQUIT(nni = tg_nodeadd(-1, TG_N_NEXTTO, &t));
+		TG_ERRQUIT(nni = tg_nodeadd(-1, TG_N_NEXTTO, NULL));
 		TG_ERRQUIT(tg_nextto(nni));
 
 		if (tg_nodeccnt(nni) == 1)
@@ -1341,7 +1349,7 @@ static int tg_and(int ni)
 	struct tg_token t;
 	int rni;
 
-	TG_ERRQUIT(rni = tg_nodeadd(-1, TG_N_REL, &t));
+	TG_ERRQUIT(rni = tg_nodeadd(-1, TG_N_REL, NULL));
 	TG_ERRQUIT(tg_rel(rni));
 	
 	if (tg_nodeccnt(rni) == 1)
@@ -1352,7 +1360,7 @@ static int tg_and(int ni)
 	while (tg_peektoken(&t) == TG_T_AND) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_AND));
 	
-		TG_ERRQUIT(rni = tg_nodeadd(-1, TG_N_REL, &t));
+		TG_ERRQUIT(rni = tg_nodeadd(-1, TG_N_REL, NULL));
 		TG_ERRQUIT(tg_rel(rni));
 
 		if (tg_nodeccnt(rni) == 1)
@@ -1369,7 +1377,7 @@ static int tg_or(int ni)
 	struct tg_token t;
 	int ani;
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_AND, &t));
+	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_AND, NULL));
 	TG_ERRQUIT(tg_and(ani));
 	
 	if (tg_nodeccnt(ani) == 1)
@@ -1380,7 +1388,7 @@ static int tg_or(int ni)
 	while (tg_peektoken(&t) == TG_T_OR) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_OR));
 	
-		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_AND, &t));
+		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_AND, NULL));
 		TG_ERRQUIT(tg_and(ani));
 
 		if (tg_nodeccnt(ani) == 1)
@@ -1397,7 +1405,7 @@ static int tg_ternary(int ni)
 	struct tg_token t;
 	int oni;
 
-	TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_OR, &t));
+	TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_OR, NULL));
 	TG_ERRQUIT(tg_or(oni));
 
 	if (tg_nodeccnt(oni) == 1)
@@ -1408,7 +1416,7 @@ static int tg_ternary(int ni)
 	while (tg_peektoken(&t) == TG_T_QUEST) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_QUEST));
 	
-		TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_OR, &t));
+		TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_OR, NULL));
 		TG_ERRQUIT(tg_or(oni));
 
 		if (tg_nodeccnt(oni) == 1)
@@ -1418,7 +1426,7 @@ static int tg_ternary(int ni)
 
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COLON));
 
-		TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_OR, &t));
+		TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_OR, NULL));
 		TG_ERRQUIT(tg_or(oni));
 
 		if (tg_nodeccnt(oni) == 1)
@@ -1435,7 +1443,7 @@ static int tg_assign(int ni)
 	struct tg_token t;
 	int tni;
 
-	TG_ERRQUIT(tni = tg_nodeadd(-1, TG_N_TERNARY, &t));
+	TG_ERRQUIT(tni = tg_nodeadd(-1, TG_N_TERNARY, NULL));
 	TG_ERRQUIT(tg_ternary(tni));
 	
 	if (tg_nodeccnt(tni) == 1)
@@ -1448,7 +1456,7 @@ static int tg_assign(int ni)
 		
 		TG_ERRQUIT(tg_nodeadd(ni, TG_T_ASSIGNOP, &t));
 		
-		TG_ERRQUIT(tni = tg_nodeadd(-1, TG_N_TERNARY, &t));
+		TG_ERRQUIT(tni = tg_nodeadd(-1, TG_N_TERNARY, NULL));
 		TG_ERRQUIT(tg_ternary(tni));
 	
 		if (tg_nodeccnt(tni) == 1)
@@ -1465,7 +1473,7 @@ static int tg_expr(int ni)
 	struct tg_token t;
 	int ani;
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, &t));
+	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
 	TG_ERRQUIT(tg_assign(ani));
 		
 	if (tg_nodeccnt(ani) == 1)
@@ -1476,7 +1484,7 @@ static int tg_expr(int ni)
 	while (tg_peektoken(&t) == TG_T_COMMA) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COMMA));
 		
-		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, &t));
+		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
 		TG_ERRQUIT(tg_assign(ani));
 
 		if (tg_nodeccnt(ani) == 1)
@@ -1531,12 +1539,12 @@ static int tg_funcdef(int ni)
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LPAR));
 
-	TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_DEFARGS, &t));
+	TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_DEFARGS, NULL));
 	TG_ERRQUIT(tg_defargs(nni));
 	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
 
-	TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_BLOCK, &t));
+	TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
 	TG_ERRQUIT(tg_block(nni));
 
 	return 0;

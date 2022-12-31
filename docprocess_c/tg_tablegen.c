@@ -251,34 +251,26 @@ struct tg_val *tg_block(int ni)
 	return NULL;
 }
 
-struct tg_val *tg_attr(int ni)
-{
-	return NULL;
-}
-
-struct tg_val *tg_args(int ni)
-{
-	return NULL;
-}
-
-struct tg_val *tg_index(int ni)
-{
-	return NULL;
-}
-
 struct tg_val *tg_identificator(int ni)
 {
-	return NULL;
+	// this and tg_const only TG_N_* that can have a token attached
+	return tg_symbolgetval(tg_nodegettoken(ni)->val.str);
 }
 
 struct tg_val *tg_const(int ni)
 {
-	return NULL;
-}
+	struct tg_token *t;
 
-struct tg_val *tg_valhandler(int ni)
-{
-	return NULL;
+	t = tg_nodegettoken(ni);
+
+	if (t->type == TG_T_STRING)
+		return tg_stringval(t->val.str);
+	else if (t->type == TG_T_INT)
+		return tg_intval(atoi(t->val.str));
+	else if (t->type == TG_T_FLOAT)
+		return tg_intval(atof(t->val.str));
+
+	TG_ERROR("Unknown constant value type: %d", t->type);
 }
 
 struct tg_val *tg_address(int ni)
@@ -288,7 +280,11 @@ struct tg_val *tg_address(int ni)
 
 struct tg_val *tg_prestep(int ni)
 {
-	return NULL;
+	struct tg_val *r;
+	
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+	
+	return tg_valadd(r, tg_intval(1));
 }
 
 struct tg_val *tg_sign(int ni)
@@ -298,7 +294,14 @@ struct tg_val *tg_sign(int ni)
 
 struct tg_val *tg_not(int ni)
 {
-	return NULL;
+	struct tg_val *r;
+	
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+	
+	if (tg_istrueval(r))
+		return tg_intval(0);
+	else
+		return tg_intval(1);
 }
 
 struct tg_val *tg_ref(int ni)
@@ -306,54 +309,170 @@ struct tg_val *tg_ref(int ni)
 	return NULL;
 }
 
-struct tg_val *tg_unary(int ni)
-{
-	return NULL;
-}
-
 struct tg_val *tg_mult(int ni)
 {
-	return NULL;
+	int i;
+	struct tg_val *r;
+
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+
+	for (i = 1; i < tg_nodeccnt(ni); i += 2) {
+		struct tg_val *v;
+		const char *s;
+	
+		s = tg_nodegettoken(tg_nodegetchild(ni, i))->val.str;
+		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i + 1)));
+		
+		if (strcmp(s, "*") == 0)
+			TG_NULLQUIT(r = tg_valmult(r, v));
+		else if (strcmp(s, "/") == 0)
+			TG_NULLQUIT(r = tg_valdiv(r, v));
+	}
+
+	return r;
 }
 
 struct tg_val *tg_add(int ni)
 {
-	return NULL;
+	int i;
+	struct tg_val *r;
+
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+
+	for (i = 1; i < tg_nodeccnt(ni); i += 2) {
+		struct tg_val *v;
+		const char *s;
+	
+		s = tg_nodegettoken(tg_nodegetchild(ni, i))->val.str;
+		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i + 1)));
+		
+		if (strcmp(s, "+") == 0)
+			TG_NULLQUIT(r = tg_valadd(r, v));
+		else if (strcmp(s, "-") == 0)
+			TG_NULLQUIT(r = tg_valsub(r, v));
+	}
+
+	return r;
 }
 
 struct tg_val *tg_cat(int ni)
 {
-	return NULL;
+	int i;
+	struct tg_val *r;
+
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+
+	for (i = 1; i < tg_nodeccnt(ni); ++i) {
+		struct tg_val *v;
+	
+		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i)));
+		
+		// print cast error?	
+		TG_NULLQUIT(r = tg_valcat(r, v));
+	}
+
+	return r;
 }
 
 struct tg_val *tg_nextto(int ni)
 {
-	return NULL;
+	int i;
+	struct tg_val *r;
+
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+
+	for (i = 1; i < tg_nodeccnt(ni); i += 2) {
+		struct tg_val *v;
+		const char *s;
+		int span;
+	
+		s = tg_nodegettoken(tg_nodegetchild(ni, i))->val.str;
+		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i + 1)));
+
+		span = 0;
+		if (tg_nodegettype(tg_nodegetchild(ni, i))
+				== TG_N_NEXTTOOPTS) {
+			span = 1;
+			++i;
+		}
+		
+		if (strcmp(s, "->") == 0)
+			TG_NULLQUIT(r = tg_valnextto(r, v, 0, span));
+		else if (strcmp(s, "^") == 0)
+			TG_NULLQUIT(r = tg_valnextto(r, v, 1, span));
+	}
+
+	return r;
 }
 
 struct tg_val *tg_rel(int ni)
 {
+	struct tg_val *r1, *r2;
+	const char *s;
+
+	TG_NULLQUIT(r1 = run_node(tg_nodegetchild(ni, 0)));
+	TG_NULLQUIT(r2 = run_node(tg_nodegetchild(ni, 2)));
+
+	s = tg_nodegettoken(tg_nodegetchild(ni, 2))->val.str;
+
+	if (strcmp(s, "=") == 0)
+		return tg_valeq(r1, r2);
+	else if (strcmp(s, "!=") == 0)
+		return tg_valneq(r1, r2);
+	else if (strcmp(s, "<") == 0)
+		return tg_valls(r1, r2);
+	else if (strcmp(s, ">") == 0)
+		return tg_valgr(r1, r2);
+	else if (strcmp(s, "<=") == 0)
+		return tg_vallseq(r1, r2);
+	else if (strcmp(s, ">=") == 0)
+		return tg_valgreq(r1, r2);
+
+	TG_WARNING("Unknown relation operator: %s", s);
+
 	return NULL;
 }
 
 struct tg_val *tg_and(int ni)
 {
-	return NULL;
+	int i;
+
+	for (i = 0; i < tg_nodeccnt(ni); ++i) {
+		struct tg_val *r;
+		
+		TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, i)));
+		if (!tg_istrueval(r))
+			return tg_intval(0);
+	}
+
+	return tg_intval(1);
 }
 
 struct tg_val *tg_or(int ni)
 {
-	return NULL;
+	int i;
+
+	for (i = 0; i < tg_nodeccnt(ni); ++i) {
+		struct tg_val *r;
+		
+		TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, i)));
+		if (tg_istrueval(r))
+			return tg_intval(1);
+	}
+
+	return tg_intval(0);
 }
 
 struct tg_val *tg_ternary(int ni)
 {
-	// run_node for child(0) to r
-	// if istrue(r);
-	// 	return run_node(child(1))
-	// else
-	// 	return run_node(child(2))
-	return NULL;
+	struct tg_val *r;
+		
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+
+	if (tg_istrueval(r))
+		return run_node(tg_nodegetchild(ni, 1));
+	else
+		return run_node(tg_nodegetchild(ni, 2));
 }
 
 struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
@@ -426,11 +545,11 @@ struct tg_val *(* node_handler[])(int) = {
 	tg_assign,	tg_ternary,	tg_or,
 	tg_and,		tg_rel,		tg_nextto,
 	tg_unexpected,	tg_cat,		tg_add,
-	tg_mult,	tg_unary,	tg_ref,
+	tg_mult,	tg_unexpected,	tg_ref,
 	tg_not,		tg_sign, 	tg_prestep,
-	tg_address,	tg_valhandler,	tg_identificator,
-	tg_const,	tg_index,	tg_unexpected,
-	tg_unexpected,	tg_args,	tg_attr
+	tg_address,	tg_unexpected,	tg_identificator,
+	tg_const,	tg_unexpected,	tg_unexpected,
+	tg_unexpected,	tg_unexpected,	tg_unexpected
 };
 
 struct tg_val *run_node(int ni)
