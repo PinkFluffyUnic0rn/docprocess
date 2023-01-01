@@ -1249,8 +1249,6 @@ static int tg_cat(int ni)
 	while (tg_peektoken(&t) == TG_T_TILDA) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_TILDA));
 	
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_TILDA, &t));
-
 		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADD, NULL));
 		TG_ERRQUIT(tg_add(ani));
 	

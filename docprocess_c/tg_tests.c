@@ -1162,3 +1162,12 @@ void tg_testvalues()
 
 	spantest();
 }
+
+int main(int argc, const char *argv[])
+{
+	tg_startframe();
+	
+	tg_testvalues();
+
+	tg_endframe();
+}

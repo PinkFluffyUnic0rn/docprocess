@@ -1,0 +1,52 @@
+assign1 = assign2 = 3;
+
+or1 = 0 | "324" | 23.2;
+
+and1 = 0 & "324" & 23.2;
+
+releq1 = 23 == 23;
+releq2 = 23 == 22;
+releq3 = 22 == "22";
+releq4 = 22 == "23";
+relne = 23 != 22;
+relge = 23 > 22;
+relle = 23 < 22;
+relleq1 = 23 <= 22;
+relleq2 = 22 <= 22;
+relgeq1 = 21 >= 22;
+relgeq2 = 22 >= 22;
+
+cat1 = "hello" ~ " " ~ "kitty";
+cat2 = "hello " ~ 23;
+cat3 = "hello " ~ 23.12;
+
+add1 = 32 + 2;
+add2 = 32 + "234";
+add3 = 32.32 + "234";
+add4 = 32.32 + 43;
+
+sub1 = 32 - 2;
+sub2 = 32 - "234";
+sub3 = 32.32 - "234";
+
+mult1 = 32 * 2;
+mult2 = 32 * "3";
+mult3 = 32.23 * "3";
+
+div1 = 32 / 2;
+div2 = 32 / "3";
+div3 = 32.23 / "3";
+
+not1 = !0;
+not2 = !1;
+
+sign = -2332;
+
+prestep = ++52;
+
+ternary1 = 12 == 12 ? "sd" : 22;
+ternary2 = 12 != 12 ? "sd" : 22;
+
+nextto1 = "12" <- 63 <- "sd";
+nextto2 = nextto1 ^ "23";
+nextto3 = nextto1 ^ "23" : "span";
