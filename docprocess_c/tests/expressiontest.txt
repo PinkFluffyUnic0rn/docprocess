@@ -42,7 +42,11 @@ not2 = !1;
 
 sign = -2332;
 
-prestep = ++52;
+prestep1 = 23;
+++prestep1;
+
+prestep2 = 32;
+--prestep2;
 
 ternary1 = 12 == 12 ? "sd" : 22;
 ternary2 = 12 != 12 ? "sd" : 22;

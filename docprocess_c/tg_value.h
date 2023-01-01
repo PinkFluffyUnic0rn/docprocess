@@ -52,9 +52,17 @@ struct tg_val {
 };
 
 // stack operations
+
+// TODO:custom allocator
+// 	tg_setallocator();
+
 int tg_startframe();
 
 void tg_endframe();
+
+void tg_setcustomallocer(struct tg_allocator *a);
+
+void tg_removecustomallocer();
 
 // -------------------------------------------------------------------
 

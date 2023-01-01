@@ -1078,6 +1078,7 @@ static int tg_prestep(int ni)
 	int ani;
 	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_STEPOP));
+	TG_ERRQUIT(tg_nodeadd(ni, TG_T_STEPOP, &t));
 
 	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL));
 	TG_ERRQUIT(tg_address(ani));
@@ -1706,14 +1707,16 @@ static int tg_stmt(int ni)
 		TG_ERRQUIT(tg_return(nni));
 		break;
 
-	// block
-
 	case TG_T_BREAK:
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_BREAK));
 		TG_ERRQUIT(tg_nodeadd(ni, TG_T_BREAK, &t));
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_SEMICOL));
 		break;
 
 	case TG_T_CONTINUE:
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_CONTINUE));
 		TG_ERRQUIT(tg_nodeadd(ni, TG_T_CONTINUE, &t));
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_SEMICOL));
 		break;
 
 	default:

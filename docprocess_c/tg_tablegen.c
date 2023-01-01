@@ -14,9 +14,16 @@
 
 // symbol table API
 enum TG_SYMTYPE {
-	TG_SYMTYPE_FUNC,
+	TG_SYMTYPE_FUNCTION,
 	TG_SYMTYPE_VARIABLE,
 	TG_SYMTYPE_INPUT
+};
+
+enum TG_STATE {
+	TG_STATE_SUCCESS = 0,
+	TG_STATE_RETURN = 1,
+	TG_STATE_BREAK = 2,
+	TG_STATE_CONTINUE = 3
 };
 
 struct tg_variable {
@@ -25,7 +32,6 @@ struct tg_variable {
 
 struct tg_function {
 	int startnode;
-	int argcount;
 };
 
 struct tg_input {
@@ -48,8 +54,10 @@ struct tg_symbol {
 TG_HASHED(struct tg_symbol, TG_HASH_SYMBOL)
 
 struct tg_allocator symalloc;
-
 struct tg_darray symtable;
+
+struct tg_allocator retalloc;
+struct tg_val *retval;
 
 struct tg_val *tg_valprinterr(struct tg_val *v)
 {
@@ -137,7 +145,7 @@ void tg_initsymtable()
 void tg_newscope()
 {
 	struct tg_hash st;
-
+	
 	tg_inithash(TG_HASH_SYMBOL, &st);
 
 	tg_darrpush(&symtable, &st); 
@@ -166,30 +174,34 @@ void tg_symboladd(const char *name, struct tg_symbol *s)
 	tg_hashset(TG_HASH_SYMBOL, st, name, s);
 }
 
-void *tg_symbolget(const char *name)
+struct tg_symbol *tg_symbolget(const char *name)
 {
 	struct tg_hash *st;
+	int i;
 
-	st = tg_darrget(&symtable, symtable.cnt - 1);
+	for (i = symtable.cnt - 1; i >= 0; --i) {
+		struct tg_symbol *sym;
+	
+		st = tg_darrget(&symtable, i);
+		if ((sym = tg_hashget(TG_HASH_SYMBOL, st, name)) != NULL)
+			return sym;
+	}
 
-	return tg_hashget(TG_HASH_SYMBOL, st, name);
+	return NULL;
 }
 
 struct tg_val *tg_symbolgetval(const char *name)
 {
 	struct tg_symbol *sym;
-	struct tg_hash *st;
 
-	st = tg_darrget(&symtable, symtable.cnt - 1);
-
-	if ((sym = tg_hashget(TG_HASH_SYMBOL, st, name)) == NULL)
+	if ((sym = tg_symbolget(name)) == NULL)
 		return NULL;
 
 	if (sym->type == TG_SYMTYPE_VARIABLE)
 		return sym->var.val;
 	if (sym->type == TG_SYMTYPE_INPUT)
 		return readsource(&(sym->input), NULL, 1);
-	else if (sym->type == TG_SYMTYPE_FUNC) {
+	else if (sym->type == TG_SYMTYPE_FUNCTION) {
 		TG_WARNING("Cannot convert function %s to value.",
 			name);
 		return NULL;
@@ -218,7 +230,7 @@ void tg_printsymbols()
 		s = tg_hashget(TG_HASH_SYMBOL, st, key);
 
 		printf("%s: ", key);
-		if (s->type == TG_SYMTYPE_FUNC) {
+		if (s->type == TG_SYMTYPE_FUNCTION) {
 			printf("function\n");
 		}
 		else if (s->type == TG_SYMTYPE_VARIABLE) {
@@ -279,12 +291,48 @@ int tg_readsourceslist(const char *sources)
 	return 0;
 }
 
-struct tg_val *run_node(int ni);
+static struct tg_val *run_node(int ni);
 
-struct tg_val *tg_funcdef(int n)
+struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
 {
+	struct tg_symbol *s;
+	
+	if (tg_nodegettype(ni) != TG_N_ID) {
+		TG_WARNING("Trying to assign into rvalue.");
+		return NULL;
+	}
 
-	return NULL;
+	ni = tg_nodegetchild(ni, 0);
+
+	if ((s = tg_symbolget(tg_nodegettoken(ni)->val.str)) != NULL) {
+		if (s->type != TG_SYMTYPE_VARIABLE) {
+			TG_WARNING("Trying to re-assign non-variable.");
+			return NULL;
+		}
+
+		s->var.val = v;
+		
+		return v;
+	}
+
+	s = tg_alloc(&symalloc);
+	s->type = TG_SYMTYPE_VARIABLE;
+	s->var.val = v;
+
+	tg_symboladd(tg_nodegettoken(ni)->val.str, s);
+
+	return v;
+}
+
+struct tg_val *tg_funcdef(int ni)
+{
+	struct tg_symbol *s;
+	
+	s = tg_alloc(&symalloc);
+	s->type = TG_SYMTYPE_FUNCTION;
+	s->func.startnode = ni;
+
+	return tg_intval(TG_STATE_SUCCESS);
 }
 
 struct tg_val *tg_if(int ni)
@@ -294,68 +342,70 @@ struct tg_val *tg_if(int ni)
 	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
 
 	if (tg_istrueval(r))
-		TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 1)));
+		return run_node(tg_nodegetchild(ni, 1));
 	else if (tg_nodeccnt(ni) > 2)
-		TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 2)));
+		return run_node(tg_nodegetchild(ni, 2));
 
-	return tg_emptyval();
+	return tg_intval(TG_STATE_SUCCESS);
 }
 
-struct tg_val *tg_forclasic(int ni)
+struct tg_val *tg_forclassic(int ni)
 {
+	struct tg_val *r;
 	int initnode;
 	int cmpnode;
 	int stepnode;
 	int blocknode;
-	
+		
 	initnode = tg_nodegetchild(ni, 0);
 	cmpnode = tg_nodegetchild(ni, 1);
 	stepnode = tg_nodegetchild(ni, 2);
 	blocknode = tg_nodegetchild(ni, 3);
+	
+	tg_newscope();
 
 	TG_NULLQUIT(run_node(tg_nodegetchild(initnode, 0)));
 
 	while (1) {
-		struct tg_val *r;
-
 		TG_NULLQUIT(r = run_node(tg_nodegetchild(cmpnode, 0)));
-	
 		if (!tg_istrueval(r))
 			break;
-	
+
 		TG_NULLQUIT(r = run_node(blocknode));
+		if (r->intval == TG_STATE_RETURN)
+			goto forend;
+		else if (r->intval == TG_STATE_BREAK)
+			break;
 
-		// detect break, continue, return
-
-		TG_NULLQUIT(r = run_node(tg_nodegetchild(stepnode, 0)));
+		TG_NULLQUIT(run_node(tg_nodegetchild(stepnode, 0)));
 	}
 
-	return tg_emptyval();
+	r = tg_intval(TG_STATE_SUCCESS);
+
+forend:
+	tg_popscope();
+
+	return r;
 }
 
 struct tg_val *tg_for(int ni)
 {
 	if (tg_nodeccnt(ni) == 4
-		&& tg_nodegettype(tg_nodegetchild(ni, 0))
-			== TG_N_FOREXPR
-		&& tg_nodegettype(tg_nodegetchild(ni, 1))
-			== TG_N_FOREXPR
-		&& tg_nodegettype(tg_nodegetchild(ni, 2))
-			== TG_N_FOREXPR) {
-		tg_forclasic(ni);
+		&& tg_nodegettype(tg_nodegetchild(ni, 0)) == TG_N_FOREXPR
+		&& tg_nodegettype(tg_nodegetchild(ni, 1)) == TG_N_FOREXPR
+		&& tg_nodegettype(tg_nodegetchild(ni, 2)) == TG_N_FOREXPR) {
+		return tg_forclassic(ni);
 	}
-	else {
-		
-	}
-
-	return tg_emptyval();
+	else
+		return tg_intval(TG_STATE_SUCCESS); // TODO: iterate
+						// through table
 }
 
 struct tg_val *tg_block(int ni)
 {
+	struct tg_val *r;
 	int i;
 	
-	tg_startframe();
 	tg_newscope();
 
 	for (i = 0; i < tg_nodeccnt(ni); ++i) {
@@ -364,26 +414,38 @@ struct tg_val *tg_block(int ni)
 		cni = tg_nodegetchild(ni, i);
 
 		if (tg_nodegettype(cni) == TG_N_RETURN) {
-			//if (tg_nodeccnt(cni) == 1) {
-			//	return tg_intval(1);
-			//}
-			
-			return run_node(tg_nodegetchild(cni, 1));
+			if (tg_nodeccnt(cni) > 0) {
+				TG_NULLQUIT(retval = run_node(
+					tg_nodegetchild(cni, 0)));
+			}
+
+			r = tg_intval(TG_STATE_RETURN);
+			goto blockend;
 		}
-		/*
-		if (tg_nodegettype(cni) == TG_T_BREAK)
-			return tg_intval(2);
-		if (tg_nodegettype(cni) == TG_T_CONTINUE)
-			return tg_intval(3);
-		*/
+		else if (tg_nodegettype(cni) == TG_T_BREAK) {
+			r = tg_intval(TG_STATE_BREAK);
+			goto blockend;
+		}
+		else if (tg_nodegettype(cni) == TG_T_CONTINUE) {
+			r = tg_intval(TG_STATE_CONTINUE);
+			goto blockend;
+		}
 
-		TG_NULLQUIT(run_node(cni));
+		TG_NULLQUIT(r = run_node(cni));
+		if (tg_isflownode(tg_nodegettype(cni))
+			&& r->intval != TG_STATE_SUCCESS) {
+			goto blockend;
+		}
 	}
-	
-	tg_popscope();
-	tg_endframe();
 
-	return tg_emptyval();
+	r = tg_intval(TG_STATE_SUCCESS);
+
+blockend:
+	tg_printsymbols(); //!!!
+
+	tg_popscope();
+	
+	return r;
 }
 
 struct tg_val *tg_identificator(int ni)
@@ -416,10 +478,17 @@ struct tg_val *tg_address(int ni)
 struct tg_val *tg_prestep(int ni)
 {
 	struct tg_val *r;
+	const char *s;
+
+	s = tg_nodegettoken(tg_nodegetchild(ni, 0))->val.str;
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 1)));
+
+	if (strcmp(s, "++") == 0)
+		TG_NULLQUIT(r = tg_valadd(r, tg_intval(1)));
+	if (strcmp(s, "--") == 0)
+		TG_NULLQUIT(r = tg_valsub(r, tg_intval(1)));
 	
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
-	
-	return tg_valprinterr(tg_valadd(r, tg_intval(1)));
+	return tg_setlvalue(tg_nodegetchild(ni, 1), r);
 }
 
 struct tg_val *tg_sign(int ni)
@@ -619,26 +688,6 @@ struct tg_val *tg_ternary(int ni)
 		return run_node(tg_nodegetchild(ni, 2));
 }
 
-struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
-{
-	struct tg_symbol *s;
-	
-	if (tg_nodegettype(ni) != TG_N_ID) {
-		TG_WARNING("Trying to assign into rvalue.");
-		return NULL;
-	}
-
-	ni = tg_nodegetchild(ni, 0);
-
-	s = tg_alloc(&symalloc);
-	s->type = TG_SYMTYPE_VARIABLE;
-	s->var.val = v;
-
-	tg_symboladd(tg_nodegettoken(ni)->val.str, s);
-
-	return tg_createval(TG_VAL_EMPTY);
-}
-
 struct tg_val *tg_assign(int ni)
 {
 	int i;
@@ -668,10 +717,17 @@ struct tg_val *tg_expr(int ni)
 
 struct tg_val *tg_template(int ni)
 {
-	int i;
+	tg_startframe();
+	
+	retval = tg_emptyval();
 
-	for (i = 0; i < tg_nodeccnt(ni); ++i)
-		TG_NULLQUIT(run_node(tg_nodegetchild(ni, i)));
+	TG_NULLQUIT(tg_block(ni));
+
+	tg_setcustomallocer(&retalloc);
+	retval = tg_copyval(retval);
+	tg_removecustomallocer(&retalloc);
+
+	tg_endframe();	
 
 	return 0;
 }
@@ -699,7 +755,7 @@ struct tg_val *(* node_handler[])(int) = {
 	tg_unexpected,	tg_unexpected,	tg_unexpected
 };
 
-struct tg_val *run_node(int ni)
+static struct tg_val *run_node(int ni)
 {
 	int t;
 
@@ -718,11 +774,6 @@ int main(int argc, const char *argv[])
 	if (argc < 2)
 		TG_ERROR("Usage: %s [source file]", "tablegen");
 	
-	tg_initsymtable();
-		
-	tg_startframe();
-	tg_newscope();
-
 	if (argc > 2) {
 		// example: "test1:csv:./test1.csv;test2:script:./test2.sh"
 		tg_readsourceslist(argv[2]);
@@ -732,12 +783,15 @@ int main(int argc, const char *argv[])
 
 	tg_printnode(tpl, 0);
 
+	
+	tg_initsymtable();
+	tg_allocinit(&retalloc, sizeof(struct tg_val)); 
+	
 	tg_template(tpl);
 
-	tg_printsymbols();
-
-	tg_popscope();
-	tg_endframe();
+	printf("return value: ");
+	tg_printval(stdout, retval);
+	printf("\n");
 
 	tg_destroysymtable();
 

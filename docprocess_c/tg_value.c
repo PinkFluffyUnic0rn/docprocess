@@ -14,10 +14,12 @@
 
 TG_HASHED(struct tg_val, TG_HASH_ARRAY)
 
+struct tg_allocator *customallocer = NULL;
 struct tg_allocator tg_stack[TG_STACKMAXDEPTH];
 int tg_stackdepth = 0;
 
-#define tg_allocval() tg_alloc(tg_stack + tg_stackdepth)
+#define tg_allocval() tg_alloc((customallocer != NULL) \
+	? customallocer : (tg_stack + tg_stackdepth))
 
 // start frame, call every time
 // when block starts
@@ -42,6 +44,16 @@ void tg_endframe()
 		(void (*)(void *)) tg_freeval);
 
 	--tg_stackdepth;
+}
+
+void tg_setcustomallocer(struct tg_allocator *a)
+{
+	customallocer = a;
+}
+
+void tg_removecustomallocer()
+{
+	customallocer = NULL;
 }
 
 #define tg_isscalar(t) ((t) != TG_VAL_ARRAY && (t) != TG_VAL_TABLE)
