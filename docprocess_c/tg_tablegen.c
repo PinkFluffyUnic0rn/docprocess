@@ -648,7 +648,7 @@ int main(int argc, const char *argv[])
 
 	tpl = tg_getparsetree(argv[1]);
 
-	// tg_printnode(tpl, 0);
+	tg_printnode(tpl, 0);
 
 	tg_template(tpl);
 

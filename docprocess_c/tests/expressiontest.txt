@@ -1,4 +1,4 @@
-assign1 = assign2 = 3;
+assign1 = assign2 = 3, assign3 = 4;
 
 or1 = 0 | "324" | 23.2;
 
