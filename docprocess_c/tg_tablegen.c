@@ -24,6 +24,7 @@ struct tg_variable {
 };
 
 struct tg_function {
+	int startnode;
 	int argcount;
 };
 
@@ -288,17 +289,101 @@ struct tg_val *tg_funcdef(int n)
 
 struct tg_val *tg_if(int ni)
 {
-	return NULL;
+	struct tg_val *r;
+			
+	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+
+	if (tg_istrueval(r))
+		TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 1)));
+	else if (tg_nodeccnt(ni) > 2)
+		TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 2)));
+
+	return tg_emptyval();
+}
+
+struct tg_val *tg_forclasic(int ni)
+{
+	int initnode;
+	int cmpnode;
+	int stepnode;
+	int blocknode;
+	
+	initnode = tg_nodegetchild(ni, 0);
+	cmpnode = tg_nodegetchild(ni, 1);
+	stepnode = tg_nodegetchild(ni, 2);
+	blocknode = tg_nodegetchild(ni, 3);
+
+	TG_NULLQUIT(run_node(tg_nodegetchild(initnode, 0)));
+
+	while (1) {
+		struct tg_val *r;
+
+		TG_NULLQUIT(r = run_node(tg_nodegetchild(cmpnode, 0)));
+	
+		if (!tg_istrueval(r))
+			break;
+	
+		TG_NULLQUIT(r = run_node(blocknode));
+
+		// detect break, continue, return
+
+		TG_NULLQUIT(r = run_node(tg_nodegetchild(stepnode, 0)));
+	}
+
+	return tg_emptyval();
 }
 
 struct tg_val *tg_for(int ni)
 {
-	return NULL;
+	if (tg_nodeccnt(ni) == 4
+		&& tg_nodegettype(tg_nodegetchild(ni, 0))
+			== TG_N_FOREXPR
+		&& tg_nodegettype(tg_nodegetchild(ni, 1))
+			== TG_N_FOREXPR
+		&& tg_nodegettype(tg_nodegetchild(ni, 2))
+			== TG_N_FOREXPR) {
+		tg_forclasic(ni);
+	}
+	else {
+		
+	}
+
+	return tg_emptyval();
 }
 
 struct tg_val *tg_block(int ni)
 {
-	return NULL;
+	int i;
+	
+	tg_startframe();
+	tg_newscope();
+
+	for (i = 0; i < tg_nodeccnt(ni); ++i) {
+		int cni;
+
+		cni = tg_nodegetchild(ni, i);
+
+		if (tg_nodegettype(cni) == TG_N_RETURN) {
+			//if (tg_nodeccnt(cni) == 1) {
+			//	return tg_intval(1);
+			//}
+			
+			return run_node(tg_nodegetchild(cni, 1));
+		}
+		/*
+		if (tg_nodegettype(cni) == TG_T_BREAK)
+			return tg_intval(2);
+		if (tg_nodegettype(cni) == TG_T_CONTINUE)
+			return tg_intval(3);
+		*/
+
+		TG_NULLQUIT(run_node(cni));
+	}
+	
+	tg_popscope();
+	tg_endframe();
+
+	return tg_emptyval();
 }
 
 struct tg_val *tg_identificator(int ni)
@@ -356,10 +441,7 @@ struct tg_val *tg_not(int ni)
 	
 	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
 	
-	if (tg_istrueval(r))
-		return tg_intval(0);
-	else
-		return tg_intval(1);
+	return (tg_istrueval(r)) ? tg_intval(0) : tg_intval(1);
 }
 
 struct tg_val *tg_ref(int ni)

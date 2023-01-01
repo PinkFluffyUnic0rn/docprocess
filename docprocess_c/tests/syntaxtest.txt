@@ -9,6 +9,11 @@ if (--sd + +sde)
 
 asdf = 12 * 23 + 3 ~ "2234" > !23 <- dw3 | 343  & 12.3 ? 12 : "32";
 
+for (i = 0; i < 12; ++i) {
+	sdf + 32;
+	sd2 - sdf ~ "23";
+}
+
 for (a in t columns) {
 	sdf + 32;
 	sd2 - sdf ~ "23";

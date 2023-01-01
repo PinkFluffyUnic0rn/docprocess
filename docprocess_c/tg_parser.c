@@ -1628,8 +1628,9 @@ static int tg_for(int ni)
 	
 	TG_ERRQUIT(tg_forexpr(nni));
 
-	if (tg_peektoken(&t) == TG_T_IN)
+	if (tg_peektoken(&t) == TG_T_IN) {
 		TG_ERRQUIT(tg_fortable(ni));
+	}
 	else
 		TG_ERRQUIT(tg_forclassic(ni));
 
