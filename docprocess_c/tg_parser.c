@@ -890,6 +890,43 @@ static int tg_gettokentype(struct tg_token *t, enum TG_TYPE type)
 	return t->type;
 }
 
+static int tg_args(int ni)
+{
+	struct tg_token t;
+	int ani;
+	
+	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LPAR));
+
+	if (tg_peektoken(&t) == TG_T_RPAR) {
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
+		return 0;
+	}
+
+	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+	TG_ERRQUIT(tg_assign(ani));
+		
+	if (tg_nodeccnt(ani) == 1)
+		TG_ERRQUIT(ani = tg_nodegetchild(ani, 0));
+	
+	TG_ERRQUIT(tg_nodeattach(ni, ani));
+
+	while (tg_peektoken(&t) == TG_T_COMMA) {
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COMMA));
+	
+		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+		TG_ERRQUIT(tg_assign(ani));
+
+		if (tg_nodeccnt(ani) == 1)
+			TG_ERRQUIT(ani = tg_nodegetchild(ani, 0));
+		
+		TG_ERRQUIT(tg_nodeattach(ni, ani));
+	}
+
+	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
+
+	return 0;
+}
+
 static int tg_id(int ni)
 {
 	struct tg_token t;
@@ -899,6 +936,13 @@ static int tg_id(int ni)
 	ni = tg_nodeadd(ni, TG_N_ID, NULL);
 
 	TG_ERRQUIT(tg_nodeadd(ni, TG_T_ID, &t));
+
+	if (tg_peektoken(&t) == TG_T_LPAR) {
+		int ani;
+
+		TG_ERRQUIT(ani = tg_nodeadd(ni, TG_N_ARGS, NULL));
+		TG_ERRQUIT(tg_args(ani));
+	}
 
 	return 0;
 }
@@ -947,33 +991,6 @@ static int tg_val(int ni)
 		tg_setparsererror(&t, strerr);
 		return (-1);
 	}
-
-	return 0;
-}
-
-static int tg_args(int ni)
-{
-	struct tg_token t;
-	int ani;
-	
-	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LPAR));
-
-	if (tg_peektoken(&t) == TG_T_RPAR) {
-		TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
-		return 0;
-	}
-
-	TG_ERRQUIT(ani = tg_nodeadd(ni, TG_N_ASSIGN, NULL));
-	TG_ERRQUIT(tg_assign(ani));
-
-	while (tg_peektoken(&t) == TG_T_COMMA) {
-		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COMMA));
-	
-		TG_ERRQUIT(ani = tg_nodeadd(ni, TG_N_ASSIGN, NULL));
-		TG_ERRQUIT(tg_assign(ani));
-	}
-
-	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
 
 	return 0;
 }
@@ -1757,7 +1774,12 @@ int tg_getparsetree(const char *p)
 
 	while ((type = tg_peektoken(&t)) != TG_T_EOF) {
 		if (t.type == TG_T_FUNCTION) {
-			if (tg_funcdef(ni) < 0)
+			int fni;
+
+			if ((fni = tg_nodeadd(ni, TG_N_FUNCDEF, NULL)) < 0)
+				goto error;
+
+			if (tg_funcdef(fni) < 0)
 				goto error;
 		}
 		else {

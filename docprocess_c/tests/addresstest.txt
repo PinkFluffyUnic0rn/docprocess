@@ -1,0 +1,21 @@
+a[1] = "test";
+a[5] = "word";
+
+a[2+1] = 32;
+a[2*2+2-2] = "str";
+
+a[2][4] = "level2";
+a[2][1][2] = "level3";
+
+b.fe = 3;
+b[3].val = "hello";
+b[3].val[1] = "el";
+b[3].val[1].attr = 12;
+
+c["s12d"] = "asdf";
+c[2]["ajd"] = "sd";
+
+d = a[2][4];
+e = c["s12d"];
+f = b[3].val[1].attr;
+g = c[2];

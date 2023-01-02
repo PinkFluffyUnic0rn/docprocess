@@ -211,6 +211,8 @@ struct tg_val *tg_copyval(const struct tg_val *v)
 				tg_darrpush(&(newv->arrval.arr), &vv);
 			}
 		);
+
+		// copy hash
 	}
 
 	newv->type = v->type;
@@ -611,6 +613,7 @@ static void tg_printtable(FILE *f, const struct tg_val *v)
 
 void tg_printval(FILE *f, const struct tg_val *v)
 {
+	const char *key;
 	int isfirst;
 	int i;
 	
@@ -655,20 +658,31 @@ void tg_printval(FILE *f, const struct tg_val *v)
 			tg_printval(f, tg_arrgetr(v, i));
 		}
 
+		TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY,
+			v->arrval.hash, key,
+			if (!isfirst) fprintf(f, ", ");
+		
+			isfirst = 0;
+			
+			fprintf(f, "%s:", key);
+			tg_printval(f, tg_arrgeth(v, key));
+		);
+	
 		fprintf(f, "}");
 
 		break;
 	}
 
 
-	const char *key;
+	if (v->attrs.count == 0)
+		return;
+	
 	fprintf(f, "[");
 	TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
 		fprintf(f, "%s:", key);
 		tg_printval(f, tg_valgetattrr(v, key));
 	);
 	fprintf(f, "]");
-
 }
 
 struct tg_val *tg_valcat(const struct tg_val *v1,

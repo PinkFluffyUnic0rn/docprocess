@@ -1,0 +1,6 @@
+function asdf(a, b)
+{
+	return a + b;
+}
+
+return asdf(23, 42);

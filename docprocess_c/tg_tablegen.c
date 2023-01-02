@@ -210,11 +210,8 @@ struct tg_val *tg_symbolgetval(const char *name)
 		return sym->var.val;
 	if (sym->type == TG_SYMTYPE_INPUT)
 		return readsource(&(sym->input), NULL, 1);
-	else if (sym->type == TG_SYMTYPE_FUNCTION) {
-		TG_WARNING("Cannot convert function %s to value.",
-			name);
-		return NULL;
-	}
+	else if (sym->type == TG_SYMTYPE_FUNCTION)
+		return tg_emptyval();
 		
 	TG_WARNING("Symbol %s has unknown type.", name);
 
@@ -384,8 +381,6 @@ struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
 			}
 			else if (tg_nodegettype(eni) == TG_N_ATTR)
 				a = tg_getattrlvalue(eni, a);
-			else if (tg_nodegettype(eni) == TG_N_ARGS)
-				goto notlvalue;
 		}
 
 		tg_moveval(a, v);
@@ -411,7 +406,10 @@ struct tg_val *tg_funcdef(int ni)
 	s = tg_alloc(&symalloc);
 	s->type = TG_SYMTYPE_FUNCTION;
 	s->func.startnode = ni;
-
+	
+	tg_symboladd(tg_nodegettoken(tg_nodegetchild(ni, 0))
+		->val.str, s);
+	
 	return tg_intval(TG_STATE_SUCCESS);
 }
 
@@ -530,8 +528,62 @@ blockend:
 
 struct tg_val *tg_identificator(int ni)
 {
-	return tg_symbolgetval(tg_nodegettoken(tg_nodegetchild(ni, 0))
+	struct tg_val *r;
+	struct tg_symbol *s;
+	int ani, fani, fni;
+	int i;
+
+	if (tg_nodeccnt(ni) == 1) {
+		return tg_symbolgetval(tg_nodegettoken(
+			tg_nodegetchild(ni, 0))->val.str);
+	}
+		
+	s = tg_symbolget(tg_nodegettoken(tg_nodegetchild(ni, 0))
 		->val.str);
+
+	if (s == NULL || s->type != TG_SYMTYPE_FUNCTION)
+		return tg_emptyval();
+
+	ani = tg_nodegetchild(ni, 1);
+	fni = s->func.startnode;	
+	fani = tg_nodegetchild(fni, 1);
+
+	if (tg_nodeccnt(fani) != tg_nodeccnt(ani))
+		return tg_emptyval();
+
+	tg_startframe();
+	tg_newscope();
+
+	for (i = 0; i < tg_nodeccnt(fani); ++i) {
+		struct tg_symbol *ss;
+		const char *sn;
+
+		sn = tg_nodegettoken(tg_nodegetchild(fani, i))->val.str;
+
+		ss = tg_alloc(&symalloc);
+		ss->type = TG_SYMTYPE_VARIABLE;
+		if ((ss->var.val = run_node(tg_nodegetchild(ani, i)))
+				== NULL) {
+			tg_popscope();
+			tg_endframe();	
+			return NULL;
+		}
+	
+		tg_symboladd(sn, ss);
+	}
+
+	run_node(tg_nodegetchild(fni, 2));
+
+	tg_setcustomallocer(&retalloc);
+	r = tg_copyval(retval);
+	tg_removecustomallocer(&retalloc);
+
+	tg_popscope();
+	tg_endframe();	
+	
+	retval = tg_emptyval();
+
+	return r;
 }
 
 struct tg_val *tg_const(int ni)
@@ -607,10 +659,6 @@ struct tg_val *tg_address(int ni)
 				tg_nodegetchild(eni, 0))->val.str;
 
 			a = tg_valgetattre(a, attrname, tg_emptyval());
-		}
-		else if (tg_nodegettype(eni) == TG_N_ARGS) {
-			// TODO: function call
-			// separate node for function calls?
 		}
 	}
 
