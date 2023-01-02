@@ -93,6 +93,8 @@ struct tg_val *tg_typeprom2val(const struct tg_val *v1,
 void tg_valsetattr(struct tg_val *v, const char *key,
 	const struct tg_val *attr);
 struct tg_val *tg_valgetattr(const struct tg_val *v1, const char *key);
+struct tg_val *tg_valgetattre(const struct tg_val *v1, const char *key,
+	const struct tg_val *e);
 struct tg_val *tg_valgetattrr(const struct tg_val *v1, const char *key);
 struct tg_val *tg_valgetattrre(struct tg_val *v, const char *key,
 	const struct tg_val *e);
@@ -104,15 +106,22 @@ struct tg_val *tg_tablegetcellre(struct tg_val *t,
 
 void tg_arrpush(struct tg_val *arr, const struct tg_val *v);
 void tg_arrset(struct tg_val *arr, int i, const struct tg_val *v);
+
 struct tg_val *tg_arrget(const struct tg_val *v, int i);
 struct tg_val *tg_arrgete(struct tg_val *v, int i,
 	const struct tg_val *e);
 struct tg_val *tg_arrgetr(const struct tg_val *v, int i);
 struct tg_val *tg_arrgetre(struct tg_val *v, int i,
 	const struct tg_val *e);
+
+void tg_arrseth(struct tg_val *arr, const char *k,
+	const struct tg_val *v);
 struct tg_val *tg_arrgeth(const struct tg_val *v, const char *k);
-#define tg_arrgethr(v, k) \
-	tg_hashget(TG_HASH_ARRAY, &((v)->arrval.hash), (k));
+struct tg_val *tg_arrgethe(const struct tg_val *v, const char *k,
+	const struct tg_val *e);
+struct tg_val *tg_arrgethr(const struct tg_val *v, const char *k);
+struct tg_val *tg_arrgethre(struct tg_val *v, const char *k,
+	const struct tg_val *e);
 
 #define TG_ARRFOREACH(v, pos, el, action) 			\
 do {								\

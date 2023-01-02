@@ -174,6 +174,15 @@ void tg_symboladd(const char *name, struct tg_symbol *s)
 	tg_hashset(TG_HASH_SYMBOL, st, name, s);
 }
 
+void tg_symboldel(const char *name)
+{
+	struct tg_hash *st;
+
+	st = tg_darrget(&symtable, symtable.cnt - 1);
+
+	tg_hashdel(TG_HASH_SYMBOL, st, name);
+}
+
 struct tg_symbol *tg_symbolget(const char *name)
 {
 	struct tg_hash *st;
@@ -307,19 +316,14 @@ struct tg_val *tg_getindexlvalue(int eni, struct tg_val *a)
 	if (tg_isscalar(a->type))
 		tg_moveval(a, tg_castval(a, TG_VAL_ARRAY));
 
-	if (!tg_isscalar(idx->type)) {
-		TG_WARNING("Trying to assign into rvalue.");
+	if (!tg_isscalar(idx->type))
 		return NULL;
-	}
 
 	if (idx->type == TG_VAL_INT)
 		a = tg_arrgetre(a, idx->intval, tg_emptyval());
 	else {
-		// cast idx to string
-		// if arrgethr(idx.strval) == NULL
-		// 	arrseth(idx.strval, tg_emtpyval())
-		
-		// a = arrgethr(idx.strval)
+		idx = tg_castval(idx, TG_VAL_STRING);
+		a = tg_arrgethre(a, idx->strval.str, tg_emptyval());
 	}
 
 	return a;
@@ -327,63 +331,61 @@ struct tg_val *tg_getindexlvalue(int eni, struct tg_val *a)
 
 struct tg_val *tg_getattrlvalue(int eni, struct tg_val *a)
 {
-	eni = tg_nodegetchild(eni, 0);
-	return tg_valgetattrre(a, tg_nodegettoken(eni)->val.str,
-		tg_emptyval());
+	const char *attrname;
+
+	attrname = tg_nodegettoken(tg_nodegetchild(eni, 0))->val.str;
+	return tg_valgetattrre(a, attrname, tg_emptyval());
 }
 	
 struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
 {
 	struct tg_symbol *s;
+	const char *newsym;
 	int ini;
+	
+	newsym = NULL;
+	// TODO: backup old symbol value?
 
 	if (tg_nodegettype(ni) == TG_N_ID)
 		ini = tg_nodegetchild(ni, 0);
 	else if (tg_nodegettype(ni) == TG_N_ADDRESS)
 		ini = tg_nodegetchild(tg_nodegetchild(ni, 0), 0);
-	else {
-		TG_WARNING("Trying to assign into rvalue.");
-		return NULL;
-	}
+	else
+		goto notlvalue;
 
 	if (tg_symbolget(tg_nodegettoken(ini)->val.str) == NULL) {
 		s = tg_alloc(&symalloc);
 		s->type = TG_SYMTYPE_VARIABLE;
 		s->var.val = tg_emptyval();;
 	
-		tg_symboladd(tg_nodegettoken(ini)->val.str, s);
+		newsym = tg_nodegettoken(ini)->val.str;
+		tg_symboladd(newsym, s);
 	}
 
 	s = tg_symbolget(tg_nodegettoken(ini)->val.str);
-	if (s->type != TG_SYMTYPE_VARIABLE) {
-		TG_WARNING("Trying to re-assign non-variable.");
-		return NULL;
-	}
+	if (s->type != TG_SYMTYPE_VARIABLE)
+		goto notlvalue;
 
 	if (tg_nodegettype(ni) == TG_N_ADDRESS) {
 		struct tg_val *a;
 		int i;
-
+		
 		a = s->var.val;
 		for (i = 1; i < tg_nodeccnt(ni); ++i) {
 			int eni;
 
 			eni = tg_nodegetchild(ni, i);
 			if (tg_nodegettype(eni) == TG_N_INDEX) {
-				if (tg_nodeccnt(eni) > 1) {
-					TG_WARNING("Trying to assign into rvalue.");
-					return NULL;
-				}
+				if (tg_nodeccnt(eni) > 1)
+					goto notlvalue;
 
-				// TODO: NULL on error, if symbol was new one, delete it
-				a = tg_getindexlvalue(eni, a);
+				if ((a = tg_getindexlvalue(eni, a)) == NULL)
+					goto notlvalue;
 			}
 			else if (tg_nodegettype(eni) == TG_N_ATTR)
 				a = tg_getattrlvalue(eni, a);
-			else if (tg_nodegettype(eni) == TG_N_ARGS) {
-				TG_WARNING("Trying to assign into rvalue.");
-				return NULL;
-			}
+			else if (tg_nodegettype(eni) == TG_N_ARGS)
+				goto notlvalue;
 		}
 
 		tg_moveval(a, v);
@@ -392,6 +394,14 @@ struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
 		s->var.val = v;
 
 	return v;
+
+notlvalue:
+	if (newsym != NULL)
+		tg_symboldel(newsym);
+
+	TG_WARNING("Trying to assign into rvalue.");
+
+	return NULL;
 }
 
 struct tg_val *tg_funcdef(int ni)
@@ -545,9 +555,66 @@ struct tg_val *tg_filter(int ni)
 	return run_node(tg_nodegetchild(ni, 0));
 }
 
+struct tg_val *tg_getindexval(int eni, struct tg_val *a)
+{
+	struct tg_val *idx;
+	int fni;
+
+	fni = tg_nodegetchild(eni, 0);
+
+	TG_NULLQUIT(idx = run_node(fni));
+
+	if (tg_isscalar(a->type))
+		a = tg_castval(a, TG_VAL_ARRAY);
+
+	if (idx->type == TG_VAL_INT)
+		a = tg_arrgete(a, idx->intval, tg_emptyval());
+	else {
+		idx = tg_castval(idx, TG_VAL_STRING);
+		a = tg_arrgethe(a, idx->strval.str, tg_emptyval());
+	}
+
+	return a;
+}
+
 struct tg_val *tg_address(int ni)
 {
-	return NULL;
+	struct tg_symbol *s;
+	struct tg_val *a;
+	int ini;
+	int i;
+		
+	ini = tg_nodegetchild(tg_nodegetchild(ni, 0), 0);
+
+	if ((s = tg_symbolget(tg_nodegettoken(ini)->val.str)) != NULL)
+		a = s->var.val;
+	else
+		a = tg_createval(TG_VAL_ARRAY);
+
+	for (i = 1; i < tg_nodeccnt(ni); ++i) {
+		int eni;
+		int j;
+
+		eni = tg_nodegetchild(ni, i);
+		if (tg_nodegettype(eni) == TG_N_INDEX) {
+			for (j = 0; j < tg_nodeccnt(eni); ++j)
+				a = tg_getindexval(eni, a);
+		}
+		else if (tg_nodegettype(eni) == TG_N_ATTR) {
+			const char *attrname;
+	
+			attrname = tg_nodegettoken(
+				tg_nodegetchild(eni, 0))->val.str;
+
+			a = tg_valgetattre(a, attrname, tg_emptyval());
+		}
+		else if (tg_nodegettype(eni) == TG_N_ARGS) {
+			// TODO: function call
+			// separate node for function calls?
+		}
+	}
+
+	return a;
 }
 
 struct tg_val *tg_prestep(int ni)
