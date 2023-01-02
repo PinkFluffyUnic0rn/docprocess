@@ -56,8 +56,6 @@ void tg_removecustomallocer()
 	customallocer = NULL;
 }
 
-#define tg_isscalar(t) ((t) != TG_VAL_ARRAY && (t) != TG_VAL_TABLE)
-
 struct tg_val *tg_createval(enum TG_VALTYPE t)
 {
 	struct tg_val *newv;
@@ -171,6 +169,13 @@ struct tg_val *tg_stringval(const char *v)
 	return newv;
 }
 
+void tg_moveval(struct tg_val *d, const struct tg_val *s)
+{
+	tg_freeval(d);
+
+	memcpy(d, tg_copyval(s), sizeof(struct tg_val));
+}
+
 struct tg_val *tg_copyval(const struct tg_val *v)
 {
 	struct tg_val *newv;
@@ -214,6 +219,7 @@ struct tg_val *tg_copyval(const struct tg_val *v)
 }
 
 // make a reference version of tg_castval?
+// should attributes be presersed?
 struct tg_val *tg_castval(const struct tg_val *v, enum TG_VALTYPE t)
 {
 	struct tg_val *newv;
@@ -502,6 +508,15 @@ void tg_arrset(struct tg_val *arr, int p, const struct tg_val *v)
 	TG_ASSERT(arr != NULL, "Cannot set array value");
 	TG_ASSERT(!tg_isscalar(arr->type), "Cannot set array value");
 	TG_ASSERT(v != NULL, "Cannot set array value");
+	
+	if (p >= arr->arrval.arr.cnt) {
+		int i;
+
+		for (i = arr->arrval.arr.cnt; i < p; ++i) {
+			newv = tg_emptyval();
+			tg_darrset(&(arr->arrval.arr), i, &newv);
+		}
+	}
 
 	newv = tg_copyval(v);
 
@@ -615,6 +630,16 @@ void tg_printval(FILE *f, const struct tg_val *v)
 
 		break;
 	}
+
+
+	const char *key;
+	fprintf(f, "[");
+	TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
+		fprintf(f, "%s:", key);
+		tg_printval(f, tg_valgetattrr(v, key));
+	);
+	fprintf(f, "]");
+
 }
 
 struct tg_val *tg_valcat(const struct tg_val *v1,

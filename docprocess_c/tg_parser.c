@@ -983,14 +983,26 @@ static int tg_filter(int ni)
 	struct tg_token t;
 	int ani;
 
-	TG_ERRQUIT(ani = tg_nodeadd(ni, TG_N_ASSIGN, NULL));
+	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
 	TG_ERRQUIT(tg_assign(ani));
+		
+	if (tg_nodeccnt(ani) == 1)
+		TG_ERRQUIT(ani = tg_nodegetchild(ani, 0));
+	
+	TG_ERRQUIT(tg_nodeattach(ni, ani));
 
-	TG_ERRQUIT(tg_gettokentype(&t, TG_T_DDOT));
-	TG_ERRQUIT(tg_nodeadd(ni, TG_T_DDOT, &t));
+	if (tg_peektoken(&t) == TG_T_DDOT) {
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_DDOT));
+		TG_ERRQUIT(tg_nodeadd(ni, TG_T_DDOT, &t));
 
-	TG_ERRQUIT(ani = tg_nodeadd(ni, TG_N_ASSIGN, NULL));
-	TG_ERRQUIT(tg_assign(ani));
+		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+		TG_ERRQUIT(tg_assign(ani));
+			
+		if (tg_nodeccnt(ani) == 1)
+			TG_ERRQUIT(ani = tg_nodegetchild(ani, 0));
+		
+		TG_ERRQUIT(tg_nodeattach(ni, ani));
+	}
 
 	return 0;
 }

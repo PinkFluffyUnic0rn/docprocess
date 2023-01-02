@@ -293,33 +293,103 @@ int tg_readsourceslist(const char *sources)
 
 static struct tg_val *run_node(int ni);
 
-struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
+struct tg_val *tg_filter(int ni);
+
+struct tg_val *tg_getindexlvalue(int eni, struct tg_val *a)
 {
-	struct tg_symbol *s;
-	
-	if (tg_nodegettype(ni) != TG_N_ID) {
+	struct tg_val *idx;
+	int fni;
+
+	fni = tg_nodegetchild(eni, 0);
+
+	TG_NULLQUIT(idx = run_node(fni));
+
+	if (tg_isscalar(a->type))
+		tg_moveval(a, tg_castval(a, TG_VAL_ARRAY));
+
+	if (!tg_isscalar(idx->type)) {
 		TG_WARNING("Trying to assign into rvalue.");
 		return NULL;
 	}
 
-	ni = tg_nodegetchild(ni, 0);
-
-	if ((s = tg_symbolget(tg_nodegettoken(ni)->val.str)) != NULL) {
-		if (s->type != TG_SYMTYPE_VARIABLE) {
-			TG_WARNING("Trying to re-assign non-variable.");
-			return NULL;
-		}
-
-		s->var.val = v;
+	if (idx->type == TG_VAL_INT)
+		a = tg_arrgetre(a, idx->intval, tg_emptyval());
+	else {
+		// cast idx to string
+		// if arrgethr(idx.strval) == NULL
+		// 	arrseth(idx.strval, tg_emtpyval())
 		
-		return v;
+		// a = arrgethr(idx.strval)
 	}
 
-	s = tg_alloc(&symalloc);
-	s->type = TG_SYMTYPE_VARIABLE;
-	s->var.val = v;
+	return a;
+}
 
-	tg_symboladd(tg_nodegettoken(ni)->val.str, s);
+struct tg_val *tg_getattrlvalue(int eni, struct tg_val *a)
+{
+	eni = tg_nodegetchild(eni, 0);
+	return tg_valgetattrre(a, tg_nodegettoken(eni)->val.str,
+		tg_emptyval());
+}
+	
+struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
+{
+	struct tg_symbol *s;
+	int ini;
+
+	if (tg_nodegettype(ni) == TG_N_ID)
+		ini = tg_nodegetchild(ni, 0);
+	else if (tg_nodegettype(ni) == TG_N_ADDRESS)
+		ini = tg_nodegetchild(tg_nodegetchild(ni, 0), 0);
+	else {
+		TG_WARNING("Trying to assign into rvalue.");
+		return NULL;
+	}
+
+	if (tg_symbolget(tg_nodegettoken(ini)->val.str) == NULL) {
+		s = tg_alloc(&symalloc);
+		s->type = TG_SYMTYPE_VARIABLE;
+		s->var.val = tg_emptyval();;
+	
+		tg_symboladd(tg_nodegettoken(ini)->val.str, s);
+	}
+
+	s = tg_symbolget(tg_nodegettoken(ini)->val.str);
+	if (s->type != TG_SYMTYPE_VARIABLE) {
+		TG_WARNING("Trying to re-assign non-variable.");
+		return NULL;
+	}
+
+	if (tg_nodegettype(ni) == TG_N_ADDRESS) {
+		struct tg_val *a;
+		int i;
+
+		a = s->var.val;
+		for (i = 1; i < tg_nodeccnt(ni); ++i) {
+			int eni;
+
+			eni = tg_nodegetchild(ni, i);
+			if (tg_nodegettype(eni) == TG_N_INDEX) {
+				if (tg_nodeccnt(eni) > 1) {
+					TG_WARNING("Trying to assign into rvalue.");
+					return NULL;
+				}
+
+				// TODO: NULL on error, if symbol was new one, delete it
+				a = tg_getindexlvalue(eni, a);
+			}
+			else if (tg_nodegettype(eni) == TG_N_ATTR)
+				a = tg_getattrlvalue(eni, a);
+			else if (tg_nodegettype(eni) == TG_N_ARGS) {
+				TG_WARNING("Trying to assign into rvalue.");
+				return NULL;
+			}
+		}
+
+		tg_moveval(a, v);
+	}
+	else
+		s->var.val = v;
 
 	return v;
 }
@@ -468,6 +538,11 @@ struct tg_val *tg_const(int ni)
 		return tg_floatval(atof(t->val.str));
 
 	TG_ERROR("Unknown constant value type: %d", t->type);
+}
+
+struct tg_val *tg_filter(int ni)
+{
+	return run_node(tg_nodegetchild(ni, 0));
 }
 
 struct tg_val *tg_address(int ni)
@@ -751,7 +826,7 @@ struct tg_val *(* node_handler[])(int) = {
 	tg_mult,	tg_unexpected,	tg_ref,
 	tg_not,		tg_sign, 	tg_prestep,
 	tg_address,	tg_unexpected,	tg_identificator,
-	tg_const,	tg_unexpected,	tg_unexpected,
+	tg_const,	tg_unexpected,	tg_filter,
 	tg_unexpected,	tg_unexpected,	tg_unexpected
 };
 

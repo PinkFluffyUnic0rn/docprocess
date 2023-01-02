@@ -6,6 +6,8 @@
 #include "tg_common.h"
 #include "tg_dstring.h"
 
+#define tg_isscalar(t) ((t) != TG_VAL_ARRAY && (t) != TG_VAL_TABLE)
+
 enum TG_NUMOP {
 	TG_NUMOP_ADD,
 	TG_NUMOP_SUB,
@@ -77,6 +79,7 @@ struct tg_val *tg_intval(int v);
 struct tg_val *tg_floatval(float v);
 struct tg_val *tg_stringval(const char *v);
 
+void tg_moveval(struct tg_val *d, const struct tg_val *s);
 struct tg_val *tg_copyval(const struct tg_val *v);
 
 struct tg_val *tg_castval(const struct tg_val *v, enum TG_VALTYPE t);
