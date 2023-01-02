@@ -1,0 +1,4 @@
+a.fe = 3;
+a[3].val = "hello";
+a[3].val[1] = "el";
+a[3].val[1].attr = 12;

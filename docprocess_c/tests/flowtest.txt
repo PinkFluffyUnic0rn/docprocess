@@ -1,0 +1,40 @@
+a = b = c = d = e = f = h = "";
+
+a = 45;
+
+if (a - 15 == 30)
+	b = 12;
+
+if (a < 30)
+	c  = -41;
+else {
+	c = "hello";
+	d = "goodbye";
+
+	if ("Hi")
+		e = 234.2;
+}
+
+f = 0;
+for (i = 1; i < 10; ++i)
+	f = f + i;
+
+g = 0;
+for (i = 1; i < 10; ++i) {
+	if (i == 5) {
+		continue;
+	}
+	
+	g = g + i;
+}
+
+
+h = 0;
+for (i = 1; i < 10; ++i) {
+	if (i == 5)
+		break;
+	
+	h = h + i;
+}
+
+return "hi";
