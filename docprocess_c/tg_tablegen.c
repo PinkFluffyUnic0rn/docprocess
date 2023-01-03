@@ -463,9 +463,10 @@ struct tg_val *tg_for(int ni)
 		&& tg_nodetype(tg_nodechild(ni, 2)) == TG_N_FOREXPR) {
 		return tg_forclassic(ni);
 	}
-	else
+	else {
 		return tg_intval(TG_STATE_SUCCESS); // TODO: iterate
-						// through table
+						// through array or table
+	}
 }
 
 struct tg_val *tg_block(int ni)
@@ -560,9 +561,9 @@ struct tg_val *tg_identificator(int ni)
 	if (run_node(tg_nodechild(fni, 2)) == NULL)
 		goto error;
 
-	tg_setcustomallocer(&retalloc);
+	tg_setallocer(&retalloc);
 	r = tg_copyval(retval);
-	tg_removecustomallocer(&retalloc);
+	tg_removeallocer(&retalloc);
 
 	tg_popscope();
 	tg_endframe();	
@@ -626,7 +627,7 @@ struct tg_val *tg_address(int ni)
 	struct tg_val *a;
 	int ini;
 	int i;
-		
+
 	ini = tg_nodechild(tg_nodechild(ni, 0), 0);
 
 	if ((s = tg_symbolget(tg_nodetoken(ini)->val.str)) != NULL)
@@ -901,9 +902,9 @@ struct tg_val *tg_template(int ni)
 
 	TG_NULLQUIT(tg_block(ni));
 
-	tg_setcustomallocer(&retalloc);
+	tg_setallocer(&retalloc);
 	retval = tg_copyval(retval);
-	tg_removecustomallocer(&retalloc);
+	tg_removeallocer(&retalloc);
 
 	tg_endframe();	
 
@@ -966,10 +967,6 @@ int main(int argc, const char *argv[])
 	tg_allocinit(&retalloc, sizeof(struct tg_val)); 
 	
 	tg_template(tpl);
-
-	printf("return value: ");
-	tg_printval(stdout, retval);
-	printf("\n");
 
 	tg_destroysymtable();
 

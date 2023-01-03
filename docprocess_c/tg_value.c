@@ -46,12 +46,12 @@ void tg_endframe()
 	--tg_stackdepth;
 }
 
-void tg_setcustomallocer(struct tg_allocator *a)
+void tg_setallocer(struct tg_allocator *a)
 {
 	customallocer = a;
 }
 
-void tg_removecustomallocer()
+void tg_removeallocer()
 {
 	customallocer = NULL;
 }
@@ -85,6 +85,7 @@ struct tg_val *tg_createval(enum TG_VALTYPE t)
 	}
 
 	newv->type = t;
+	newv->ishashed = 0;
 
 	return newv;
 }
@@ -171,19 +172,27 @@ struct tg_val *tg_stringval(const char *v)
 
 void tg_moveval(struct tg_val *d, const struct tg_val *s)
 {
+	int ishashed;
+
+	// preserve ishashed, cause destination value
+	// can still be used as hash element
+	ishashed = d->ishashed;
+
 	tg_freeval(d);
 
 	memcpy(d, tg_copyval(s), sizeof(struct tg_val));
+	d->ishashed = ishashed;
 }
 
 struct tg_val *tg_copyval(const struct tg_val *v)
 {
 	struct tg_val *newv;
 	const char *key;
-	
+
 	TG_ASSERT(v != NULL, "Cannot copy value");
 
 	newv = tg_allocval();
+	newv->ishashed = 0;//v->ishashed;  // ?
 	tg_inithash(TG_HASH_ARRAY, &(newv->attrs));
 
 	TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
@@ -199,20 +208,29 @@ struct tg_val *tg_copyval(const struct tg_val *v)
 	else if (v->type == TG_VAL_ARRAY || v->type == TG_VAL_TABLE) {
 		struct tg_val *vv;
 		int i;
-
+		
 		tg_inithash(TG_HASH_ARRAY, &(newv->arrval.hash));
 		tg_darrinit(&(newv->arrval.arr),
 			sizeof(struct tg_val *));
 
 		TG_ARRFOREACH(v, i, vv,
-			{
+			if (vv->ishashed) {
+				const char *k;
+
+				k = tg_hashkey(TG_HASH_ARRAY, *vv);
+				
 				vv = tg_copyval(vv);
-
-				tg_darrpush(&(newv->arrval.arr), &vv);
+				vv->ishashed = 1;			
+			
+				tg_hashset(TG_HASH_ARRAY,
+					&(newv->arrval.hash), k, vv);
 			}
+			else {
+				vv = tg_copyval(vv);
+			}
+				
+			tg_darrpush(&(newv->arrval.arr), &vv);
 		);
-
-		// copy hash
 	}
 
 	newv->type = v->type;
@@ -548,7 +566,8 @@ void tg_arrseth(struct tg_val *arr, const char *k, const struct tg_val *v)
 	TG_ASSERT(v != NULL, "Cannot set array value");
 
 	newv = tg_copyval(v);
-
+	newv->ishashed = 1;
+	
 	tg_darrpush(&(arr->arrval.arr), &newv);
 	
 	tg_hashset(TG_HASH_ARRAY, &(arr->arrval.hash), k, newv);
@@ -654,6 +673,9 @@ void tg_printval(FILE *f, const struct tg_val *v)
 			if (!isfirst) fprintf(f, ", ");
 
 			isfirst = 0;
+
+			if (tg_arrgetr(v, i)->ishashed)
+				printf("*");
 
 			tg_printval(f, tg_arrgetr(v, i));
 		}
@@ -825,34 +847,6 @@ struct tg_val *_tg_valcmp(const struct tg_val *v1,
 	return r;
 }
 
-struct tg_val *tg_arrget(const struct tg_val *v, int i)
-{
-	struct tg_val *r;
-
-	TG_ASSERT(v != NULL, "Cannot get array value");
-	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
-
-	if ((r = tg_arrgetr(v, i)) == NULL)
-		return tg_emptyval();
-
-	return tg_copyval(r);
-}
-
-struct tg_val *tg_arrgete(struct tg_val *v, int i,
-	const struct tg_val *e)
-{
-	struct tg_val *r;
-
-	TG_ASSERT(v != NULL, "Cannot get array value");
-	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
-	TG_ASSERT(e != NULL, "Cannot get array value");
-
-	if ((r = tg_arrgetr(v, i)) == NULL)
-		return tg_copyval(e);
-
-	return tg_copyval(r);
-}
-
 struct tg_val *tg_arrgetr(const struct tg_val *v, int i)
 {
 	struct tg_val **r;
@@ -887,32 +881,29 @@ struct tg_val *tg_arrgetre(struct tg_val *v, int i,
 	return *((struct tg_val **) r);
 }
 
-struct tg_val *tg_arrgeth(const struct tg_val *v, const char *k)
+struct tg_val *tg_arrget(const struct tg_val *v, int i)
 {
 	struct tg_val *r;
 
 	TG_ASSERT(v != NULL, "Cannot get array value");
 	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
-	TG_ASSERT(k != NULL, "Cannot get array value");
 
-	if ((r = tg_hashget(TG_HASH_ARRAY,
-			&(v->arrval.hash), k)) == NULL)
+	if ((r = tg_arrgetr(v, i)) == NULL)
 		return tg_emptyval();
 
 	return tg_copyval(r);
 }
 
-struct tg_val *tg_arrgethe(const struct tg_val *v, const char *k,
+struct tg_val *tg_arrgete(struct tg_val *v, int i,
 	const struct tg_val *e)
 {
 	struct tg_val *r;
 
 	TG_ASSERT(v != NULL, "Cannot get array value");
 	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
-	TG_ASSERT(k != NULL, "Cannot get array value");
+	TG_ASSERT(e != NULL, "Cannot get array value");
 
-	if ((r = tg_hashget(TG_HASH_ARRAY,
-			&(v->arrval.hash), k)) == NULL)
+	if ((r = tg_arrgetr(v, i)) == NULL)
 		return tg_copyval(e);
 
 	return tg_copyval(r);
@@ -936,14 +927,33 @@ struct tg_val *tg_arrgethre(struct tg_val *v, const char *k,
 	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
 	TG_ASSERT(k != NULL, "Cannot get array value");
 
-	r = tg_hashget(TG_HASH_ARRAY, &(v->arrval.hash), k);
-
-	if (r == NULL) {
+	if ((r = tg_arrgethr(v, k)) == NULL) {
 		tg_arrseth(v, k, e);
 		r = tg_arrgethr(v, k);
 	}
 
 	return r;
+}
+
+struct tg_val *tg_arrgeth(const struct tg_val *v, const char *k)
+{
+	struct tg_val *r;
+
+	if ((r = tg_arrgethr(v, k)) == NULL)
+		return tg_emptyval();
+
+	return tg_copyval(r);
+}
+
+struct tg_val *tg_arrgethe(const struct tg_val *v, const char *k,
+	const struct tg_val *e)
+{
+	struct tg_val *r;
+	
+	if ((r = tg_arrgeth(v, k))->type == TG_VAL_EMPTY)
+		return tg_copyval(e);
+
+	return tg_copyval(r);
 }
 
 static void tg_copytable(struct tg_val *dst, const struct tg_val *src,

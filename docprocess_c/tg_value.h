@@ -50,21 +50,19 @@ struct tg_val {
 
 	struct tg_hash attrs;
 
+	int ishashed;
+
 	TG_HASHFIELDS(struct tg_val, TG_HASH_ARRAY)
 };
 
 // stack operations
-
-// TODO:custom allocator
-// 	tg_setallocator();
-
 int tg_startframe();
 
 void tg_endframe();
 
-void tg_setcustomallocer(struct tg_allocator *a);
+void tg_setallocer(struct tg_allocator *a);
 
-void tg_removecustomallocer();
+void tg_removeallocer();
 
 // -------------------------------------------------------------------
 
@@ -107,20 +105,20 @@ struct tg_val *tg_tablegetcellre(struct tg_val *t,
 void tg_arrpush(struct tg_val *arr, const struct tg_val *v);
 void tg_arrset(struct tg_val *arr, int i, const struct tg_val *v);
 
-struct tg_val *tg_arrget(const struct tg_val *v, int i);
-struct tg_val *tg_arrgete(struct tg_val *v, int i,
-	const struct tg_val *e);
 struct tg_val *tg_arrgetr(const struct tg_val *v, int i);
 struct tg_val *tg_arrgetre(struct tg_val *v, int i,
+	const struct tg_val *e);
+struct tg_val *tg_arrget(const struct tg_val *v, int i);
+struct tg_val *tg_arrgete(struct tg_val *v, int i,
 	const struct tg_val *e);
 
 void tg_arrseth(struct tg_val *arr, const char *k,
 	const struct tg_val *v);
-struct tg_val *tg_arrgeth(const struct tg_val *v, const char *k);
-struct tg_val *tg_arrgethe(const struct tg_val *v, const char *k,
-	const struct tg_val *e);
 struct tg_val *tg_arrgethr(const struct tg_val *v, const char *k);
 struct tg_val *tg_arrgethre(struct tg_val *v, const char *k,
+	const struct tg_val *e);
+struct tg_val *tg_arrgeth(const struct tg_val *v, const char *k);
+struct tg_val *tg_arrgethe(const struct tg_val *v, const char *k,
 	const struct tg_val *e);
 
 #define TG_ARRFOREACH(v, pos, el, action) 			\

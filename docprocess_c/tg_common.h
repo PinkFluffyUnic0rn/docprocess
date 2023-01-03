@@ -238,6 +238,9 @@ void tg_hashdel##NAME(struct tg_hash *h, const char *key)	\
 #define tg_hashdel(NAME, h, key) \
 	tg_hashdel##NAME((h), (key))
 
+#define tg_hashkey(NAME, el) \
+	(el).key##NAME.str
+
 #define TG_HASHFOREACH(STRT, NAME, h, KEY, ACTIONS)		\
 do {								\
 	int i;							\
