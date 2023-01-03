@@ -1,4 +1,6 @@
 a = 3;
+b = "  asdf 23.23";
+c = "dsfds \tsd  ";
 
 asd = -23 * 12.532 ~ $12e341 + +12.4212e12349 * sercsd - !"123asdf" ~ -sd23
 <- d2d * 12 + "23ds" ^ ds3 - dwds : "span" <= 3  &  21 ~ "23" & sd

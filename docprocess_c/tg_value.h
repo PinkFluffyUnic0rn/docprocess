@@ -50,6 +50,7 @@ struct tg_val {
 
 	struct tg_hash attrs;
 
+	int arrpos;
 	int ishashed;
 
 	TG_HASHFIELDS(struct tg_val, TG_HASH_ARRAY)

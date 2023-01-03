@@ -8,7 +8,6 @@
 
 #include "tg_parser.h"
 #include "tg_value.h"
-#include "tg_tests.h"
 
 #define CONVERTERS_PATH "/home/qwerty/docprocess/docprocess_c/converters"
 
@@ -616,6 +615,13 @@ static struct tg_val *tg_getindexval(int eni, struct tg_val *a)
 		a = tg_castval(a, TG_VAL_ARRAY);
 
 	if (tg_nodeccnt(fni) > 1) {
+		struct tg_val *idx1, *idx2;
+	
+		TG_NULLQUIT(idx1 = tg_runnode(tg_nodechild(fni, 0)));
+		TG_NULLQUIT(idx2 = tg_runnode(tg_nodechild(fni, 1)));
+		
+		printf("ERHE!\n");
+
 		// TODO: ranges
 	}
 	
@@ -964,8 +970,6 @@ int main(int argc, const char *argv[])
 	if ((tpl = tg_getparsetree(argv[1])) < 0)
 		TG_ERROR("%s", tg_error);
 
-	tg_printnode(tpl, 0);
-	
 	tg_initsymtable();
 	tg_startframe();
 	

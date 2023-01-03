@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <limits.h>
 
-#include "tg_value.h"
+#include "../tg_value.h"
 
 static int tabletest()
 {

@@ -43,18 +43,23 @@ struct tg_darray tg_text;
 static int tg_curline;
 static int tg_curpos;
 
-static struct tg_char cbuf[2];
-static int getcinit = 0;
-
+static struct tg_char cbuf[3];
 static struct tg_token tbuf[2];
-static int gettinit = 0;
 
 static struct tg_darray nodes;
+
+static struct tg_char _tg_getc();
+static int tg_nexttoken(struct tg_token *t);
 
 static int tg_initparser(const char *path)
 {
 	tg_darrinit(&tg_text, sizeof(char *));
 	tg_path = path;
+
+	cbuf[1] = _tg_getc();
+	cbuf[2] = _tg_getc();
+
+	tg_nexttoken(tbuf + 1);
 
 	return 0;
 }
@@ -70,7 +75,7 @@ static int tg_finilizeparser()
 #define TG_C_EOF -2
 
 // string stream to char stream
-static struct tg_char _tg_getc(int raw)
+static struct tg_char _tg_getc()
 {
 	struct tg_char c;
 	static FILE *f = NULL;
@@ -100,17 +105,8 @@ static struct tg_char _tg_getc(int raw)
 		ssize_t r;
 		char *t;
 
-		if (!raw) {
-			if (isspace(l[0])) { 
-				while (isspace(l[1]))
-					++l;
-
-				l[0] = ' ';
-			}
-			
-			if (l[0] == '#')
-				l = "";
-		}
+		if (l[0] == '#')
+			l = "";
 
 		if (l[0] != '\0')
 			break;
@@ -175,73 +171,31 @@ static int tg_getc()
 {
 	struct tg_char c;
 
-	if (getcinit == 0) {
-		cbuf[1] = _tg_getc(0);
-		getcinit = 1;
-	}
-
 	cbuf[0] = cbuf[1];
+	cbuf[1] = cbuf[2];
+
 	c = cbuf[0];
-
 	if (c.c == TG_C_ERROR || c.c == TG_C_EOF)
-		goto error;
+		goto skipadvance;
 	
-	cbuf[1] = _tg_getc(0);
+	cbuf[2] = _tg_getc();
 
-	// return ?
-
-error:
+skipadvance:
 	tg_curline = c.line;
 	tg_curpos = c.pos;
 	strncpy(tg_error, c.error, TG_MSGMAXSIZE);
 	
 	return c.c;
-}
-
-static int tg_getcraw()
-{
-	struct tg_char c;
-
-	if (getcinit == 0) {
-		cbuf[1] = _tg_getc(1);
-		getcinit = 1;
-	}
-
-	cbuf[0] = cbuf[1];
-	c = cbuf[0];
-
-	if (c.c == TG_C_ERROR || c.c == TG_C_EOF)
-		goto error;
-	
-	cbuf[1] = _tg_getc(1);
-	
-	// return ?
-
-error:
-	tg_curline = c.line;
-	tg_curpos = c.pos;
-	strncpy(tg_error, c.error, TG_MSGMAXSIZE);
-	
-	return c.c;
-}
-
-static int tg_getcrestore()
-{
-	// do something with comments
-	if (isspace(cbuf[1].c))
-		cbuf[1].c = ' ';
-
-	return 0;
 }
 
 static int tg_peekc()
 {
-	if (getcinit == 0) {
-		cbuf[1] = _tg_getc(0);
-		getcinit = 1;
-	}
-	
 	return cbuf[1].c;
+}
+
+static int tg_peekc2()
+{
+	return cbuf[2].c;
 }
 
 // lexical analyzer
@@ -264,7 +218,7 @@ static int tg_nexttoken(struct tg_token *t)
 	const char *v;
 	int c;
 
-	while ((tg_peekc()) == ' ')
+	while (isspace(tg_peekc()))
 		tg_getc();
 
 	if ((c = tg_getc()) == TG_C_ERROR)
@@ -285,10 +239,10 @@ static int tg_nexttoken(struct tg_token *t)
 		t->line = tg_curline;
 		t->pos = tg_curpos;
 		
-		c = tg_getcraw();
+		c = tg_getc();
 		while (c != '\"') {
 			if (c == '\\') {
-				c = tg_getcraw();
+				c = tg_getc();
 				if (c == TG_C_ERROR)
 					goto error;
 				else if (c == TG_C_EOF) {
@@ -305,7 +259,7 @@ static int tg_nexttoken(struct tg_token *t)
 						(char *) &c, 1);
 				}
 
-				c = tg_getcraw();
+				c = tg_getc();
 			}
 			else if (c == TG_C_EOF) {
 				TG_SETERROR("Unexpected EOF.");
@@ -316,10 +270,8 @@ static int tg_nexttoken(struct tg_token *t)
 			
 			tg_dstraddstrn(&(t->val), (char *) &c, 1);
 
-			c = tg_getcraw();
+			c = tg_getc();
 		}
-
-		tg_getcrestore();
 
 		return 0;
 	}
@@ -390,7 +342,8 @@ static int tg_nexttoken(struct tg_token *t)
 				c = tg_getc();
 			}
 
-			if (c == '.' || c == 'e' || c == 'E') {
+			if ((c == '.' && isdigit(tg_peekc2()))
+					|| c == 'e' || c == 'E') {
 	 			t->type = TG_T_FLOAT;
 				
 				if (c == '.') {
@@ -647,38 +600,23 @@ error:
 
 static int tg_gettoken(struct tg_token *t)
 {
-	if (gettinit == 0) {
-		tg_nexttoken(tbuf + 1);
-
-		gettinit = 1;
-	}
-
-	if (tbuf[0].type == TG_T_EOF || tbuf[0].type == TG_T_ERROR) {
-		*t = tbuf[0];
-		return tbuf[0].type;
-	}
+	if (tbuf[0].type == TG_T_EOF || tbuf[0].type == TG_T_ERROR)
+		goto skipadvance;
 
 	tbuf[0] = tbuf[1];
-	
+	tg_nexttoken(tbuf + 1);
+
+skipadvance:
 	if (t != NULL)
 		*t = tbuf[0];
-
-	tg_nexttoken(tbuf + 1);
 
 	return tbuf[0].type;
 }
 
 int tg_peektoken(struct tg_token *t)
 {
-	if (gettinit == 0) {
-		tg_nexttoken(tbuf + 1);
-		gettinit = 1;
-	}
-
-	if (tbuf[0].type == TG_T_EOF || tbuf[0].type == TG_T_ERROR) {
-		*t = tbuf[0];
-		return tbuf[0].type;
-	}
+	if (tbuf[0].type == TG_T_EOF || tbuf[0].type == TG_T_ERROR)
+		return tg_gettoken(t);
 
 	if (t != NULL)
 		*t = tbuf[1];
@@ -1010,7 +948,6 @@ static int tg_filter(int ni)
 
 	if (tg_peektoken(&t) == TG_T_DDOT) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_DDOT));
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_DDOT, &t));
 
 		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
 		TG_ERRQUIT(tg_assign(ani));
@@ -1766,7 +1703,7 @@ int tg_getparsetree(const char *p)
 	
 	if (tg_initparser(p) < 0)
 		goto error;
-	
+
 	tg_darrinit(&nodes, sizeof(struct tg_node));
 
 	if ((ni = tg_nodeadd(-1, TG_N_TEMPLATE, NULL)) < 0)

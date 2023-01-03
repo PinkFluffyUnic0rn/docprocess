@@ -112,6 +112,7 @@ struct tg_val *tg_createval(enum TG_VALTYPE t)
 
 	newv->type = t;
 	newv->ishashed = 0;
+	newv->arrpos = -1;
 
 	return newv;
 }
@@ -199,15 +200,18 @@ struct tg_val *tg_stringval(const char *v)
 void tg_moveval(struct tg_val *d, const struct tg_val *s)
 {
 	int ishashed;
+	int arrpos;
 
-	// preserve ishashed, cause destination value
-	// can still be used as hash element
+	// preserve ishashed and arrpos, cause destination value
+	// can still be used in array
 	ishashed = d->ishashed;
+	arrpos = d->arrpos;
 
 	tg_freeval(d);
 
 	memcpy(d, tg_copyval(s), sizeof(struct tg_val));
 	d->ishashed = ishashed;
+	d->arrpos = arrpos;
 }
 
 struct tg_val *tg_copyval(const struct tg_val *v)
@@ -218,7 +222,8 @@ struct tg_val *tg_copyval(const struct tg_val *v)
 	TG_ASSERT(v != NULL, "Cannot copy value");
 
 	newv = tg_allocval();
-	newv->ishashed = 0;//v->ishashed;  // ?
+	newv->ishashed = 0;
+	newv->arrpos = -1;
 	tg_inithash(TG_HASH_ARRAY, &(newv->attrs));
 
 	TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
@@ -246,7 +251,7 @@ struct tg_val *tg_copyval(const struct tg_val *v)
 				k = tg_hashkey(TG_HASH_ARRAY, *vv);
 				
 				vv = tg_copyval(vv);
-				vv->ishashed = 1;			
+				vv->ishashed = 1;
 			
 				tg_hashset(TG_HASH_ARRAY,
 					&(newv->arrval.hash), k, vv);
@@ -254,7 +259,8 @@ struct tg_val *tg_copyval(const struct tg_val *v)
 			else {
 				vv = tg_copyval(vv);
 			}
-				
+		
+			vv->arrpos = newv->arrval.arr.cnt;
 			tg_darrpush(&(newv->arrval.arr), &vv);
 		);
 	}
@@ -548,6 +554,7 @@ int tg_istrueval(const struct tg_val *v)
 	return 0;
 }
 
+// redefine through tg_arrset?
 void tg_arrpush(struct tg_val *arr, const struct tg_val *v)
 {
 	struct tg_val *newv;
@@ -557,6 +564,7 @@ void tg_arrpush(struct tg_val *arr, const struct tg_val *v)
 	TG_ASSERT(v != NULL, "Cannot push to value");
 
 	newv = tg_copyval(v);
+	newv->arrpos = arr->arrval.arr.cnt;
 
 	tg_darrpush(&(arr->arrval.arr), &newv);
 }
@@ -574,11 +582,13 @@ void tg_arrset(struct tg_val *arr, int p, const struct tg_val *v)
 
 		for (i = arr->arrval.arr.cnt; i < p; ++i) {
 			newv = tg_emptyval();
+			newv->arrpos = i;
 			tg_darrset(&(arr->arrval.arr), i, &newv);
 		}
 	}
 
 	newv = tg_copyval(v);
+	newv->arrpos = p;
 
 	tg_darrset(&(arr->arrval.arr), p, &newv);
 }
@@ -593,6 +603,7 @@ void tg_arrseth(struct tg_val *arr, const char *k, const struct tg_val *v)
 
 	newv = tg_copyval(v);
 	newv->ishashed = 1;
+	newv->arrpos = arr->arrval.arr.cnt;
 	
 	tg_darrpush(&(arr->arrval.arr), &newv);
 	
@@ -704,6 +715,10 @@ void tg_printval(FILE *f, const struct tg_val *v)
 				printf("*");
 
 			tg_printval(f, tg_arrgetr(v, i));
+
+
+			if (tg_arrgetr(v, i)->arrpos >= 0)
+				printf(":%d", tg_arrgetr(v, i)->arrpos);
 		}
 
 		TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY,
