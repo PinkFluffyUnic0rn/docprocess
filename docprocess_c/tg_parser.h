@@ -51,11 +51,11 @@ struct tg_node {
 
 int tg_nodeccnt(int ni);
 
-int tg_nodegetchild(int ni, int i);
+int tg_nodechild(int ni, int i);
 
-enum TG_TYPE tg_nodegettype(int ni);
+enum TG_TYPE tg_nodetype(int ni);
 
-struct tg_token *tg_nodegettoken(int ni);
+struct tg_token *tg_nodetoken(int ni);
 
 int tg_printnode(int ni, int depth);
 

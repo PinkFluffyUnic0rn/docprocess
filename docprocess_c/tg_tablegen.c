@@ -306,7 +306,7 @@ struct tg_val *tg_getindexlvalue(int eni, struct tg_val *a)
 	struct tg_val *idx;
 	int fni;
 
-	fni = tg_nodegetchild(eni, 0);
+	fni = tg_nodechild(eni, 0);
 
 	TG_NULLQUIT(idx = run_node(fni));
 
@@ -330,70 +330,60 @@ struct tg_val *tg_getattrlvalue(int eni, struct tg_val *a)
 {
 	const char *attrname;
 
-	attrname = tg_nodegettoken(tg_nodegetchild(eni, 0))->val.str;
+	attrname = tg_nodetoken(tg_nodechild(eni, 0))->val.str;
 	return tg_valgetattrre(a, attrname, tg_emptyval());
 }
 	
 struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
 {
 	struct tg_symbol *s;
-	const char *newsym;
+	struct tg_val *a;
 	int ini;
+	int i;
 	
-	newsym = NULL;
-	// TODO: backup old symbol value?
-
-	if (tg_nodegettype(ni) == TG_N_ID)
-		ini = tg_nodegetchild(ni, 0);
-	else if (tg_nodegettype(ni) == TG_N_ADDRESS)
-		ini = tg_nodegetchild(tg_nodegetchild(ni, 0), 0);
+	if (tg_nodetype(ni) == TG_N_ID)
+		ini = tg_nodechild(ni, 0);
+	else if (tg_nodetype(ni) == TG_N_ADDRESS)
+		ini = tg_nodechild(tg_nodechild(ni, 0), 0);
 	else
 		goto notlvalue;
 
-	if (tg_symbolget(tg_nodegettoken(ini)->val.str) == NULL) {
+	if (tg_symbolget(tg_nodetoken(ini)->val.str) == NULL) {
 		s = tg_alloc(&symalloc);
 		s->type = TG_SYMTYPE_VARIABLE;
 		s->var.val = tg_emptyval();;
 	
-		newsym = tg_nodegettoken(ini)->val.str;
-		tg_symboladd(newsym, s);
+		tg_symboladd(tg_nodetoken(ini)->val.str, s);
 	}
 
-	s = tg_symbolget(tg_nodegettoken(ini)->val.str);
+	s = tg_symbolget(tg_nodetoken(ini)->val.str);
 	if (s->type != TG_SYMTYPE_VARIABLE)
 		goto notlvalue;
 
-	if (tg_nodegettype(ni) == TG_N_ADDRESS) {
-		struct tg_val *a;
-		int i;
-		
-		a = s->var.val;
-		for (i = 1; i < tg_nodeccnt(ni); ++i) {
-			int eni;
+	if (tg_nodetype(ni) != TG_N_ADDRESS)
+		return (s->var.val = v);
 
-			eni = tg_nodegetchild(ni, i);
-			if (tg_nodegettype(eni) == TG_N_INDEX) {
-				if (tg_nodeccnt(eni) > 1)
-					goto notlvalue;
+	a = s->var.val;
+	for (i = 1; i < tg_nodeccnt(ni); ++i) {
+		int eni;
 
-				if ((a = tg_getindexlvalue(eni, a)) == NULL)
-					goto notlvalue;
-			}
-			else if (tg_nodegettype(eni) == TG_N_ATTR)
-				a = tg_getattrlvalue(eni, a);
+		eni = tg_nodechild(ni, i);
+		if (tg_nodetype(eni) == TG_N_INDEX) {
+			if (tg_nodeccnt(eni) > 1)
+				goto notlvalue;
+
+			if ((a = tg_getindexlvalue(eni, a)) == NULL)
+				goto notlvalue;
 		}
-
-		tg_moveval(a, v);
+		else if (tg_nodetype(eni) == TG_N_ATTR)
+			a = tg_getattrlvalue(eni, a);
 	}
-	else
-		s->var.val = v;
+
+	tg_moveval(a, v);
 
 	return v;
 
 notlvalue:
-	if (newsym != NULL)
-		tg_symboldel(newsym);
-
 	TG_WARNING("Trying to assign into rvalue.");
 
 	return NULL;
@@ -407,8 +397,7 @@ struct tg_val *tg_funcdef(int ni)
 	s->type = TG_SYMTYPE_FUNCTION;
 	s->func.startnode = ni;
 	
-	tg_symboladd(tg_nodegettoken(tg_nodegetchild(ni, 0))
-		->val.str, s);
+	tg_symboladd(tg_nodetoken(tg_nodechild(ni, 0))->val.str, s);
 	
 	return tg_intval(TG_STATE_SUCCESS);
 }
@@ -417,12 +406,12 @@ struct tg_val *tg_if(int ni)
 {
 	struct tg_val *r;
 			
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni, 0)));
 
 	if (tg_istrueval(r))
-		return run_node(tg_nodegetchild(ni, 1));
+		return run_node(tg_nodechild(ni, 1));
 	else if (tg_nodeccnt(ni) > 2)
-		return run_node(tg_nodegetchild(ni, 2));
+		return run_node(tg_nodechild(ni, 2));
 
 	return tg_intval(TG_STATE_SUCCESS);
 }
@@ -435,17 +424,17 @@ struct tg_val *tg_forclassic(int ni)
 	int stepnode;
 	int blocknode;
 		
-	initnode = tg_nodegetchild(ni, 0);
-	cmpnode = tg_nodegetchild(ni, 1);
-	stepnode = tg_nodegetchild(ni, 2);
-	blocknode = tg_nodegetchild(ni, 3);
+	initnode = tg_nodechild(ni, 0);
+	cmpnode = tg_nodechild(ni, 1);
+	stepnode = tg_nodechild(ni, 2);
+	blocknode = tg_nodechild(ni, 3);
 	
 	tg_newscope();
 
-	TG_NULLQUIT(run_node(tg_nodegetchild(initnode, 0)));
+	TG_NULLQUIT(run_node(tg_nodechild(initnode, 0)));
 
 	while (1) {
-		TG_NULLQUIT(r = run_node(tg_nodegetchild(cmpnode, 0)));
+		TG_NULLQUIT(r = run_node(tg_nodechild(cmpnode, 0)));
 		if (!tg_istrueval(r))
 			break;
 
@@ -455,7 +444,7 @@ struct tg_val *tg_forclassic(int ni)
 		else if (r->intval == TG_STATE_BREAK)
 			break;
 
-		TG_NULLQUIT(run_node(tg_nodegetchild(stepnode, 0)));
+		TG_NULLQUIT(run_node(tg_nodechild(stepnode, 0)));
 	}
 
 	r = tg_intval(TG_STATE_SUCCESS);
@@ -469,9 +458,9 @@ forend:
 struct tg_val *tg_for(int ni)
 {
 	if (tg_nodeccnt(ni) == 4
-		&& tg_nodegettype(tg_nodegetchild(ni, 0)) == TG_N_FOREXPR
-		&& tg_nodegettype(tg_nodegetchild(ni, 1)) == TG_N_FOREXPR
-		&& tg_nodegettype(tg_nodegetchild(ni, 2)) == TG_N_FOREXPR) {
+		&& tg_nodetype(tg_nodechild(ni, 0)) == TG_N_FOREXPR
+		&& tg_nodetype(tg_nodechild(ni, 1)) == TG_N_FOREXPR
+		&& tg_nodetype(tg_nodechild(ni, 2)) == TG_N_FOREXPR) {
 		return tg_forclassic(ni);
 	}
 	else
@@ -489,28 +478,28 @@ struct tg_val *tg_block(int ni)
 	for (i = 0; i < tg_nodeccnt(ni); ++i) {
 		int cni;
 
-		cni = tg_nodegetchild(ni, i);
+		cni = tg_nodechild(ni, i);
 
-		if (tg_nodegettype(cni) == TG_N_RETURN) {
+		if (tg_nodetype(cni) == TG_N_RETURN) {
 			if (tg_nodeccnt(cni) > 0) {
 				TG_NULLQUIT(retval = run_node(
-					tg_nodegetchild(cni, 0)));
+					tg_nodechild(cni, 0)));
 			}
 
 			r = tg_intval(TG_STATE_RETURN);
 			goto blockend;
 		}
-		else if (tg_nodegettype(cni) == TG_T_BREAK) {
+		else if (tg_nodetype(cni) == TG_T_BREAK) {
 			r = tg_intval(TG_STATE_BREAK);
 			goto blockend;
 		}
-		else if (tg_nodegettype(cni) == TG_T_CONTINUE) {
+		else if (tg_nodetype(cni) == TG_T_CONTINUE) {
 			r = tg_intval(TG_STATE_CONTINUE);
 			goto blockend;
 		}
 
 		TG_NULLQUIT(r = run_node(cni));
-		if (tg_isflownode(tg_nodegettype(cni))
+		if (tg_isflownode(tg_nodetype(cni))
 			&& r->intval != TG_STATE_SUCCESS) {
 			goto blockend;
 		}
@@ -519,8 +508,7 @@ struct tg_val *tg_block(int ni)
 	r = tg_intval(TG_STATE_SUCCESS);
 
 blockend:
-	tg_printsymbols(); //!!!
-
+	tg_printsymbols(); // !!!	
 	tg_popscope();
 	
 	return r;
@@ -534,19 +522,18 @@ struct tg_val *tg_identificator(int ni)
 	int i;
 
 	if (tg_nodeccnt(ni) == 1) {
-		return tg_symbolgetval(tg_nodegettoken(
-			tg_nodegetchild(ni, 0))->val.str);
+		return tg_symbolgetval(tg_nodetoken(
+			tg_nodechild(ni, 0))->val.str);
 	}
 		
-	s = tg_symbolget(tg_nodegettoken(tg_nodegetchild(ni, 0))
-		->val.str);
+	s = tg_symbolget(tg_nodetoken(tg_nodechild(ni, 0))->val.str);
 
 	if (s == NULL || s->type != TG_SYMTYPE_FUNCTION)
 		return tg_emptyval();
 
-	ani = tg_nodegetchild(ni, 1);
+	ani = tg_nodechild(ni, 1);
 	fni = s->func.startnode;	
-	fani = tg_nodegetchild(fni, 1);
+	fani = tg_nodechild(fni, 1);
 
 	if (tg_nodeccnt(fani) != tg_nodeccnt(ani))
 		return tg_emptyval();
@@ -558,21 +545,20 @@ struct tg_val *tg_identificator(int ni)
 		struct tg_symbol *ss;
 		const char *sn;
 
-		sn = tg_nodegettoken(tg_nodegetchild(fani, i))->val.str;
+		sn = tg_nodetoken(tg_nodechild(fani, i))->val.str;
 
 		ss = tg_alloc(&symalloc);
 		ss->type = TG_SYMTYPE_VARIABLE;
-		if ((ss->var.val = run_node(tg_nodegetchild(ani, i)))
+		if ((ss->var.val = run_node(tg_nodechild(ani, i)))
 				== NULL) {
-			tg_popscope();
-			tg_endframe();	
-			return NULL;
+			goto error;
 		}
 	
 		tg_symboladd(sn, ss);
 	}
 
-	run_node(tg_nodegetchild(fni, 2));
+	if (run_node(tg_nodechild(fni, 2)) == NULL)
+		goto error;
 
 	tg_setcustomallocer(&retalloc);
 	r = tg_copyval(retval);
@@ -584,13 +570,18 @@ struct tg_val *tg_identificator(int ni)
 	retval = tg_emptyval();
 
 	return r;
+
+error:
+	tg_popscope();
+	tg_endframe();	
+	return NULL;
 }
 
 struct tg_val *tg_const(int ni)
 {
 	struct tg_token *t;
 	
-	t = tg_nodegettoken(tg_nodegetchild(ni, 0));
+	t = tg_nodetoken(tg_nodechild(ni, 0));
 
 	if (t->type == TG_T_STRING)
 		return tg_stringval(t->val.str);
@@ -604,7 +595,7 @@ struct tg_val *tg_const(int ni)
 
 struct tg_val *tg_filter(int ni)
 {
-	return run_node(tg_nodegetchild(ni, 0));
+	return run_node(tg_nodechild(ni, 0));
 }
 
 struct tg_val *tg_getindexval(int eni, struct tg_val *a)
@@ -612,7 +603,7 @@ struct tg_val *tg_getindexval(int eni, struct tg_val *a)
 	struct tg_val *idx;
 	int fni;
 
-	fni = tg_nodegetchild(eni, 0);
+	fni = tg_nodechild(eni, 0);
 
 	TG_NULLQUIT(idx = run_node(fni));
 
@@ -636,9 +627,9 @@ struct tg_val *tg_address(int ni)
 	int ini;
 	int i;
 		
-	ini = tg_nodegetchild(tg_nodegetchild(ni, 0), 0);
+	ini = tg_nodechild(tg_nodechild(ni, 0), 0);
 
-	if ((s = tg_symbolget(tg_nodegettoken(ini)->val.str)) != NULL)
+	if ((s = tg_symbolget(tg_nodetoken(ini)->val.str)) != NULL)
 		a = s->var.val;
 	else
 		a = tg_createval(TG_VAL_ARRAY);
@@ -647,16 +638,16 @@ struct tg_val *tg_address(int ni)
 		int eni;
 		int j;
 
-		eni = tg_nodegetchild(ni, i);
-		if (tg_nodegettype(eni) == TG_N_INDEX) {
+		eni = tg_nodechild(ni, i);
+		if (tg_nodetype(eni) == TG_N_INDEX) {
 			for (j = 0; j < tg_nodeccnt(eni); ++j)
-				a = tg_getindexval(eni, a);
+				TG_NULLQUIT(a = tg_getindexval(eni, a));
 		}
-		else if (tg_nodegettype(eni) == TG_N_ATTR) {
+		else if (tg_nodetype(eni) == TG_N_ATTR) {
 			const char *attrname;
 	
-			attrname = tg_nodegettoken(
-				tg_nodegetchild(eni, 0))->val.str;
+			attrname = tg_nodetoken(
+				tg_nodechild(eni, 0))->val.str;
 
 			a = tg_valgetattre(a, attrname, tg_emptyval());
 		}
@@ -670,15 +661,15 @@ struct tg_val *tg_prestep(int ni)
 	struct tg_val *r;
 	const char *s;
 
-	s = tg_nodegettoken(tg_nodegetchild(ni, 0))->val.str;
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 1)));
+	s = tg_nodetoken(tg_nodechild(ni, 0))->val.str;
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni, 1)));
 
 	if (strcmp(s, "++") == 0)
 		TG_NULLQUIT(r = tg_valadd(r, tg_intval(1)));
 	if (strcmp(s, "--") == 0)
 		TG_NULLQUIT(r = tg_valsub(r, tg_intval(1)));
 	
-	return tg_setlvalue(tg_nodegetchild(ni, 1), r);
+	return tg_setlvalue(tg_nodechild(ni, 1), r);
 }
 
 struct tg_val *tg_sign(int ni)
@@ -686,20 +677,20 @@ struct tg_val *tg_sign(int ni)
 	struct tg_val *r;
 	int sign;
 
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 1)));
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni, 1)));
 
-	sign = (tg_nodegettoken(tg_nodegetchild(ni, 0))
+	sign = (tg_nodetoken(tg_nodechild(ni, 0))
 			->val.str[0] == '-') ? -1 : 1;
-		
+
 	return tg_valprinterr(tg_valmult(r, tg_intval(sign)));
 }
 
 struct tg_val *tg_not(int ni)
 {
 	struct tg_val *r;
-	
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
-	
+
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni, 0)));
+
 	return (tg_istrueval(r)) ? tg_intval(0) : tg_intval(1);
 }
 
@@ -713,14 +704,14 @@ struct tg_val *tg_mult(int ni)
 	int i;
 	struct tg_val *r;
 	
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni, 0)));
 
 	for (i = 1; i < tg_nodeccnt(ni); i += 2) {
 		struct tg_val *v;
 		const char *s;
 	
-		s = tg_nodegettoken(tg_nodegetchild(ni, i))->val.str;
-		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i + 1)));
+		s = tg_nodetoken(tg_nodechild(ni, i))->val.str;
+		TG_NULLQUIT(v = run_node(tg_nodechild(ni, i + 1)));
 		
 		if (strcmp(s, "*") == 0)
 			TG_NULLQUIT(tg_valprinterr(r = tg_valmult(r, v)));
@@ -736,14 +727,14 @@ struct tg_val *tg_add(int ni)
 	int i;
 	struct tg_val *r;
 	
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni, 0)));
 
 	for (i = 1; i < tg_nodeccnt(ni); i += 2) {
 		struct tg_val *v;
 		const char *s;
 	
-		s = tg_nodegettoken(tg_nodegetchild(ni, i))->val.str;
-		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i + 1)));
+		s = tg_nodetoken(tg_nodechild(ni, i))->val.str;
+		TG_NULLQUIT(v = run_node(tg_nodechild(ni, i + 1)));
 		
 		if (strcmp(s, "+") == 0)
 			TG_NULLQUIT(tg_valprinterr(r = tg_valadd(r, v)));
@@ -759,12 +750,12 @@ struct tg_val *tg_cat(int ni)
 	int i;
 	struct tg_val *r;
 	
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni, 0)));
 
 	for (i = 1; i < tg_nodeccnt(ni); ++i) {
 		struct tg_val *v;
 	
-		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i)));
+		TG_NULLQUIT(v = run_node(tg_nodechild(ni, i)));
 		
 		TG_NULLQUIT(tg_valprinterr(r = tg_valcat(r, v)));
 	}
@@ -777,19 +768,19 @@ struct tg_val *tg_nextto(int ni)
 	int i;
 	struct tg_val *r;
 
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni, 0)));
 
 	for (i = 1; i < tg_nodeccnt(ni); i += 2) {
 		struct tg_val *v;
 		const char *s;
 		int span;
 	
-		s = tg_nodegettoken(tg_nodegetchild(ni, i))->val.str;
-		TG_NULLQUIT(v = run_node(tg_nodegetchild(ni, i + 1)));
+		s = tg_nodetoken(tg_nodechild(ni, i))->val.str;
+		TG_NULLQUIT(v = run_node(tg_nodechild(ni, i + 1)));
 	
 		span = 0;
 		if (tg_nodeccnt(ni) > i + 2
-				&& tg_nodegettype(tg_nodegetchild(ni, i + 2))
+				&& tg_nodetype(tg_nodechild(ni, i + 2))
 				== TG_N_NEXTTOOPTS) {
 			span = 1;
 			++i;
@@ -813,10 +804,10 @@ struct tg_val *tg_rel(int ni)
 	struct tg_val *r1, *r2;
 	const char *s;
 	
-	TG_NULLQUIT(r1 = run_node(tg_nodegetchild(ni, 0)));
-	TG_NULLQUIT(r2 = run_node(tg_nodegetchild(ni, 2)));
+	TG_NULLQUIT(r1 = run_node(tg_nodechild(ni, 0)));
+	TG_NULLQUIT(r2 = run_node(tg_nodechild(ni, 2)));
 
-	s = tg_nodegettoken(tg_nodegetchild(ni, 1))->val.str;
+	s = tg_nodetoken(tg_nodechild(ni, 1))->val.str;
 
 	if (strcmp(s, "==") == 0)
 		return tg_valprinterr(tg_valeq(r1, r2));
@@ -843,7 +834,7 @@ struct tg_val *tg_and(int ni)
 	for (i = 0; i < tg_nodeccnt(ni); ++i) {
 		struct tg_val *r;
 		
-		TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, i)));
+		TG_NULLQUIT(r = run_node(tg_nodechild(ni, i)));
 		if (!tg_istrueval(r))
 			return tg_intval(0);
 	}
@@ -858,7 +849,7 @@ struct tg_val *tg_or(int ni)
 	for (i = 0; i < tg_nodeccnt(ni); ++i) {
 		struct tg_val *r;
 		
-		TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, i)));
+		TG_NULLQUIT(r = run_node(tg_nodechild(ni, i)));
 		if (tg_istrueval(r))
 			return tg_intval(1);
 	}
@@ -870,12 +861,9 @@ struct tg_val *tg_ternary(int ni)
 {
 	struct tg_val *r;
 		
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni, 0)));
 
-	if (tg_istrueval(r))
-		return run_node(tg_nodegetchild(ni, 1));
-	else
-		return run_node(tg_nodegetchild(ni, 2));
+	return run_node(tg_nodechild(ni, (tg_istrueval(r) ? 1 : 2)));
 }
 
 struct tg_val *tg_assign(int ni)
@@ -883,11 +871,11 @@ struct tg_val *tg_assign(int ni)
 	int i;
 	struct tg_val *r;
 	
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni,
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni,
 		tg_nodeccnt(ni) - 1)));
 
 	for (i = tg_nodeccnt(ni) - 2; i > 0; i -= 2)
-		TG_NULLQUIT(tg_setlvalue(tg_nodegetchild(ni, i - 1), r));
+		TG_NULLQUIT(tg_setlvalue(tg_nodechild(ni, i - 1), r));
 
 	return r;
 }
@@ -897,10 +885,10 @@ struct tg_val *tg_expr(int ni)
 	int i;
 	struct tg_val *r;
 			
-	TG_NULLQUIT(r = run_node(tg_nodegetchild(ni, 0)));
+	TG_NULLQUIT(r = run_node(tg_nodechild(ni, 0)));
 
 	for (i = 1; i < tg_nodeccnt(ni); ++i)
-		TG_NULLQUIT(run_node(tg_nodegetchild(ni, i)));
+		TG_NULLQUIT(run_node(tg_nodechild(ni, i)));
 
 	return r;
 }
@@ -925,7 +913,7 @@ struct tg_val *tg_template(int ni)
 struct tg_val *tg_unexpected(int ni)
 {
 	TG_WARNING("Unexpected node type: %s",
-		tg_strsym[tg_nodegettype(ni)]);
+		tg_strsym[tg_nodetype(ni)]);
 
 	return NULL;
 }
@@ -949,7 +937,7 @@ static struct tg_val *run_node(int ni)
 {
 	int t;
 
-	t = tg_nodegettype(ni) - TG_N_TEMPLATE;
+	t = tg_nodetype(ni) - TG_N_TEMPLATE;
 
 	if (t < 0 || t > TG_N_ATTR)
 		return tg_unexpected(ni);
