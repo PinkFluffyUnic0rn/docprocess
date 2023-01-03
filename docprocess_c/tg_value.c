@@ -15,8 +15,12 @@
 TG_HASHED(struct tg_val, TG_HASH_ARRAY)
 
 struct tg_allocator *customallocer = NULL;
+
 struct tg_allocator tg_stack[TG_STACKMAXDEPTH];
 int tg_stackdepth = 0;
+
+struct tg_allocator retalloc;
+struct tg_val *retval;
 
 #define tg_allocval() tg_alloc((customallocer != NULL) \
 	? customallocer : (tg_stack + tg_stackdepth))
@@ -25,6 +29,9 @@ int tg_stackdepth = 0;
 // when block starts
 int tg_startframe()
 {
+	if (tg_stackdepth == 0)
+		tg_allocinit(&retalloc, sizeof(struct tg_val)); 
+
 	if (tg_stackdepth == TG_STACKMAXDEPTH) {
 		// error
 	}
@@ -44,6 +51,9 @@ void tg_endframe()
 		(void (*)(void *)) tg_freeval);
 
 	--tg_stackdepth;
+
+	if (tg_stackdepth == 0)
+		tg_allocdestroy(&retalloc, (void (*)(void *)) tg_freeval); 
 }
 
 void tg_setallocer(struct tg_allocator *a)
@@ -54,6 +64,22 @@ void tg_setallocer(struct tg_allocator *a)
 void tg_removeallocer()
 {
 	customallocer = NULL;
+}
+
+void tg_setretval(const struct tg_val *v)
+{
+	retval = tg_copyval(v);
+}
+
+struct tg_val *tg_getretval()
+{
+	struct tg_val *r;
+	
+	tg_setallocer(&retalloc);
+	r = tg_copyval(retval);
+	tg_removeallocer(&retalloc);	
+
+	return r;
 }
 
 struct tg_val *tg_createval(enum TG_VALTYPE t)

@@ -60,6 +60,9 @@ int tg_startframe();
 
 void tg_endframe();
 
+void tg_setretval(const struct tg_val *v);
+struct tg_val *tg_getretval();
+
 void tg_setallocer(struct tg_allocator *a);
 
 void tg_removeallocer();

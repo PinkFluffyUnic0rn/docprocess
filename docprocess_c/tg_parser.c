@@ -1797,5 +1797,5 @@ error:
 
 	tg_finilizeparser();
 
-	return ni;
+	return (-1);
 }
