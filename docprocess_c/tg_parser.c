@@ -938,16 +938,12 @@ static int tg_filter(int ni)
 	struct tg_token t;
 	int ani;
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
-	TG_ERRQUIT(tg_assign(ani));
-		
-	if (tg_nodeccnt(ani) == 1)
-		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
-	
-	TG_ERRQUIT(tg_nodeattach(ni, ani));
+	if (tg_peektoken(&t) == TG_T_LBRC) {
+		int fni;
 
-	if (tg_peektoken(&t) == TG_T_DDOT) {
-		TG_ERRQUIT(tg_gettokentype(&t, TG_T_DDOT));
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_LBRC));
+		
+		TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FILTER, NULL));
 
 		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
 		TG_ERRQUIT(tg_assign(ani));
@@ -955,8 +951,37 @@ static int tg_filter(int ni)
 		if (tg_nodeccnt(ani) == 1)
 			TG_ERRQUIT(ani = tg_nodechild(ani, 0));
 		
-		TG_ERRQUIT(tg_nodeattach(ni, ani));
+		TG_ERRQUIT(tg_nodeattach(fni, ani));
+
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_RBRC));
+	
+		return 0;
 	}
+
+	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+	TG_ERRQUIT(tg_assign(ani));
+		
+	if (tg_nodeccnt(ani) == 1)
+		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+	
+	if (tg_peektoken(&t) == TG_T_DDOT) {
+		int rni;
+
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_DDOT));
+
+		TG_ERRQUIT(rni = tg_nodeadd(ni, TG_N_RANGE, NULL));
+		TG_ERRQUIT(tg_nodeattach(rni, ani));
+
+		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+		TG_ERRQUIT(tg_assign(ani));
+			
+		if (tg_nodeccnt(ani) == 1)
+			TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+		
+		TG_ERRQUIT(tg_nodeattach(rni, ani));
+	}
+	else
+		TG_ERRQUIT(tg_nodeattach(ni, ani));
 
 	return 0;
 }
@@ -964,18 +989,18 @@ static int tg_filter(int ni)
 static int tg_index(int ni)
 {
 	struct tg_token t;
-	int fni;
+//	int fni;
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LBRK));
 
-	TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FILTER, NULL));
-	TG_ERRQUIT(tg_filter(fni));
+//	TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FILTER, NULL));
+	TG_ERRQUIT(tg_filter(ni));
 
 	while (tg_peektoken(&t) == TG_T_COMMA) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COMMA));
 
-		TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FILTER, NULL));
-		TG_ERRQUIT(tg_filter(fni));
+		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_FILTER, NULL));
+		TG_ERRQUIT(tg_filter(ni));
 	}
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RBRK));
 

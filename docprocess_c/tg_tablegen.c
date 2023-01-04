@@ -302,25 +302,24 @@ int tg_readsourceslist(const char *sources)
 
 static struct tg_val *tg_runnode(int ni);
 
-static struct tg_val *tg_filter(int ni);
-
-static struct tg_val *tg_getindexlvalue(int eni, struct tg_val *a)
+static struct tg_val *tg_getindexlvalue(int ini, struct tg_val *a)
 {
 	struct tg_val *idx;
-	int fni;
+	int eni;
 
-	fni = tg_nodechild(eni, 0);
-
-	if (tg_nodeccnt(fni) > 1)
+	if (tg_nodeccnt(ini) > 1)
 		return NULL;
 	
-	TG_NULLQUIT(idx = tg_runnode(tg_nodechild(fni, 0)));
+	eni = tg_nodechild(ini, 0);
+
+	if (tg_nodetype(eni) == TG_N_RANGE
+			|| tg_nodetype(eni) == TG_N_FILTER)
+		return NULL;
 
 	if (tg_isscalar(a->type))
 		tg_moveval(a, tg_castval(a, TG_VAL_ARRAY));
-
-	if (!tg_isscalar(idx->type))
-		return NULL;
+	
+	TG_NULLQUIT(idx = tg_runnode(eni));
 
 	if (idx->type == TG_VAL_INT)
 		a = tg_arrgetre(a, idx->intval, tg_emptyval());
@@ -375,9 +374,6 @@ static struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
 
 		eni = tg_nodechild(ni, i);
 		if (tg_nodetype(eni) == TG_N_INDEX) {
-			if (tg_nodeccnt(eni) > 1)
-				goto notlvalue;
-
 			if ((a = tg_getindexlvalue(eni, a)) == NULL)
 				goto notlvalue;
 		}
@@ -599,42 +595,78 @@ static struct tg_val *tg_const(int ni)
 	TG_ERROR("Unknown constant value type: %d", t->type);
 }
 
-static struct tg_val *tg_filter(int ni)
+static struct tg_val *tg_getindexrange(int fni, struct tg_val *a)
 {
-	return tg_runnode(tg_nodechild(ni, 0));
+	struct tg_val *idx1, *idx2;
+
+	TG_NULLQUIT(idx1 = tg_runnode(tg_nodechild(fni, 0)));
+	TG_NULLQUIT(idx2 = tg_runnode(tg_nodechild(fni, 1)));
+	
+	printf("ERHE!\n");
+
+	// TODO: ranges
+
+	return tg_emptyval(); // !!!
 }
 
-static struct tg_val *tg_getindexval(int eni, struct tg_val *a)
+static struct tg_val *tg_getindexfilter(int fni, struct tg_val *a)
+{
+	// run filter
+		
+	return tg_emptyval(); // !!!
+}
+
+static struct tg_val *tg_getindexexpr(int fni, struct tg_val *a)
 {
 	struct tg_val *idx;
-	int fni;
-
-	fni = tg_nodechild(eni, 0);
-
-	if (tg_isscalar(a->type))
-		a = tg_castval(a, TG_VAL_ARRAY);
-
-	if (tg_nodeccnt(fni) > 1) {
-		struct tg_val *idx1, *idx2;
 	
-		TG_NULLQUIT(idx1 = tg_runnode(tg_nodechild(fni, 0)));
-		TG_NULLQUIT(idx2 = tg_runnode(tg_nodechild(fni, 1)));
-		
-		printf("ERHE!\n");
-
-		// TODO: ranges
-	}
-	
-	TG_NULLQUIT(idx = tg_runnode(tg_nodechild(fni, 0)));
+	TG_NULLQUIT(idx = tg_runnode(fni));
 
 	if (idx->type == TG_VAL_INT)
-		a = tg_arrgete(a, idx->intval, tg_emptyval());
+		a = tg_arrgetre(a, idx->intval, tg_emptyval());
 	else {
 		idx = tg_castval(idx, TG_VAL_STRING);
 		a = tg_arrgethe(a, idx->strval.str, tg_emptyval());
 	}
 
 	return a;
+}
+
+static struct tg_val *tg_getindexval(int ini, struct tg_val *a)
+{
+	struct tg_val *r;
+	int i;
+	
+	r = tg_createval(TG_VAL_ARRAY);
+
+	if (tg_isscalar(a->type))
+		a = tg_castval(a, TG_VAL_ARRAY);
+
+	for (i = 0; i < tg_nodeccnt(ini); ++i) {
+		struct tg_val *rr, *v;
+		int fni;
+		int j;
+
+		fni = tg_nodechild(ini, i);
+
+		if (tg_nodetype(fni) == TG_N_RANGE)
+			rr = tg_getindexrange(fni, a);
+		if (tg_nodetype(fni) == TG_N_FILTER)
+			rr = tg_getindexfilter(fni, a);
+		else {
+			tg_arrpush(r, tg_getindexexpr(fni, a));
+			continue;
+		}
+
+		// TG_N_RANGE and TG_N_FILTER always returns
+		// an array that contains the result
+		TG_ARRFOREACH(rr, j, v, tg_arrpush(r, v));
+	}
+
+	if (r->arrval.arr.cnt == 1)
+		return tg_arrget(r, 0);
+
+	return r;
 }
 
 static struct tg_val *tg_address(int ni)
@@ -653,13 +685,10 @@ static struct tg_val *tg_address(int ni)
 
 	for (i = 1; i < tg_nodeccnt(ni); ++i) {
 		int eni;
-		int j;
 
 		eni = tg_nodechild(ni, i);
-		if (tg_nodetype(eni) == TG_N_INDEX) {
-			for (j = 0; j < tg_nodeccnt(eni); ++j)
-				TG_NULLQUIT(a = tg_getindexval(eni, a));
-		}
+		if (tg_nodetype(eni) == TG_N_INDEX)
+			TG_NULLQUIT(a = tg_getindexval(eni, a));
 		else if (tg_nodetype(eni) == TG_N_ATTR) {
 			const char *attrname;
 	
@@ -940,7 +969,7 @@ struct tg_val *(* node_handler[])(int) = {
 	tg_mult,	tg_unexpected,	tg_ref,
 	tg_not,		tg_sign, 	tg_prestep,
 	tg_address,	tg_unexpected,	tg_identificator,
-	tg_const,	tg_unexpected,	tg_filter,
+	tg_const,	tg_unexpected,	tg_unexpected,
 	tg_unexpected,	tg_unexpected,	tg_unexpected
 };
 

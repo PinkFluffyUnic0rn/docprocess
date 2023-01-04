@@ -129,7 +129,7 @@ struct tg_val *tg_arrgethe(const struct tg_val *v, const char *k,
 do {								\
 	for ((pos) = 0; (pos) < (v)->arrval.arr.cnt; ++(pos)) {	\
 		(el) = tg_arrgetr((v), (pos));			\
-		action						\
+		action;						\
 	}							\
 } while (0);
 
