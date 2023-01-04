@@ -302,9 +302,24 @@ int tg_readsourceslist(const char *sources)
 
 static struct tg_val *tg_runnode(int ni);
 
-static struct tg_val *tg_getindexlvalue(int ini, struct tg_val *a)
+static struct tg_val *tg_getindexexpr(int fni, struct tg_val *a)
 {
 	struct tg_val *idx;
+	
+	TG_NULLQUIT(idx = tg_runnode(fni));
+
+	if (idx->type == TG_VAL_INT)
+		a = tg_arrgetre(a, idx->intval, tg_emptyval());
+	else {
+		idx = tg_castval(idx, TG_VAL_STRING);
+		a = tg_arrgethre(a, idx->strval.str, tg_emptyval());
+	}
+
+	return a;
+}
+
+static struct tg_val *tg_getindexlvalue(int ini, struct tg_val *a)
+{
 	int eni;
 
 	if (tg_nodeccnt(ini) > 1)
@@ -318,17 +333,8 @@ static struct tg_val *tg_getindexlvalue(int ini, struct tg_val *a)
 
 	if (tg_isscalar(a->type))
 		tg_moveval(a, tg_castval(a, TG_VAL_ARRAY));
-	
-	TG_NULLQUIT(idx = tg_runnode(eni));
 
-	if (idx->type == TG_VAL_INT)
-		a = tg_arrgetre(a, idx->intval, tg_emptyval());
-	else {
-		idx = tg_castval(idx, TG_VAL_STRING);
-		a = tg_arrgethre(a, idx->strval.str, tg_emptyval());
-	}
-
-	return a;
+	return tg_getindexexpr(eni, a);
 }
 
 static struct tg_val *tg_getattrlvalue(int eni, struct tg_val *a)
@@ -520,6 +526,21 @@ blockend:
 	return r;
 }
 
+/*
+static struct tg_val *tg_builtin(int ni)
+{	
+	const char *name;
+	
+	name = tg_nodetoken(tg_nodechild(ni, 0))->val.str;
+
+	if (strcmp(name, "dump") == 0) {
+
+	}
+
+	return tg_emptyval();
+}
+*/
+
 static struct tg_val *tg_identificator(int ni)
 {
 	struct tg_val *r;
@@ -531,7 +552,7 @@ static struct tg_val *tg_identificator(int ni)
 		return tg_symbolgetval(tg_nodetoken(
 			tg_nodechild(ni, 0))->val.str);
 	}
-		
+
 	s = tg_symbolget(tg_nodetoken(tg_nodechild(ni, 0))->val.str);
 
 	if (s == NULL || s->type != TG_SYMTYPE_FUNCTION)
@@ -595,20 +616,6 @@ static struct tg_val *tg_const(int ni)
 	TG_ERROR("Unknown constant value type: %d", t->type);
 }
 
-static struct tg_val *tg_getindexrange(int fni, struct tg_val *a)
-{
-	struct tg_val *idx1, *idx2;
-
-	TG_NULLQUIT(idx1 = tg_runnode(tg_nodechild(fni, 0)));
-	TG_NULLQUIT(idx2 = tg_runnode(tg_nodechild(fni, 1)));
-	
-	printf("ERHE!\n");
-
-	// TODO: ranges
-
-	return tg_emptyval(); // !!!
-}
-
 static struct tg_val *tg_getindexfilter(int fni, struct tg_val *a)
 {
 	// run filter
@@ -616,20 +623,35 @@ static struct tg_val *tg_getindexfilter(int fni, struct tg_val *a)
 	return tg_emptyval(); // !!!
 }
 
-static struct tg_val *tg_getindexexpr(int fni, struct tg_val *a)
+static struct tg_val *tg_getindexrange(int fni, struct tg_val *a)
 {
-	struct tg_val *idx;
-	
-	TG_NULLQUIT(idx = tg_runnode(fni));
+	struct tg_val *idxb, *idxe;
+	struct tg_val *r;
+	int i;
 
-	if (idx->type == TG_VAL_INT)
-		a = tg_arrgetre(a, idx->intval, tg_emptyval());
-	else {
-		idx = tg_castval(idx, TG_VAL_STRING);
-		a = tg_arrgethe(a, idx->strval.str, tg_emptyval());
+	tg_printnode(tg_nodechild(fni, 0), 0);
+	tg_printnode(tg_nodechild(fni, 1), 0);
+
+	idxb = tg_getindexexpr(tg_nodechild(fni, 0), a);
+	idxe = tg_getindexexpr(tg_nodechild(fni, 1), a);
+
+	if (idxb->arrpos < 0 || idxe->arrpos < 0)
+		return tg_emptyval();
+
+	r = tg_createval(TG_VAL_ARRAY);
+
+	for (i = idxb->arrpos; i <= idxe->arrpos; ++i) {
+		struct tg_val *v;
+
+		v = tg_arrgetr(a, i);
+
+		if (v->ishashed)
+			tg_arrseth(r, tg_hashkey(TG_HASH_ARRAY, *v), v);
+		else
+			tg_arrpush(r, v);
 	}
 
-	return a;
+	return r;
 }
 
 static struct tg_val *tg_getindexval(int ini, struct tg_val *a)
@@ -651,16 +673,19 @@ static struct tg_val *tg_getindexval(int ini, struct tg_val *a)
 
 		if (tg_nodetype(fni) == TG_N_RANGE)
 			rr = tg_getindexrange(fni, a);
-		if (tg_nodetype(fni) == TG_N_FILTER)
+		else if (tg_nodetype(fni) == TG_N_FILTER)
 			rr = tg_getindexfilter(fni, a);
 		else {
 			tg_arrpush(r, tg_getindexexpr(fni, a));
 			continue;
 		}
 
-		// TG_N_RANGE and TG_N_FILTER always returns
-		// an array that contains the result
-		TG_ARRFOREACH(rr, j, v, tg_arrpush(r, v));
+		TG_ARRFOREACH(rr, j, v,
+			if (v->ishashed)
+				tg_arrseth(r, tg_hashkey(TG_HASH_ARRAY, *v), v);
+			else
+				tg_arrpush(r, v);	
+		);
 	}
 
 	if (r->arrval.arr.cnt == 1)
