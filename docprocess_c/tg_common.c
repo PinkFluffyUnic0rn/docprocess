@@ -43,7 +43,7 @@ void tg_allocdestroy(struct tg_allocator *allocer,
 {
 	void *p;
 	size_t cursz;
-		
+
 	if (destr != NULL) {
 		int i;
 

@@ -484,8 +484,6 @@ static struct tg_val *tg_block(int ni)
 	
 	tg_newscope();
 
-	tg_setretval(tg_emptyval());
-
 	for (i = 0; i < tg_nodeccnt(ni); ++i) {
 		int cni;
 
@@ -520,31 +518,17 @@ static struct tg_val *tg_block(int ni)
 	r = tg_intval(TG_STATE_SUCCESS);
 
 blockend:
-	tg_printsymbols(); // !!!	
+//	tg_printsymbols(); // !!!	
 	tg_popscope();
 	
 	return r;
 }
 
-/*
-static struct tg_val *tg_builtin(int ni)
-{	
-	const char *name;
-	
-	name = tg_nodetoken(tg_nodechild(ni, 0))->val.str;
-
-	if (strcmp(name, "dump") == 0) {
-
-	}
-
-	return tg_emptyval();
-}
-*/
-
 static struct tg_val *tg_identificator(int ni)
 {
 	struct tg_val *r;
 	struct tg_symbol *s;
+	const char *name;
 	int ani, fani, fni;
 	int i;
 
@@ -552,13 +536,93 @@ static struct tg_val *tg_identificator(int ni)
 		return tg_symbolgetval(tg_nodetoken(
 			tg_nodechild(ni, 0))->val.str);
 	}
+	
+	ani = tg_nodechild(ni, 1);
+
+	name = tg_nodetoken(tg_nodechild(ni, 0))->val.str;
+	if (strcmp(name, "int") == 0) {
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+		
+		return tg_castval(v, TG_VAL_INT);
+	}
+	else if (strcmp(name, "float") == 0) {
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+		
+		return tg_castval(v, TG_VAL_FLOAT);
+	}
+	else if (strcmp(name, "string") == 0) {
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+		
+		return tg_castval(v, TG_VAL_STRING);
+	}
+	else if (strcmp(name, "array") == 0) {
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+		
+		return tg_castval(v, TG_VAL_ARRAY);
+	}
+	else if (strcmp(name, "table") == 0) {
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+		
+		return tg_castval(v, TG_VAL_TABLE);
+	}
+	else if (strcmp(name, "print") == 0) {
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+		
+		printf("%s", tg_castval(v, TG_VAL_STRING)->strval.str);
+		
+		return tg_emptyval();
+	}
+	else if (strcmp(name, "dumpval") == 0) {
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+		tg_printval(stdout, v);
+		
+		return tg_emptyval();
+	}
+	else if (strcmp(name, "substr") == 0) {
+		return tg_emptyval();
+	}
+	else if (strcmp(name, "match") == 0) {
+		return tg_emptyval();
+	}
+	else if (strcmp(name, "size") == 0) {
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(v = tg_castval(v, TG_VAL_ARRAY));
+
+		return tg_intval(v->arrval.arr.cnt);
+	}
+	else if (strcmp(name, "length") == 0) {
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(v = tg_castval(v, TG_VAL_STRING));
+
+		return tg_intval(v->strval.len);
+	}
+	else if (strcmp(name, "defval") == 0) {
+		return tg_emptyval();
+	}
 
 	s = tg_symbolget(tg_nodetoken(tg_nodechild(ni, 0))->val.str);
 
 	if (s == NULL || s->type != TG_SYMTYPE_FUNCTION)
 		return tg_emptyval();
 
-	ani = tg_nodechild(ni, 1);
 	fni = s->func.startnode;	
 	fani = tg_nodechild(fni, 1);
 
@@ -568,6 +632,8 @@ static struct tg_val *tg_identificator(int ni)
 	tg_startframe();
 	tg_newscope();
 
+	tg_setretval(tg_emptyval());
+	
 	for (i = 0; i < tg_nodeccnt(fani); ++i) {
 		struct tg_symbol *ss;
 		const char *sn;
@@ -590,7 +656,7 @@ static struct tg_val *tg_identificator(int ni)
 	r = tg_getretval();
 
 	tg_popscope();
-	tg_endframe();	
+	tg_endframe();
 	
 	return r;
 
@@ -628,9 +694,6 @@ static struct tg_val *tg_getindexrange(int fni, struct tg_val *a)
 	struct tg_val *idxb, *idxe;
 	struct tg_val *r;
 	int i;
-
-	tg_printnode(tg_nodechild(fni, 0), 0);
-	tg_printnode(tg_nodechild(fni, 1), 0);
 
 	idxb = tg_getindexexpr(tg_nodechild(fni, 0), a);
 	idxe = tg_getindexexpr(tg_nodechild(fni, 1), a);
@@ -966,13 +1029,17 @@ static struct tg_val *tg_expr(int ni)
 
 static struct tg_val *tg_template(int ni)
 {
-	struct tg_val *r;
+	tg_startframe();
+	tg_newscope();
+	
+	tg_setretval(tg_emptyval());
 	
 	TG_NULLQUIT(tg_block(ni));
 
-	r = tg_getretval();
+	tg_popscope();
+	tg_endframe();	
 	
-	return r;
+	return tg_getretval();
 }
 
 static struct tg_val *tg_unexpected(int ni)
@@ -1026,6 +1093,8 @@ int main(int argc, const char *argv[])
 
 	tg_initsymtable();
 	tg_startframe();
+	
+	tg_setretval(tg_emptyval());
 	
 	if ((r = tg_runnode(tpl)) == NULL)
 		return 1;

@@ -1,4 +1,11 @@
+function printval(n, v)
+{
+	print(n ~ ": "); dumpval(v); print("\n");
+}
+
 a.fe = 3;
 a[3].val = "hello";
 a[3].val[1] = "el";
 a[3].val[1].attr = 12;
+
+printval("a", a);

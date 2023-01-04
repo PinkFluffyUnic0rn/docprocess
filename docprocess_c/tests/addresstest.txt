@@ -1,9 +1,12 @@
+function printval(n, v)
+{
+	print(n ~ ": "); dumpval(v); print("\n");
+}
+
 a[1] = "test";
 a[5] = "word";
-
 a[2+1] = 32;
 a[2*2+2-2] = "str";
-
 a[2][4] = "level2";
 a[2][1][2] = "level3";
 
@@ -15,7 +18,7 @@ b[3].val[1].attr = 12;
 c["s12d"] = "asdf";
 c[2]["ajd"] = "sd";
 
-d = a[2][4];
-e = c["s12d"];
-f = b[3].val[1].attr;
-g = c[2];
+printval("a[2][4]", a[2][4]);
+printval("c[\"s12d\"]", c["s12d"]);
+printval("b[3].val[1].attr", b[3].val[1].attr);
+printval("c[2]", c[2]);

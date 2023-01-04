@@ -1,3 +1,8 @@
+function printval(n, v)
+{
+	print(n ~ ": "); dumpval(v); print("\n");
+}
+
 a = b = c = d = e = f = h = "";
 
 a = 45;
@@ -28,7 +33,6 @@ for (i = 1; i < 10; ++i) {
 	g = g + i;
 }
 
-
 h = 0;
 for (i = 1; i < 10; ++i) {
 	if (i == 5)
@@ -36,5 +40,14 @@ for (i = 1; i < 10; ++i) {
 	
 	h = h + i;
 }
+
+printval("a: ", a);
+printval("b: ", b);
+printval("c: ", c);
+printval("d: ", d);
+printval("e: ", e);
+printval("f: ", f);
+printval("g: ", g);
+printval("h: ", h);
 
 return "hi";

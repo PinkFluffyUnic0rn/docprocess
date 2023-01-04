@@ -1,56 +1,81 @@
-assign1 = assign2 = 3, assign3 = 4;
+function printval(n, v)
+{
+	print(n ~ ": "); dumpval(v); print("\n");
+}
 
-or1 = 0 | "324" | 23.2;
+assign1 = assign2 = 3, assign3 = 4;
+printval("assign1", assign1);
+printval("assign2", assign2);
+printval("assign3", assign3);
+print("\n");
+
+printval("or1", 0 | "324" | 23.2);
+print("\n");
 
 and1 = 0 & "324" & 23.2;
+printval("and1", and1);
+print("\n");
 
-releq1 = 23 == 23;
-releq2 = 23 == 22;
-releq3 = 22 == "22";
-releq4 = 22 == "23";
-relne = 23 != 22;
-relge = 23 > 22;
-relle = 23 < 22;
-relleq1 = 23 <= 22;
-relleq2 = 22 <= 22;
-relgeq1 = 21 >= 22;
-relgeq2 = 22 >= 22;
+printval("releq1", 23 == 23);
+printval("releq2", 23 == 22);
+printval("releq3", 22 == "22");
+printval("releq4", 22 == "23");
+printval("relne", 23 != 22);
+printval("relge", 23 > 22);
+printval("relle", 23 < 22);
+printval("relleq1", 23 <= 22);
+printval("relleq2", 22 <= 22);
+printval("relgeq1", 21 >= 22);
+printval("relgeq2", 22 >= 22);
+print("\n");
 
-cat1 = "hello" ~ " " ~ "kitty";
-cat2 = "hello " ~ 23;
-cat3 = "hello " ~ 23.12;
+printval("cat1", "hello" ~ " " ~ "kitty");
+printval("cat2", "hello " ~ 23);
+printval("cat3", "hello " ~ 23.12);
+print("\n");
 
-add1 = 32 + 2;
-add2 = 32 + "234";
-add3 = 32.32 + "234";
-add4 = 32.32 + 43;
+printval("add1", 32 + 2);
+printval("add2", 32 + "234");
+printval("add3", 32.32 + "234");
+printval("add4", 32.32 + 43);
+print("\n");
 
-sub1 = 32 - 2;
-sub2 = 32 - "234";
-sub3 = 32.32 - "234";
+printval("sub1", 32 - 2);
+printval("sub2", 32 - "234");
+printval("sub3", 32.32 - "234");
+print("\n");
 
-mult1 = 32 * 2;
-mult2 = 32 * "3";
-mult3 = 32.23 * "3";
+printval("mult1", 32 * 2);
+printval("mult2", 32 * "3");
+printval("mult3", 32.23 * "3");
+print("\n");
 
-div1 = 32 / 2;
-div2 = 32 / "3";
-div3 = 32.23 / "3";
+printval("div1", 32 / 2);
+printval("div2", 32 / "3");
+printval("div3", 32.23 / "3");
+print("\n");
 
-not1 = !0;
-not2 = !1;
+printval("not1", !0);
+printval("not2", !1);
+print("\n");
 
-sign = -2332;
+printval("sign", -2332);
+print("\n");
 
 prestep1 = 23;
 ++prestep1;
+printval("prestep1: ", prestep1);
 
 prestep2 = 32;
 --prestep2;
 
-ternary1 = 12 == 12 ? "sd" : 22;
-ternary2 = 12 != 12 ? "sd" : 22;
+printval("prestep2: ", prestep2);
+print("\n");
 
-nextto1 = "12" <- 63 <- "sd";
-nextto2 = nextto1 ^ "23";
-nextto3 = nextto1 ^ "23" : "span";
+printval("ternary1", 12 == 12 ? "sd" : 22);
+printval("ternary2", 12 != 12 ? "sd" : 22);
+print("\n");
+
+printval("nextto1", "12" <- 63 <- "sd");
+printval("nextto2", nextto1 ^ "23");
+printval("nextto3", nextto1 ^ "23" : "span");

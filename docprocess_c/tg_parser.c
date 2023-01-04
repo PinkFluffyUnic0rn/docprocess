@@ -144,7 +144,7 @@ static struct tg_char _tg_getc()
 	c.pos = l - b;
 	c.line = curline;
 	c.c = (*l++);
-
+	
 	return c;
 
 error:
@@ -243,6 +243,7 @@ static int tg_nexttoken(struct tg_token *t)
 		while (c != '\"') {
 			if (c == '\\') {
 				c = tg_getc();
+				
 				if (c == TG_C_ERROR)
 					goto error;
 				else if (c == TG_C_EOF) {
@@ -253,13 +254,6 @@ static int tg_nexttoken(struct tg_token *t)
 				else if (c == 'r')	c = '\r';
 				else if (c == 't')	c = '\t';
 				else if (c == '0')	c = '\0';
-					
-				if (c != '\n') {
-					tg_dstraddstrn(&(t->val),
-						(char *) &c, 1);
-				}
-
-				c = tg_getc();
 			}
 			else if (c == TG_C_EOF) {
 				TG_SETERROR("Unexpected EOF.");

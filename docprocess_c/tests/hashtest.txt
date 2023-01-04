@@ -1,4 +1,9 @@
+function printval(n, v)
+{
+	print(n ~ ": "); dumpval(v); print("\n");
+}
+
 a["s12d"] = 5;
 a[2]["ajd"] = "sd";
 
-c = a[2];
+printval("a[2]", a[2]);

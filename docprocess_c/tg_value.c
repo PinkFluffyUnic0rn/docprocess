@@ -52,32 +52,25 @@ void tg_endframe()
 
 	--tg_stackdepth;
 
-	if (tg_stackdepth == 0)
+	if (tg_stackdepth == 0) {
+		customallocer = &retalloc;
 		tg_allocdestroy(&retalloc, (void (*)(void *)) tg_freeval); 
-}
-
-void tg_setallocer(struct tg_allocator *a)
-{
-	customallocer = a;
-}
-
-void tg_removeallocer()
-{
-	customallocer = NULL;
+		customallocer = NULL;
+	}
 }
 
 void tg_setretval(const struct tg_val *v)
 {
+	customallocer = &retalloc;
 	retval = tg_copyval(v);
+	customallocer = NULL;
 }
 
 struct tg_val *tg_getretval()
 {
 	struct tg_val *r;
 	
-	tg_setallocer(&retalloc);
-	r = tg_copyval(retval);
-	tg_removeallocer(&retalloc);	
+	r = retval;
 
 	return r;
 }
@@ -150,6 +143,11 @@ void tg_freeval(struct tg_val *v)
 	
 	v->type = TG_VAL_DELETED;
 
+	if (customallocer != NULL) {
+		tg_free(customallocer, v);
+		return;
+	}
+		
 	tg_free(tg_stack + tg_stackdepth, v);
 }
 
