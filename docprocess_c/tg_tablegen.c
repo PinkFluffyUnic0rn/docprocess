@@ -523,6 +523,17 @@ blockend:
 	return r;
 }
 
+struct tg_val *tg_checkargs(const char *name, int has, int expect)
+{
+	if (has != expect) {
+		TG_WARNING("%s: expected %d arguments, got %d.",
+			name, expect, has);
+		return NULL;
+	}
+
+	return tg_intval(1);
+}
+
 static struct tg_val *tg_identificator(int ni)
 {
 	struct tg_val *r;
@@ -538,12 +549,11 @@ static struct tg_val *tg_identificator(int ni)
 	
 	ani = tg_nodechild(ni, 1);
 
-	// TODO:assert args count
-
 	name = tg_nodetoken(tg_nodechild(ni, 0))->val.str;
 	if (strcmp(name, "type") == 0) {
 		struct tg_val *v;
 
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 	
@@ -566,6 +576,8 @@ static struct tg_val *tg_identificator(int ni)
 	}
 	if (strcmp(name, "int") == 0) {
 		struct tg_val *v;
+		
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		
@@ -573,6 +585,8 @@ static struct tg_val *tg_identificator(int ni)
 	}
 	else if (strcmp(name, "float") == 0) {
 		struct tg_val *v;
+		
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		
@@ -580,6 +594,8 @@ static struct tg_val *tg_identificator(int ni)
 	}
 	else if (strcmp(name, "string") == 0) {
 		struct tg_val *v;
+		
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		
@@ -588,6 +604,8 @@ static struct tg_val *tg_identificator(int ni)
 	else if (strcmp(name, "array") == 0) {
 		struct tg_val *v;
 
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
+		
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		
 		return tg_castval(v, TG_VAL_ARRAY);
@@ -595,12 +613,16 @@ static struct tg_val *tg_identificator(int ni)
 	else if (strcmp(name, "table") == 0) {
 		struct tg_val *v;
 
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
+		
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		
 		return tg_castval(v, TG_VAL_TABLE);
 	}
 	else if (strcmp(name, "print") == 0) {
 		struct tg_val *v;
+		
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		
@@ -610,6 +632,8 @@ static struct tg_val *tg_identificator(int ni)
 	}
 	else if (strcmp(name, "dumpval") == 0) {
 		struct tg_val *v;
+
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		tg_printval(stdout, v);
@@ -621,6 +645,12 @@ static struct tg_val *tg_identificator(int ni)
 		struct tg_val *v, *sa, *la;
 		struct tg_val *r;
 		size_t vl, l, s;
+
+		if (tg_nodeccnt(ani) < 2) {
+			TG_WARNING("%s: expected at least %d arguments, got %d.",
+				name, 2, tg_nodeccnt(ani));
+			return NULL;
+		}
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		v = tg_castval(v, TG_VAL_STRING);
@@ -652,6 +682,8 @@ static struct tg_val *tg_identificator(int ni)
 	}
 	else if (strcmp(name, "size") == 0) {
 		struct tg_val *v;
+		
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		TG_NULLQUIT(v = tg_castval(v, TG_VAL_ARRAY));
@@ -660,6 +692,8 @@ static struct tg_val *tg_identificator(int ni)
 	}
 	else if (strcmp(name, "length") == 0) {
 		struct tg_val *v;
+		
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		TG_NULLQUIT(v = tg_castval(v, TG_VAL_STRING));
@@ -668,6 +702,8 @@ static struct tg_val *tg_identificator(int ni)
 	}
 	else if (strcmp(name, "defval") == 0) {
 		struct tg_val *v;
+		
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 2));
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 
@@ -685,8 +721,8 @@ static struct tg_val *tg_identificator(int ni)
 	fni = s->func.startnode;	
 	fani = tg_nodechild(fni, 1);
 
-	if (tg_nodeccnt(fani) != tg_nodeccnt(ani))
-		return tg_emptyval();
+	TG_NULLQUIT(tg_checkargs(name,
+		tg_nodeccnt(ani), tg_nodeccnt(fani)));
 
 	tg_startframe();
 	tg_newscope();
