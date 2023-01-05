@@ -538,9 +538,12 @@ static struct tg_val *tg_identificator(int ni)
 	
 	ani = tg_nodechild(ni, 1);
 
+	// TODO:assert args count
+
 	name = tg_nodetoken(tg_nodechild(ni, 0))->val.str;
 	if (strcmp(name, "type") == 0) {
 		struct tg_val *v;
+
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 	
@@ -614,7 +617,35 @@ static struct tg_val *tg_identificator(int ni)
 		return tg_emptyval();
 	}
 	else if (strcmp(name, "substr") == 0) {
-		return tg_emptyval();
+		struct tg_dstring ds;
+		struct tg_val *v, *sa, *la;
+		struct tg_val *r;
+		size_t vl, l, s;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+		v = tg_castval(v, TG_VAL_STRING);
+		vl = v->strval.len;
+
+		TG_NULLQUIT(sa = tg_runnode(tg_nodechild(ani, 1)));
+		sa = tg_castval(sa, TG_VAL_INT);
+		s = sa->intval;
+
+		if (tg_nodeccnt(ani) > 2) {
+			TG_NULLQUIT(la = tg_runnode(tg_nodechild(ani, 2)));
+			la = tg_castval(la, TG_VAL_INT);
+			l = la->intval;
+		}
+		else
+			l = vl - s;
+
+		if (s <= 0 || l <= 0 || s > vl || s + l > vl)
+			return tg_emptyval();
+
+		tg_dstrcreaten(&ds, v->strval.str + s, l);
+		r = tg_stringval(ds.str);
+		tg_dstrdestroy(&ds);
+
+		return r;
 	}
 	else if (strcmp(name, "match") == 0) {
 		return tg_emptyval();
@@ -636,7 +667,14 @@ static struct tg_val *tg_identificator(int ni)
 		return tg_intval(v->strval.len);
 	}
 	else if (strcmp(name, "defval") == 0) {
-		return tg_emptyval();
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+
+		if (v->type == TG_VAL_EMPTY)
+			return tg_runnode(tg_nodechild(ani, 1));
+
+		return v;
 	}
 
 	s = tg_symbolget(tg_nodetoken(tg_nodechild(ni, 0))->val.str);
