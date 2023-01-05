@@ -75,7 +75,7 @@ char *tg_strdup(const char *s)
 {
 	char *r;
 
-	TG_ASSERT((r = malloc(strlen(s))) != NULL,
+	TG_ASSERT((r = malloc(strlen(s) + 1)) != NULL,
 		"Error while allocating memory.");
 
 	strcpy(r, s);

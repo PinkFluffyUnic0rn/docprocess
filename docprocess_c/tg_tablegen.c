@@ -518,7 +518,6 @@ static struct tg_val *tg_block(int ni)
 	r = tg_intval(TG_STATE_SUCCESS);
 
 blockend:
-//	tg_printsymbols(); // !!!	
 	tg_popscope();
 	
 	return r;
@@ -540,6 +539,28 @@ static struct tg_val *tg_identificator(int ni)
 	ani = tg_nodechild(ni, 1);
 
 	name = tg_nodetoken(tg_nodechild(ni, 0))->val.str;
+	if (strcmp(name, "type") == 0) {
+		struct tg_val *v;
+
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
+	
+		if (v->type == TG_VAL_EMPTY)
+			return tg_stringval("empty");
+		else if (v->type == TG_VAL_INT)
+			return tg_stringval("int");
+		else if (v->type == TG_VAL_FLOAT)
+			return tg_stringval("float");
+		else if (v->type == TG_VAL_STRING)
+			return tg_stringval("string");
+		else if (v->type == TG_VAL_TABLE)
+			return tg_stringval("table");
+		else if (v->type == TG_VAL_ARRAY)
+			return tg_stringval("array");
+		else if (v->type == TG_VAL_DELETED)
+			return tg_stringval("deleted");
+		else
+			return tg_stringval("unknown");
+	}
 	if (strcmp(name, "int") == 0) {
 		struct tg_val *v;
 
@@ -662,7 +683,8 @@ static struct tg_val *tg_identificator(int ni)
 
 error:
 	tg_popscope();
-	tg_endframe();	
+	tg_endframe();
+
 	return NULL;
 }
 
@@ -1093,9 +1115,7 @@ int main(int argc, const char *argv[])
 
 	tg_initsymtable();
 	tg_startframe();
-	
-	tg_setretval(tg_emptyval());
-	
+
 	if ((r = tg_runnode(tpl)) == NULL)
 		return 1;
 

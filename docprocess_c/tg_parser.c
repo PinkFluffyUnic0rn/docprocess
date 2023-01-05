@@ -9,6 +9,8 @@
 #include "tg_dstring.h"
 #include "tg_common.h"
 
+#define TG_C_EOF -1
+
 struct tg_char {
 	int c;
 	char error[TG_MSGMAXSIZE];
@@ -38,7 +40,11 @@ const char *tg_strsym[] = {
 	"function arguments", "object attribute access"
 };
 
-static const char *tg_path;
+static FILE *_tg_file;
+static char *_tg_lbuf, *_tg_lbufpos;
+static size_t _tg_lbufsize;
+static int _tg_curline;
+
 struct tg_darray tg_text;
 static int tg_curline;
 static int tg_curpos;
@@ -49,12 +55,22 @@ static struct tg_token tbuf[2];
 static struct tg_darray nodes;
 
 static struct tg_char _tg_getc();
-static int tg_nexttoken(struct tg_token *t);
+static void tg_nexttoken(struct tg_token *t);
 
 static int tg_initparser(const char *path)
 {
 	tg_darrinit(&tg_text, sizeof(char *));
-	tg_path = path;
+
+	if ((_tg_file = fopen(path, "r")) == NULL) {
+		TG_SETERROR("Cannot open file %s: %s.",
+			path, strerror(errno));
+		return (-1);
+	}
+
+	_tg_curline = 0;
+	_tg_lbufsize = 0;
+	_tg_lbuf = NULL;
+	_tg_lbufpos = "";
 
 	cbuf[1] = _tg_getc();
 	cbuf[2] = _tg_getc();
@@ -66,103 +82,62 @@ static int tg_initparser(const char *path)
 
 static int tg_finilizeparser()
 {
+	int i;
+
+	for (i = 0; i < tg_text.cnt; ++i)
+		free(*((char **) tg_darrget(&tg_text, i)));
+	
 	tg_darrclear(&tg_text);
+
+	if (_tg_lbuf != NULL)
+		free(_tg_lbuf);
 
 	return 0;
 }
-
-#define TG_C_ERROR -1
-#define TG_C_EOF -2
 
 // string stream to char stream
 static struct tg_char _tg_getc()
 {
 	struct tg_char c;
-	static FILE *f = NULL;
-	static char *b, *l = NULL;
-	static size_t lsz = 0;
-	static int curline = 0;
 
-	// need to be reworked: has problems with finilization
-	if (tg_path != NULL) {
-		if ((f = fopen(tg_path, "r")) == NULL) {
-			TG_SETERROR("Cannot open file %s: %s.",
-				tg_path, strerror(errno));
-			goto error;
-		}
-
-		curline = 0;
-		tg_path = NULL;
-
-		lsz = 1;
-		if ((b = l = malloc(lsz)) == NULL)
-			goto error;
-	
-		l[0] = '\0';
-	}
-	
 	while (1) {
 		ssize_t r;
 		char *t;
 
-		if (l[0] == '#')
-			l = "";
+		if (_tg_lbufpos[0] == '#')
+			_tg_lbufpos = "";
 
-		if (l[0] != '\0')
+		if (_tg_lbufpos[0] != '\0')
 			break;
 	
-		if ((r = getline(&b, &lsz, f)) < 0) {
-			if (feof(f)) {
-				c.pos = l - b;
-				c.line = curline;
-				c.c = TG_C_EOF;
-				return c;
+		if ((r = getline(&_tg_lbuf, &_tg_lbufsize,
+				_tg_file)) < 0) {
+			if (!feof(_tg_file)) {
+				TG_ERROR("Cannot read line: %s.",
+					strerror(errno));
 			}
 
-			TG_SETERROR("Cannot read line: %s.",
-				strerror(errno));
-			goto error;
+			c.c = TG_C_EOF;
+			c.pos = _tg_lbufpos - _tg_lbuf;
+			c.line = _tg_curline;
+				
+			return c;
 		}
 
-		l = b;
+		_tg_lbufpos = _tg_lbuf;
 
-		// copy of all program text for error handling
-		if ((t = malloc(r + 1)) == NULL)
-			goto error;
-
-		strcpy(t, l);
-
+		t = tg_strdup(_tg_lbufpos);
 		if (t[r - 1] == '\n')
 			t[r - 1] = '\0';
 
-		if (tg_darrpush(&tg_text, &t) < 0)
-			goto error;
+		tg_darrpush(&tg_text, &t);
 
-		curline++;
+		_tg_curline++;
 	}
 	
-	c.pos = l - b;
-	c.line = curline;
-	c.c = (*l++);
-	
-	return c;
-
-error:
-	c.c = TG_C_ERROR;
-	c.pos = l - b;
-	c.line = curline;
-	strncpy(c.error, tg_error, TG_MSGMAXSIZE);
-
-	if (f != NULL) {
-		fclose(f);
-		f = NULL;
-	}
-
-	if (b != NULL) {
-		free(b);
-		b = NULL;
-		lsz = 0;
-	}
+	c.pos = _tg_lbufpos - _tg_lbuf;
+	c.line = _tg_curline;
+	c.c = (*_tg_lbufpos++);
 	
 	return c;
 }
@@ -175,12 +150,10 @@ static int tg_getc()
 	cbuf[1] = cbuf[2];
 
 	c = cbuf[0];
-	if (c.c == TG_C_ERROR || c.c == TG_C_EOF)
-		goto skipadvance;
 	
-	cbuf[2] = _tg_getc();
+	if (c.c != TG_C_EOF)
+		cbuf[2] = _tg_getc();
 
-skipadvance:
 	tg_curline = c.line;
 	tg_curpos = c.pos;
 	strncpy(tg_error, c.error, TG_MSGMAXSIZE);
@@ -199,7 +172,7 @@ static int tg_peekc2()
 }
 
 // lexical analyzer
-static int tg_createtoken(struct tg_token *t, const char *val,
+static void tg_createtoken(struct tg_token *t, const char *val,
 	enum TG_TYPE type, int line, int pos)
 {
 	tg_dstrcreate(&(t->val), val);
@@ -207,13 +180,10 @@ static int tg_createtoken(struct tg_token *t, const char *val,
 	t->type = type;
 	t->line = line;
 	t->pos = pos;
-
-	return 0;
 }
 
-static int tg_nexttoken(struct tg_token *t)
+static void tg_nexttoken(struct tg_token *t)
 {
-	static char tg_tokerror[TG_MSGMAXSIZE];
 	enum TG_TYPE type;
 	const char *v;
 	int c;
@@ -221,15 +191,11 @@ static int tg_nexttoken(struct tg_token *t)
 	while (isspace(tg_peekc()))
 		tg_getc();
 
-	if ((c = tg_getc()) == TG_C_ERROR)
-		goto error;
-
+	c = tg_getc();
+	
 	if (c == TG_C_EOF) {
-		if (tg_createtoken(t, "", TG_T_EOF,
-				tg_curline, tg_curpos) < 0)
-			goto error;
-
-		return 0;
+		tg_createtoken(t, "", TG_T_EOF, tg_curline, tg_curpos);
+		return;
 	}
 
 	if (c == '\"') {
@@ -244,10 +210,9 @@ static int tg_nexttoken(struct tg_token *t)
 			if (c == '\\') {
 				c = tg_getc();
 				
-				if (c == TG_C_ERROR)
-					goto error;
-				else if (c == TG_C_EOF) {
+				if (c == TG_C_EOF) {
 					TG_SETERROR("Unexpected EOF.");
+					tg_dstrdestroy(&(t->val));
 					goto error;
 				}
 				else if (c == 'n')	c = '\n';
@@ -257,17 +222,16 @@ static int tg_nexttoken(struct tg_token *t)
 			}
 			else if (c == TG_C_EOF) {
 				TG_SETERROR("Unexpected EOF.");
+				tg_dstrdestroy(&(t->val));
 				goto error;
 			}
-			else if (c == TG_C_ERROR)
-				goto error;
 			
 			tg_dstraddstrn(&(t->val), (char *) &c, 1);
 
 			c = tg_getc();
 		}
 
-		return 0;
+		return;
 	}
 	
 	if (isalpha(c) || c == '_') {
@@ -310,7 +274,7 @@ static int tg_nexttoken(struct tg_token *t)
 		else
 	 		t->type = TG_T_ID;
 
-		return 0;
+		return;
 	}
 
 	if (isdigit(c)) {
@@ -343,6 +307,7 @@ static int tg_nexttoken(struct tg_token *t)
 				if (c == '.') {
 					if (e || p) {
 						TG_SETERROR("Wrong decimal format.");
+						tg_dstrdestroy(&(t->val));
 						goto error;
 					}
 
@@ -351,6 +316,7 @@ static int tg_nexttoken(struct tg_token *t)
 				if (c == 'e' || c == 'E') {
 					if (e) {
 						TG_SETERROR("Wrong decimal format.");
+						tg_dstrdestroy(&(t->val));
 						goto error;
 					}
 					
@@ -366,7 +332,7 @@ static int tg_nexttoken(struct tg_token *t)
 				break;
 		}
 
-		return 0;
+		return;
 	}
 	
 	if (c == '=') {
@@ -576,31 +542,23 @@ static int tg_nexttoken(struct tg_token *t)
 		goto error;
 	}
 
-	if (tg_createtoken(t, v, type, tg_curline, tg_curpos) < 0)
-		goto error;
-
-	return 0;
+	tg_createtoken(t, v, type, tg_curline, tg_curpos);
+	
+	return;
 
 error:
-	strncpy(tg_tokerror, tg_error, TG_MSGMAXSIZE);
-	tg_dstrcreatestatic(&(t->val), tg_tokerror);
-	
-	t->line = tg_curline;
-	t->pos = tg_curpos;
-	t->type = TG_T_ERROR;
+	tg_createtoken(t, tg_error, TG_T_ERROR, tg_curline, tg_curpos);
 
-	return 0;
+	return;
 }
 
 static int tg_gettoken(struct tg_token *t)
 {
-	if (tbuf[0].type == TG_T_EOF || tbuf[0].type == TG_T_ERROR)
-		goto skipadvance;
+	if (tbuf[0].type != TG_T_EOF && tbuf[0].type != TG_T_ERROR) {
+		tbuf[0] = tbuf[1];
+		tg_nexttoken(tbuf + 1);
+	}
 
-	tbuf[0] = tbuf[1];
-	tg_nexttoken(tbuf + 1);
-
-skipadvance:
 	if (t != NULL)
 		*t = tbuf[0];
 
@@ -755,8 +713,6 @@ int tg_printnode(int ni, int depth)
 			ni = *((int *) tg_darrget(&(n->children), i));
 		
 			tg_printnode(ni, depth + 2);	
-
-		//	printf("!@#!@#%s\n", n->token.val.str);
 		}
 		tg_indent(depth + 1);
 		printf("}\n");
@@ -983,11 +939,9 @@ static int tg_filter(int ni)
 static int tg_index(int ni)
 {
 	struct tg_token t;
-//	int fni;
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LBRK));
 
-//	TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FILTER, NULL));
 	TG_ERRQUIT(tg_filter(ni));
 
 	while (tg_peektoken(&t) == TG_T_COMMA) {
@@ -1019,23 +973,17 @@ static int tg_address(int ni)
 	struct tg_token t;
 	enum TG_TYPE type;
 	char strerr[1024];
-	int ani;
+	int ani, ini;
 
 	TG_ERRQUIT(tg_val(ni));
 
 	while ((type = tg_peektoken(&t)) == TG_T_LPAR
 		|| type == TG_T_LBRK || type == TG_T_DOT) {
 		switch (type) {
-		case TG_T_LPAR:
-			TG_ERRQUIT(ani = tg_nodeadd(ni,
-				TG_N_ARGS, NULL));
-			TG_ERRQUIT(tg_args(ani));
-			break;
-
 		case TG_T_LBRK:
-			TG_ERRQUIT(ani = tg_nodeadd(ni,
+			TG_ERRQUIT(ini = tg_nodeadd(ni,
 				TG_N_INDEX, NULL));
-			TG_ERRQUIT(tg_index(ani));
+			TG_ERRQUIT(tg_index(ini));
 			break;
 
 		case TG_T_DOT:
@@ -1329,7 +1277,6 @@ static int tg_rel(int ni)
 	}
 
 	return 0;
-
 }
 
 static int tg_and(int ni)
@@ -1518,7 +1465,7 @@ static int tg_defargs(int ni)
 static int tg_funcdef(int ni)
 {
 	struct tg_token t;
-	int nni;
+	int ani, bni;
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_FUNCTION));
 
@@ -1527,13 +1474,13 @@ static int tg_funcdef(int ni)
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LPAR));
 
-	TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_DEFARGS, NULL));
-	TG_ERRQUIT(tg_defargs(nni));
+	TG_ERRQUIT(ani = tg_nodeadd(ni, TG_N_DEFARGS, NULL));
+	TG_ERRQUIT(tg_defargs(ani));
 	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
 
-	TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
-	TG_ERRQUIT(tg_block(nni));
+	TG_ERRQUIT(bni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
+	TG_ERRQUIT(tg_block(bni));
 
 	return 0;
 }
@@ -1605,14 +1552,14 @@ static int tg_forclassic(int ni)
 static int tg_for(int ni)
 {
 	struct tg_token t;
-	int nni;
+	int fni, bni;
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_FOR));
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LPAR));
 
-	TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_FOREXPR, NULL));
+	TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FOREXPR, NULL));
 	
-	TG_ERRQUIT(tg_forexpr(nni));
+	TG_ERRQUIT(tg_forexpr(fni));
 
 	if (tg_peektoken(&t) == TG_T_IN) {
 		TG_ERRQUIT(tg_fortable(ni));
@@ -1622,8 +1569,8 @@ static int tg_for(int ni)
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
 
-	TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
-	TG_ERRQUIT(tg_body(nni));
+	TG_ERRQUIT(bni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
+	TG_ERRQUIT(tg_body(bni));
 
 	return 0;
 }
@@ -1631,24 +1578,24 @@ static int tg_for(int ni)
 static int tg_if(int ni)
 {
 	struct tg_token t;
-	int nni;
+	int eni, bni;
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_IF));
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LPAR));
 
-	TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_EXPR, NULL));
-	TG_ERRQUIT(tg_expr(nni));
+	TG_ERRQUIT(eni = tg_nodeadd(ni, TG_N_EXPR, NULL));
+	TG_ERRQUIT(tg_expr(eni));
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
 
-	TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
-	TG_ERRQUIT(tg_body(nni));
+	TG_ERRQUIT(bni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
+	TG_ERRQUIT(tg_body(bni));
 
 	if (tg_peektoken(&t) == TG_T_ELSE) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_ELSE));
 
-		TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
-		TG_ERRQUIT(tg_body(nni));
+		TG_ERRQUIT(bni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
+		TG_ERRQUIT(tg_body(bni));
 	}
 
 	return 0;
@@ -1674,22 +1621,22 @@ static int tg_return(int ni)
 static int tg_stmt(int ni)
 {
 	struct tg_token t;
-	int nni;
+	int sni;
 
 	switch (tg_peektoken(&t)) {
 	case TG_T_FOR:
-		TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_FOR, NULL));
-		TG_ERRQUIT(tg_for(nni));
+		TG_ERRQUIT(sni = tg_nodeadd(ni, TG_N_FOR, NULL));
+		TG_ERRQUIT(tg_for(sni));
 		break;
 
 	case TG_T_IF:
-		TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_IF, NULL));
-		TG_ERRQUIT(tg_if(nni));
+		TG_ERRQUIT(sni = tg_nodeadd(ni, TG_N_IF, NULL));
+		TG_ERRQUIT(tg_if(sni));
 		break;
 
 	case TG_T_RETURN:
-		TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_RETURN, NULL));
-		TG_ERRQUIT(tg_return(nni));
+		TG_ERRQUIT(sni = tg_nodeadd(ni, TG_N_RETURN, NULL));
+		TG_ERRQUIT(tg_return(sni));
 		break;
 
 	case TG_T_BREAK:
@@ -1705,8 +1652,8 @@ static int tg_stmt(int ni)
 		break;
 
 	default:
-		TG_ERRQUIT(nni = tg_nodeadd(ni, TG_N_EXPR, NULL));
-		TG_ERRQUIT(tg_expr(nni));
+		TG_ERRQUIT(sni = tg_nodeadd(ni, TG_N_EXPR, NULL));
+		TG_ERRQUIT(tg_expr(sni));
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_SEMICOL));
 		break;
 	}
@@ -1749,8 +1696,6 @@ int tg_getparsetree(const char *p)
 	return ni;
 
 error:
-	printf("tg_error: |\n%s:%s|\n", p, tg_error);
-
 	tg_finilizeparser();
 
 	return (-1);
