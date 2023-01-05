@@ -1,6 +1,8 @@
 #ifndef TG_DSTRING_H
 #define TG_DSTRING_H
 
+#include <string.h>
+
 struct tg_dstring {
 	int bufs;
 	char *str;

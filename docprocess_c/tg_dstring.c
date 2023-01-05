@@ -165,7 +165,7 @@ void tg_dstrcreatestatic(struct tg_dstring *dstr, const char *src)
 void tg_dstrcreaten(struct tg_dstring *dstr, const char *src, size_t len)
 {
 	tg_dstralloc(dstr, len);
-
+	
 	memcpy(dstr->str, src, len);
 	dstr->str[len] = '\0';
 }

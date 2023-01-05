@@ -605,7 +605,7 @@ void tg_arrseth(struct tg_val *arr, const char *k, const struct tg_val *v)
 	
 	tg_darrpush(&(arr->arrval.arr), &newv);
 	
-	tg_hashset(TG_HASH_ARRAY, &(arr->arrval.hash), k, newv);
+	tg_hashset(TG_HASH_ARRAY, &(arr->arrval.hash), k, newv);	
 }
 
 static void tg_printtable(FILE *f, const struct tg_val *v)

@@ -109,11 +109,16 @@ void tg_rehash##NAME(struct tg_hash *h)				\
 		STRT *next;					\
 								\
 		for (p = h->buckets[i]; p != NULL;) {		\
+			struct tg_dstring s;			\
+								\
 			next = p->next##NAME;			\
 								\
+			tg_dstrcreate(&s, p->key##NAME.str);	\
 			tg_dstrdestroy(&(p->key##NAME));	\
 								\
-			tg_hashset##NAME(&hnew, p->key##NAME.str, p);	\
+			tg_hashset##NAME(&hnew, s.str, p);	\
+								\
+			tg_dstrdestroy(&s);			\
 								\
 			p = next;				\
 		}						\
