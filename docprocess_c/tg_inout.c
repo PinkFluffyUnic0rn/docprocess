@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>
+#include <sys/wait.h>
 
 #include "tg_value.h"
 #include "tg_inout.h"
@@ -168,7 +169,8 @@ struct tg_val *tg_readsource(const struct tg_input *in,
 	snprintf(conv, PATH_MAX, "%s/in_%s.sh", CONVERTERS_PATH, in->type);
 
 	if ((f = fopen(conv, "r")) == NULL) {
-		TG_WARNING("Cannot open converter for input type %s.", in->type);
+		TG_WARNING("Cannot open converter for input type %s.",
+			in->type);
 		return NULL;
 	}
 
@@ -223,12 +225,225 @@ struct tg_val *tg_readsource(const struct tg_input *in,
 	return tg_csv2table(f);
 }
 
+static int tg_indent(FILE *f, int t)
+{
+	int i;
+
+	for (i = 0; i < t; ++i)
+		fprintf(f, "   ");
+
+	return 0;
+}
+
+struct tg_val * tg_val2json(FILE *f, const struct tg_val *v, int indent);
+
+struct tg_val * tg_table2json(FILE *f, const struct tg_val *v, int indent)
+{
+	struct tg_val *colsv, *rowsv;
+	int cols, rows;
+	int i, j;
+	
+	TG_ASSERT(f != NULL, "Cannot print table");
+	TG_ASSERT(v != NULL, "Cannot print table");
+
+	TG_ASSERT((rowsv = tg_valgetattr(v, "rows")) != NULL,
+		"Cannot get value attribute");
+	rows = tg_valgetattr(v, "rows")->intval;
+	
+	TG_ASSERT((colsv = tg_valgetattr(v, "cols")) != NULL,
+		"Cannot get value attribute");
+	cols = tg_valgetattr(v, "cols")->intval;
+	
+	fprintf(f, "\"table\",\n");
+
+	tg_indent(f, indent);
+	fprintf(f, "\"value: [\"\n");
+	
+	for (i = 0; i < rows; ++i) {
+		struct tg_val *row;
+
+		TG_ASSERT((row = tg_arrgetr(v, i)) != NULL,
+			"Cannot get array elements.");
+
+		tg_indent(f, indent + 1);
+		fprintf(f, "%d: [\n", i);
+
+		for (j = 0; j < cols; ++j) {
+			struct tg_val *cell;
+	
+			tg_indent(f, indent + 2);
+			fprintf(f, "%d: ", j);
+		
+			TG_ASSERT((cell = tg_arrgetr(row, j)) != NULL,
+				"Cannot get array element.");
+			TG_NULLQUIT(tg_val2json(f, cell, indent + 2));
+
+			fprintf(f, "\n");
+		}
+
+		tg_indent(f, indent + 1);
+		fprintf(f, "]\n");
+	}
+
+	tg_indent(f, indent);
+	fprintf(f, "]\n");
+
+	return tg_emptyval();
+}
+
+struct tg_val * tg_val2json(FILE *f, const struct tg_val *v, int indent)
+{
+	const char *key;
+	int i;
+	
+	TG_ASSERT(f != NULL, "Cannot print value");
+	TG_ASSERT(v != NULL, "Cannot print value");
+
+	fprintf(f, "{\n");
+	
+	++indent;
+	tg_indent(f, indent);
+	fprintf(f, "\"type\": ");
+
+	switch (v->type) {
+	case TG_VAL_DELETED:
+		fprintf(f, "\"deleted\"\n");
+		break;
+	case TG_VAL_EMPTY:
+		fprintf(f, "\"empty\"\n");
+		break;
+	case TG_VAL_INT:
+		fprintf(f, "\"int\",\n");
+		tg_indent(f, indent);
+		fprintf(f, "\"value\": %d\n", v->intval);
+		break;
+	case TG_VAL_FLOAT:
+		fprintf(f, "\"float\",\n");
+		tg_indent(f, indent);
+		fprintf(f, "\"value\": %f\n", v->floatval);
+		break;
+	case TG_VAL_STRING:
+		fprintf(f, "\"string\",\n");
+		tg_indent(f, indent);
+		fprintf(f, "\"value\": \"%s\"\n", v->strval.str);
+		break;
+	case TG_VAL_TABLE:
+		TG_NULLQUIT(tg_table2json(f, v, indent));
+		break;
+	case TG_VAL_ARRAY:
+		fprintf(f, "\"array\",\n");
+		tg_indent(f, indent);
+		fprintf(f, "\"value\": [\n");
+		
+		tg_indent(f, indent + 1);
+		fprintf(f, "\"array\": [\n");
+		
+		for (i = 0; i < v->arrval.arr.cnt; ++i) {
+			tg_indent(f, indent + 2);
+
+			printf("%d: ", tg_arrgetr(v, i)->arrpos);
+
+			TG_NULLQUIT(tg_val2json(f, tg_arrgetr(v, i),
+				indent + 2));
+			
+			fprintf(f, "%s\n",
+				i == v->arrval.arr.cnt - 1 ? "" : ",");
+		}
+			
+		tg_indent(f, indent + 1);
+		fprintf(f, "]");
+
+		if (v->arrval.hash.count != 0) {
+			struct tg_val *vv;
+			
+			fprintf(f, ",\n");
+			tg_indent(f, indent + 1);
+			fprintf(f, "\"hash\": [\n");
+			
+			TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY,
+				v->arrval.hash, key,
+				tg_indent(f, indent + 2);
+
+				TG_NULLQUIT((vv = tg_arrgethr(v, key)));
+
+				fprintf(f, "\"%s\": %d,\n", key,
+					vv->arrpos);
+			);
+			
+			tg_indent(f, indent + 1);
+			fprintf(f, "]\n");
+		}
+		else
+			fprintf(f, "\n");
+
+		tg_indent(f, indent);
+		fprintf(f, "]\n");
+
+		break;
+	}
+
+	TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
+		tg_indent(f, indent);
+		fprintf(f, "\"%s\": ", key);
+		TG_NULLQUIT(tg_val2json(f, tg_valgetattrr(v, key),
+			indent));
+		fprintf(f, ",\n");
+	);
+
+	--indent;
+	tg_indent(f, indent);
+	fprintf(f, "}");
+
+	return tg_emptyval();
+}
+
 struct tg_val *tg_writeval(struct tg_output *out,
 	const struct tg_val *v)
 {
-	printf("return value: ");
-	tg_printval(stdout, v);
-	printf("\n");
+	char conv[PATH_MAX];
+	int pid;
+	int p[2];
+	FILE *f;
+
+	snprintf(conv, PATH_MAX, "%s/out_%s.sh", CONVERTERS_PATH, out->type);
+
+	if ((f = fopen(conv, "r")) == NULL) {
+		TG_WARNING("Cannot open converter for output type %s.",
+			out->type);
+		return NULL;
+	}
+	
+	TG_ASSERT(fclose(f) != EOF, "Cannot close a buffered file.");
+	
+	TG_ASSERT(pipe(p) >= 0, "Error while opening pipe: %s.",
+		strerror(errno));
+
+	TG_ASSERT((f = fdopen(p[1], "w")) != NULL,
+		"Error while openging file descriptor for buffered IO.");
+
+	TG_ASSERT((pid = fork()) >= 0,
+		"Error while forking a process: %s.", strerror(errno));
+
+	if (pid == 0) {
+		char *argv[3];
+
+		TG_ASSERT(close(0) >= 0, "Cannot close file descriptor");
+		TG_ASSERT(dup(p[0]) >= 0, "Cannot duplicate file descriptor");
+
+		argv[0] = conv;
+		argv[1] = NULL;
+		
+		TG_ASSERT(execv(conv, argv) >= 0, strerror(errno));
+
+		exit(1);
+	}
+
+	fflush(stdout);
+
+	TG_NULLQUIT(tg_val2json(f, v, 0));
+	fprintf(f, "\n");
+
+	TG_ASSERT(wait(0) < 0, "Error while waiting for process.");
 
 	return tg_emptyval();
 }

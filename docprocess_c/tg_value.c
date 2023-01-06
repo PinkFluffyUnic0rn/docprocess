@@ -279,28 +279,8 @@ struct tg_val *tg_castval(const struct tg_val *v, enum TG_VALTYPE t)
 
 	vt = v->type;
 
-	if (vt == TG_VAL_FUNCTION) {
-		TG_SETERROR("%s", "Cannot cast a function id.");
-		return NULL;
-	}
-	
-	if (vt == TG_VAL_SCRIPT) {
-		TG_SETERROR("%s", "Cannot cast a function id.");
-		return NULL;
-	}
-
 	if (t == TG_VAL_EMPTY) {
 		TG_SETERROR("%s", "Cannot cast to an empty value.");
-		return NULL;
-	}
-
-	if (t == TG_VAL_FUNCTION) {
-		TG_SETERROR("%s", "Cannot cast to a function id.");
-		return NULL;
-	}
-
-	if (t == TG_VAL_SCRIPT) {
-		TG_SETERROR("%s", "Cannot cast to a script id.");
 		return NULL;
 	}
 
@@ -680,12 +660,6 @@ void tg_printval(FILE *f, const struct tg_val *v)
 		break;
 	case TG_VAL_EMPTY:
 		fprintf(f, "empty");
-		break;
-	case TG_VAL_FUNCTION:
-		fprintf(f, "function");
-		break;
-	case TG_VAL_SCRIPT:
-		fprintf(f, "script");
 		break;
 	case TG_VAL_INT:
 		fprintf(f, "int{%d}", v->intval);

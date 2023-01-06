@@ -14,6 +14,9 @@ b.fe = 3;
 b[3].val = "hello";
 b[3].val[1] = "el";
 b[3].val[1].attr = 12;
+b[3].val[1].attr[1] = "sdf";
+b[3].val[1].attr[2] = 1292;
+b[3].val[1].attr2 = "afd";
 
 c["s12d"] = "asdf";
 c[2]["ajd"] = "sd";
@@ -23,3 +26,9 @@ printval("a[2][4]", a[2][4]);
 printval("c[\"s12d\"]", c["s12d"]);
 printval("b[3].val[1].attr", b[3].val[1].attr);
 printval("c[2]", c[2]);
+
+
+a[0] = b;
+a[1] = c;
+
+return a;

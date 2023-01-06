@@ -1126,7 +1126,7 @@ int main(int argc, const char *argv[])
 	if (argc > 2)
 		tg_readsourceslist(argv[2]);
 	
-	tg_createoutput(&out, (argc > 3) ? argv[3] : "csv", stdout);
+	tg_createoutput(&out, (argc > 3) ? argv[3] : "json", stdout);
 
 	if ((tpl = tg_getparsetree(argv[1])) < 0)
 		TG_ERROR("%s", tg_error);
