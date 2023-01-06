@@ -24,10 +24,10 @@ const char *tg_strsym[] = {
 	"increment or decrement operator", ";", ":", "cell reference",
 	"addition or substraction operator",
 	"multiplication or division operator", "..",
-	"assignment operator", "?", "next to operator", "global",
-	"function", "for", "if", "else", "continue", "break", "return",
-	"in", "columns", ".", "{", "}", "[", "]", "end of file",
-	"error", "", "template", "function definition",
+	"assignment operator", "?", "next to operator", "empty",
+	"global", "function", "for", "if", "else", "continue", "break",
+	"return", "in", "columns", ".", "{", "}", "[", "]",
+	"end of file", "error", "", "template", "function definition",
 	"function definition arguments", "statement", "return", "if",
 	"for", "for (expression)", "for (classic)", "statement body",
 	"block", "expression", "assignment", "ternary operator",
@@ -250,8 +250,9 @@ static void tg_nexttoken(struct tg_token *t)
 
 			c = tg_getc();
 		}
-
-		if (strcmp(t->val.str, "global") == 0)
+		if (strcmp(t->val.str, "empty") == 0)
+			t->type = TG_T_EMPTY;
+		else if (strcmp(t->val.str, "global") == 0)
 			t->type = TG_T_GLOBAL;
 		else if (strcmp(t->val.str, "function") == 0)
 			t->type = TG_T_FUNCTION;
@@ -860,6 +861,7 @@ static int tg_val(int ni)
 	case TG_T_FLOAT:
 	case TG_T_INT:
 	case TG_T_STRING:
+	case TG_T_EMPTY:
 		TG_ERRQUIT(tg_gettoken(&t));
 	
 		ni = tg_nodeadd(ni, TG_N_CONST, NULL);

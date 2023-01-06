@@ -463,8 +463,13 @@ static struct tg_val *tg_identificator(int ni)
 	int i;
 
 	if (tg_nodeccnt(ni) == 1) {
-		return tg_copyval(tg_symbolgetval(tg_nodetoken(
-			tg_nodechild(ni, 0))->val.str));
+		const struct tg_val *rc;
+
+		if ((rc = tg_symbolgetval(tg_nodetoken(
+				tg_nodechild(ni, 0))->val.str)) == NULL)
+			return tg_emptyval();
+
+		return tg_copyval(rc);
 	}
 	
 	ani = tg_nodechild(ni, 1);
@@ -756,6 +761,8 @@ static struct tg_val *tg_const(int ni)
 		return tg_intval(atoi(t->val.str));
 	else if (t->type == TG_T_FLOAT)
 		return tg_floatval(atof(t->val.str));
+	else if (t->type == TG_T_EMPTY)
+		return tg_emptyval();
 
 	TG_ERROR("Unknown constant value type: %d", t->type);
 }

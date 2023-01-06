@@ -3,6 +3,8 @@ function printval(n, v)
 	print(n ~ ": "); dumpval(v); print("\n");
 }
 
+printval("empty", empty);
+
 assign1 = assign2 = 3, assign3 = 4;
 printval("assign1", assign1);
 printval("assign2", assign2);
@@ -79,3 +81,4 @@ print("\n");
 printval("nextto1", "12" <- 63 <- "sd");
 printval("nextto2", nextto1 ^ "23");
 printval("nextto3", nextto1 ^ "23" : "span");
+
