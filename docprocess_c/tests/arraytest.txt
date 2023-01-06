@@ -12,4 +12,8 @@ a[2*2+2-2] = "str";
 a[2][4] = "level2";
 a[2][1][2] = "level3";
 
+for (r in a) {
+	printval("r", r);
+}
+
 printval("a", a);

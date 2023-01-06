@@ -1509,8 +1509,13 @@ static int tg_forexpr(int ni)
 	if (t.type == TG_T_SEMICOL || t.type == TG_T_RPAR)
 		return 0;
 
-	TG_ERRQUIT(eni = tg_nodeadd(ni, TG_N_EXPR, NULL));
+	TG_ERRQUIT(eni = tg_nodeadd(-1, TG_N_EXPR, NULL));
 	TG_ERRQUIT(tg_expr(eni));
+
+	if (tg_nodeccnt(eni) == 1)
+		TG_ERRQUIT(eni = tg_nodechild(eni, 0));
+	
+	TG_ERRQUIT(tg_nodeattach(ni, eni));
 
 	return 0;
 }
@@ -1536,17 +1541,14 @@ static int tg_fortable(int ni)
 static int tg_forclassic(int ni)
 {
 	struct tg_token t;
-	int fni;
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_SEMICOL));
 
-	TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FOREXPR, NULL));
-	TG_ERRQUIT(tg_forexpr(fni));
+	TG_ERRQUIT(tg_forexpr(ni));
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_SEMICOL));
 
-	TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FOREXPR, NULL));
-	TG_ERRQUIT(tg_forexpr(fni));
+	TG_ERRQUIT(tg_forexpr(ni));
 
 	return 0;
 }
@@ -1554,14 +1556,12 @@ static int tg_forclassic(int ni)
 static int tg_for(int ni)
 {
 	struct tg_token t;
-	int fni, bni;
+	int bni;
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_FOR));
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LPAR));
 
-	TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FOREXPR, NULL));
-	
-	TG_ERRQUIT(tg_forexpr(fni));
+	TG_ERRQUIT(tg_forexpr(ni));
 
 	if (tg_peektoken(&t) == TG_T_IN) {
 		TG_ERRQUIT(tg_fortable(ni));

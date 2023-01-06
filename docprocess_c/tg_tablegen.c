@@ -358,10 +358,10 @@ static struct tg_val *tg_forclassic(int ni)
 	
 	tg_newscope();
 
-	TG_NULLQUIT(tg_runnode(tg_nodechild(initnode, 0)));
+	TG_NULLQUIT(tg_runnode(initnode));
 
 	while (1) {
-		TG_NULLQUIT(r = tg_runnode(tg_nodechild(cmpnode, 0)));
+		TG_NULLQUIT(r = tg_runnode(cmpnode));
 		if (!tg_istrueval(r))
 			break;
 
@@ -371,7 +371,46 @@ static struct tg_val *tg_forclassic(int ni)
 		else if (r->intval == TG_STATE_BREAK)
 			break;
 
-		TG_NULLQUIT(tg_runnode(tg_nodechild(stepnode, 0)));
+		TG_NULLQUIT(tg_runnode(stepnode));
+	}
+
+	r = tg_intval(TG_STATE_SUCCESS);
+
+forend:
+	tg_popscope();
+
+	return r;
+}
+
+static struct tg_val *tg_fortable(int ni)
+{
+	struct tg_val *r, *t;
+	int idnode;
+	int tablenode;
+	int blocknode;
+	int i;
+		
+	idnode = tg_nodechild(ni, 0);
+	tablenode = tg_nodechild(ni, 1);
+	blocknode = tg_nodechild(ni, 2);
+
+	tg_newscope();
+
+	TG_NULLQUIT(t = tg_runnode(tablenode));
+
+	for (i = 0; i < t->arrval.arr.cnt; ++i) {
+		struct tg_val *v;
+	
+		TG_ASSERT((v = tg_arrgetr(t, i)) != NULL,
+			"Error while iterating through array,");
+
+		TG_NULLQUIT(tg_setlvalue(idnode, v));
+
+		TG_NULLQUIT(r = tg_runnode(blocknode));
+		if (r->intval == TG_STATE_RETURN)
+			goto forend;
+		else if (r->intval == TG_STATE_BREAK)
+			break;
 	}
 
 	r = tg_intval(TG_STATE_SUCCESS);
@@ -384,16 +423,11 @@ forend:
 
 static struct tg_val *tg_for(int ni)
 {
-	if (tg_nodeccnt(ni) == 4
-		&& tg_nodetype(tg_nodechild(ni, 0)) == TG_N_FOREXPR
-		&& tg_nodetype(tg_nodechild(ni, 1)) == TG_N_FOREXPR
-		&& tg_nodetype(tg_nodechild(ni, 2)) == TG_N_FOREXPR) {
+	if (tg_nodeccnt(ni) == 4) {
 		return tg_forclassic(ni);
 	}
-	else {
-		return tg_intval(TG_STATE_SUCCESS); // TODO: iterate
-						// through array or table
-	}
+	else
+		return tg_fortable(ni);
 }
 
 static struct tg_val *tg_block(int ni)
