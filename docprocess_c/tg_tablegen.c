@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>
+#include <regex.h>
 
 #include "tg_parser.h"
 #include "tg_value.h"
@@ -597,7 +598,51 @@ static struct tg_val *tg_identificator(int ni)
 		return r;
 	}
 	else if (strcmp(name, "match") == 0) {
-		return tg_emptyval();
+		struct tg_val *sv, *regv, *r;
+		int ri;
+		regex_t reg;
+		regmatch_t m;
+		
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 2));
+
+		TG_NULLQUIT(sv = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(sv = tg_castval(sv, TG_VAL_STRING));
+	
+		TG_NULLQUIT(regv = tg_runnode(tg_nodechild(ani, 1)));
+		TG_NULLQUIT(regv = tg_castval(regv, TG_VAL_STRING));
+
+		if ((ri = regcomp(&reg, regv->strval.str, 0)) != 0) {
+			char buf[1024];
+
+			regerror(ri, &reg, buf, sizeof(buf));
+			TG_WARNING("Cannot compile a regular expression %s error: %s.",
+				regv->strval.str, buf);
+
+			r = NULL;
+			goto ret;
+		}
+
+		if ((ri = regexec(&reg, sv->strval.str, 1, &m, 0)) != 0) {
+			char buf[1024];
+
+			if (ri == REG_NOMATCH) {
+				r = tg_emptyval();
+				goto ret;
+			}
+
+			regerror(ri, &reg, buf, sizeof(buf));	
+			TG_WARNING("Cannot compile a regular expression %s error: %s.",
+				regv->strval.str, buf);
+
+			r =  NULL;
+			goto ret;
+		}
+	
+		r = tg_intval(m.rm_so);
+
+ret:
+		regfree(&reg);
+		return r;
 	}
 	else if (strcmp(name, "size") == 0) {
 		struct tg_val *v;

@@ -1,7 +1,4 @@
 #!/bin/sh
 
-IFS=""
-while read -r a
-do
-	printf "%s\n" $a
-done
+
+go run converters/out_html.go
