@@ -1,0 +1,87 @@
+function printval(n, v)
+{
+	print(n ~ ": "); dumpval(v); print("\n");
+}
+
+a = 23;
+b = 24.32;
+c = "26";
+d = "32.23";
+e = "sdf";
+
+f[0] = "sd";
+f[1] = "asdffd";
+f[2] = 234;
+f[2][2] = "fd87lgfkkjkkljs";
+
+g = "sd" <- "f2s" <- 23 <- "fsd" <- 23.2;
+g = g ^ ("fsd" <- 32 <- "123") : "span";
+
+printval("type(a): ", type(a));
+printval("type(b): ", type(b));
+printval("type(c): ", type(c));
+printval("type(d): ", type(d));
+printval("type(e): ", type(e));
+printval("type(f): ", type(f));
+printval("type(g): ", type(g));
+print("\n");
+
+printval("int(a): ", int(a));
+printval("int(b): ", int(b));
+printval("int(c): ", int(c));
+printval("int(d): ", int(d));
+printval("int(e): ", int(e));
+print("\n");
+
+printval("float(a): ", float(a));
+printval("float(b): ", float(b));
+printval("float(c): ", float(c));
+printval("float(d): ", float(d));
+printval("float(e): ", float(e));
+print("\n");
+
+printval("string(a): ", string(a));
+printval("string(b): ", string(b));
+printval("string(c): ", string(c));
+printval("string(d): ", string(d));
+printval("string(e): ", string(e));
+print("\n");
+
+printval("table(a): ", table(a));
+printval("table(b): ", table(b));
+printval("table(c): ", table(c));
+printval("table(d): ", table(d));
+printval("table(e): ", table(e));
+printval("table(g): ", table(g));
+print("\n");
+
+printval("array(a): ", array(a));
+printval("array(b): ", array(b));
+printval("array(c): ", array(c));
+printval("array(d): ", array(d));
+printval("array(e): ", array(e));
+printval("array(f): ", array(f));
+printval("array(g): ", array(g));
+print("\n");
+
+printval("substr(f[2][2], 2)", substr(f[2][2], 2));
+printval("substr(f[2][2], 100)", substr(f[2][2], 100));
+printval("substr(f[2][2], 2, 4)", substr(f[2][2], 2, 4));
+printval("substr(f[2][2], 2, 100)", substr(f[2][2], 2, 100));
+print("\n");
+
+printval("length(f[2][2])", length(f[2][2]));
+print("\n");
+
+printval("size(f[2])", size(f[2]));
+print("\n");
+
+printval("match(f[1],\"dffd\")", match(f[1], "dffd"));
+printval("match(f[1],\"234\")", match(f[1], "234"));
+print("\n");
+
+printval("defval(match(f[1], \"dffd\"), \"not matched\")",
+	defval(match(f[1], "dffd"), "not matched"));
+printval("defval(match(f[1], \"dffd\"), \"not matched\")",
+	defval(match(f[1], "234"), "not matched"));
+print("\n");

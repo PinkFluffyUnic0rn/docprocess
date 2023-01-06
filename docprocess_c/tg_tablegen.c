@@ -1169,9 +1169,7 @@ int main(int argc, const char *argv[])
 	tg_newscope();
 	
 	if (argc > 2)
-		tg_readsourceslist(argv[2]);
-	
-	tg_createoutput(&out, (argc > 3) ? argv[3] : "json", stdout);
+		tg_readsourceslist(argv[2]);	
 
 	if ((tpl = tg_getparsetree(argv[1])) < 0)
 		TG_ERROR("%s", tg_error);
@@ -1179,8 +1177,11 @@ int main(int argc, const char *argv[])
 	if ((r = tg_runnode(tpl)) == NULL)
 		return 1;
 
-	if (tg_writeval(&out, r) == NULL)
-		return 1;
+	if (argc > 3) {
+		tg_createoutput(&out, argv[3], stdout);
+		if (tg_writeval(&out, r) == NULL)
+			return 1;
+	}
 
 	tg_popscope();
 	tg_endframe();	
