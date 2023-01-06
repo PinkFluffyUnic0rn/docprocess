@@ -18,6 +18,7 @@ b[3].val[1].attr = 12;
 c["s12d"] = "asdf";
 c[2]["ajd"] = "sd";
 
+printval("a[2]", a[2]);
 printval("a[2][4]", a[2][4]);
 printval("c[\"s12d\"]", c["s12d"]);
 printval("b[3].val[1].attr", b[3].val[1].attr);

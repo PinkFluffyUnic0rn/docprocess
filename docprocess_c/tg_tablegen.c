@@ -8,8 +8,7 @@
 
 #include "tg_parser.h"
 #include "tg_value.h"
-
-#define CONVERTERS_PATH "/home/qwerty/docprocess/docprocess_c/converters"
+#include "tg_inout.h"
 
 enum TG_SYMTYPE {
 	TG_SYMTYPE_FUNCTION,
@@ -30,11 +29,6 @@ struct tg_variable {
 
 struct tg_function {
 	int startnode;
-};
-
-struct tg_input {
-	char *type;
-	char *path;
 };
 
 struct tg_symbol {
@@ -62,200 +56,13 @@ struct tg_val *tg_valprinterr(struct tg_val *v)
 	return v;
 }
 
-struct tg_val *tg_csvtoken(FILE *f)
-{
-	struct tg_val *r;
-	static FILE *file;
-	int c, cc;
-
-	if (f != NULL)
-		file = f;
-
-	c = fgetc(file);
-	if (c == EOF) {
-		if (!feof(file))
-			goto ioerror;
-
-		return tg_emptyval();
-	}
-	else if (c == '\"') {
-		struct tg_val *r;
-		int cc;
-
-		r = tg_stringval("");
-		while ((cc = fgetc(file)) != EOF) {
-			if (cc == '"') {
-				cc = fgetc(file);
-				if (cc == '"')
-					tg_dstraddstrn(&(r->strval), (char *) &cc, 1);
-				else if (cc == EOF) {
-					TG_SETERROR("Unexpected EOF.");
-					return NULL;
-				}
-				else
-					return r;
-
-			}
-			else
-				tg_dstraddstrn(&(r->strval), (char *) &cc, 1);
-		}
-
-		goto ioerror;
-	}
-	else if (c == ';' || c == '\n') {
-		return tg_intval(c == ';' ? 1 : 2);
-	}
-	
-	r = tg_stringval("");
-	
-	tg_dstraddstrn(&(r->strval), (char *) &c, 1);
-	while ((cc = fgetc(file)) != EOF) {
-		if (cc == '\"' || cc == ';' || cc == '\n') {
-			if (ungetc(cc, file) == EOF)
-				goto ioerror;
-
-			break;
-		}
-
-		tg_dstraddstrn(&(r->strval), (char *) &cc, 1);
-	}
-
-	if (cc == EOF && !feof(file))
-		goto ioerror;
-
-	return r;
-
-ioerror:
-	TG_SETERROR("IO error while reading a FILE.");
-	return NULL;
-}
-
-struct tg_val *tg_csvrecord(FILE *f, struct tg_val *h)
-{
-	struct tg_val *s, *r;
-	int p;
-
-	r = tg_createval(TG_VAL_ARRAY);
-
-	p = 0;
-	while ((s = tg_csvtoken(f)) != NULL) {
-		if (s->type == TG_VAL_EMPTY)
-			return s;
-		else if (s->type == TG_VAL_INT && s->intval == 1)
-			++p;
-		else if (s->type == TG_VAL_INT && s->intval == 2)
-			return r;
-		else {
-			struct tg_val *v;	
-
-			if (h != NULL) {
-				if ((v = tg_arrget(h, p)) == NULL) {
-					TG_SETERROR("Header string doesn't have enough values.");
-					return NULL;
-				}
-
-				v = tg_castval(v, TG_VAL_STRING);
-				v = tg_arrgethre(r, v->strval.str, tg_stringval(""));
-			}
-			else
-				v = tg_arrgetre(r, p, tg_stringval(""));
-			
-			tg_dstraddstr(&(v->strval), s->strval.str);
-		}
-	}
-
-	return NULL;
-}
-
-struct tg_val *tg_csv2table(FILE *f)
-{
-	struct tg_val *h, *r, *rr;
-
-	r = tg_createval(TG_VAL_ARRAY);
-	
-	TG_NULLQUIT(h = tg_csvrecord(f, NULL));
-
-	while ((rr = tg_csvrecord(f, h)) != NULL) {
-		if (rr->type == TG_VAL_EMPTY)
-			return tg_castval(r, TG_VAL_TABLE);
-
-		tg_arrpush(r, rr);
-	}
-
-	return NULL;
-}
-
-struct tg_val *readsource(struct tg_input *in,
-	struct tg_val *argv, int argc)
-{
-	char conv[PATH_MAX];
-	FILE *f;
-	int pid;
-	int p[2];
-
-	snprintf(conv, PATH_MAX, "%s/in_%s", CONVERTERS_PATH, in->type);
-
-	if ((f = fopen(conv, "r")) != NULL) {
-		fprintf(stderr, "No converter for input type %s.",
-			in->type);
-		return tg_createval(TG_VAL_EMPTY);
-	}
-
-	if (pipe(p) < 0) {
-		fprintf(stderr, strerror(errno));
-		fclose(f);
-		return tg_createval(TG_VAL_EMPTY);
-	}
-
-	if ((pid = fork()) < 0) {
-		fprintf(stderr, strerror(errno));
-		fclose(f);
-		return tg_createval(TG_VAL_EMPTY);
-	}
-
-	if (pid == 0) {
-		char **args;
-		int i;
-		
-		close(p[0]);
-
-		TG_ASSERT(args = malloc(sizeof(char **) * (argc + 3)),
-			"Allocation error.");
-
-		// argv -- array?
-		for (i = 0; i < argc; ++i) {
-			struct tg_val *sv;
-
-			sv = tg_castval(argv + i + 2, TG_VAL_STRING);
-
-			TG_ASSERT(sv != NULL, tg_error);
-
-			args[i] = sv->strval.str;
-		}
-
-		args[0] = conv;
-
-		args[1] = malloc(PATH_MAX);
-		strcpy(args[1], in->path);
-
-		args[argc + 1] = NULL;
-
-		TG_ASSERT(execv(conv, args) >= 0, strerror(errno));
-	}
-
-	close(p[1]);
-	fclose(f);
-
-	return tg_csv2table(p[1]);
-}
-
-void tg_initsymtable()
+static void tg_initsymtable()
 {
 	tg_darrinit(&symtable, sizeof(struct tg_hash));
 	tg_allocinit(&symalloc, sizeof(struct tg_symbol)); 
 }
 
-void tg_newscope()
+static void tg_newscope()
 {
 	struct tg_hash st;
 	
@@ -264,7 +71,7 @@ void tg_newscope()
 	tg_darrpush(&symtable, &st); 
 }
 
-void tg_popscope()
+static void tg_popscope()
 {
 	struct tg_hash st;
 	
@@ -272,22 +79,22 @@ void tg_popscope()
 		tg_destroyhash(TG_HASH_SYMBOL, &st);
 }
 
-void tg_destroysymtable()
+static void tg_destroysymtable()
 {
 	tg_darrclear(&symtable);
 	tg_allocdestroy(&symalloc, NULL); 
 }
 
-void tg_symboladd(const char *name, struct tg_symbol *s)
+static void tg_symboladd(const char *name, struct tg_symbol *s)
 {
 	struct tg_hash *st;
 
 	st = tg_darrget(&symtable, symtable.cnt - 1);
-
+		
 	tg_hashset(TG_HASH_SYMBOL, st, name, s);
 }
-
-void tg_symboldel(const char *name)
+/*
+static void tg_symboldel(const char *name)
 {
 	struct tg_hash *st;
 
@@ -295,15 +102,15 @@ void tg_symboldel(const char *name)
 
 	tg_hashdel(TG_HASH_SYMBOL, st, name);
 }
-
-struct tg_symbol *tg_symbolget(const char *name)
+*/
+static struct tg_symbol *tg_symbolget(const char *name)
 {
 	struct tg_hash *st;
 	int i;
 
 	for (i = symtable.cnt - 1; i >= 0; --i) {
 		struct tg_symbol *sym;
-	
+
 		st = tg_darrget(&symtable, i);
 		if ((sym = tg_hashget(TG_HASH_SYMBOL, st, name)) != NULL)
 			return sym;
@@ -312,7 +119,7 @@ struct tg_symbol *tg_symbolget(const char *name)
 	return NULL;
 }
 
-struct tg_val *tg_symbolgetval(const char *name)
+static const struct tg_val *tg_symbolgetval(const char *name)
 {
 	struct tg_symbol *sym;
 
@@ -322,7 +129,7 @@ struct tg_val *tg_symbolgetval(const char *name)
 	if (sym->type == TG_SYMTYPE_VARIABLE)
 		return sym->var.val;
 	if (sym->type == TG_SYMTYPE_INPUT)
-		return readsource(&(sym->input), NULL, 1);
+		return tg_readsource(&(sym->input), tg_createval(TG_VAL_ARRAY));
 	else if (sym->type == TG_SYMTYPE_FUNCTION)
 		return tg_emptyval();
 		
@@ -330,14 +137,8 @@ struct tg_val *tg_symbolgetval(const char *name)
 
 	return NULL;
 }
-
-void tg_inputdestroy(struct tg_input *in)
-{
-	free(in->type);
-	free(in->path);
-}
-
-void tg_printsymbols()
+/*
+static void tg_printsymbols()
 {
 	const char *key;
 	struct tg_symbol *s;
@@ -371,8 +172,8 @@ void tg_printsymbols()
 		);
 	}
 }
-
-int tg_readsourceslist(const char *sources)
+*/
+static int tg_readsourceslist(const char *sources)
 {
 	char *s, *ss;
 	char *p;
@@ -402,11 +203,10 @@ int tg_readsourceslist(const char *sources)
 		*pp++ = '\0';
 
 		path = pp;
-
-		in = tg_alloc(&symalloc);
+			
+		in = tg_alloc(&symalloc);	
 		in->type = TG_SYMTYPE_INPUT;
-		in->input.type = tg_strdup(type);
-		in->input.path = tg_strdup(path);
+		tg_createinput(&(in->input), type, path);
 
 		tg_symboladd(name, in);
 
@@ -463,7 +263,7 @@ static struct tg_val *tg_getattrlvalue(int eni, struct tg_val *a)
 	return tg_valgetattrre(a, attrname, tg_emptyval());
 }
 	
-static struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
+static struct tg_val *tg_setlvalue(int ni, const struct tg_val *v)
 {
 	struct tg_symbol *s;
 	struct tg_val *a;
@@ -490,7 +290,7 @@ static struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
 		goto notlvalue;
 
 	if (tg_nodetype(ni) != TG_N_ADDRESS)
-		return (s->var.val = v);
+		return (s->var.val = tg_copyval(v));
 
 	a = s->var.val;
 	for (i = 1; i < tg_nodeccnt(ni); ++i) {
@@ -507,7 +307,7 @@ static struct tg_val *tg_setlvalue(int ni, struct tg_val *v)
 
 	tg_moveval(a, v);
 
-	return v;
+	return s->var.val;
 
 notlvalue:
 	TG_WARNING("Trying to assign into rvalue.");
@@ -641,7 +441,8 @@ blockend:
 	return r;
 }
 
-struct tg_val *tg_checkargs(const char *name, int has, int expect)
+static struct tg_val *tg_checkargs(const char *name,
+	int has, int expect)
 {
 	if (has != expect) {
 		TG_WARNING("%s: expected %d arguments, got %d.",
@@ -661,8 +462,8 @@ static struct tg_val *tg_identificator(int ni)
 	int i;
 
 	if (tg_nodeccnt(ni) == 1) {
-		return tg_symbolgetval(tg_nodetoken(
-			tg_nodechild(ni, 0))->val.str);
+		return tg_copyval(tg_symbolgetval(tg_nodetoken(
+			tg_nodechild(ni, 0))->val.str));
 	}
 	
 	ani = tg_nodechild(ni, 1);
@@ -831,9 +632,27 @@ static struct tg_val *tg_identificator(int ni)
 		return v;
 	}
 
-	s = tg_symbolget(tg_nodetoken(tg_nodechild(ni, 0))->val.str);
+	if ((s = tg_symbolget(tg_nodetoken(
+			tg_nodechild(ni, 0))->val.str)) == NULL) {
+		return tg_emptyval();
+	}
+	
+	if (s->type == TG_SYMTYPE_INPUT) {
+		struct tg_val *args;
 
-	if (s == NULL || s->type != TG_SYMTYPE_FUNCTION)
+		args = tg_createval(TG_VAL_ARRAY);
+
+		for (i = 0; i < tg_nodeccnt(ani); ++i) {
+			struct tg_val *v;
+			
+			TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, i)));
+			tg_arrpush(args, v); 
+		}
+		
+		return tg_readsource(&(s->input), args);
+	}
+
+	if (s->type != TG_SYMTYPE_FUNCTION)
 		return tg_emptyval();
 
 	fni = s->func.startnode;	
@@ -896,7 +715,7 @@ static struct tg_val *tg_const(int ni)
 	TG_ERROR("Unknown constant value type: %d", t->type);
 }
 
-static struct tg_val *tg_getindexfilter(int fni, struct tg_val *a)
+static struct tg_val *tg_getindexfilter(int fni, const struct tg_val *a)
 {
 	// run filter
 		
@@ -1293,29 +1112,34 @@ static struct tg_val *tg_runnode(int ni)
 
 int main(int argc, const char *argv[])
 {
+	struct tg_output out;
 	struct tg_val *r;
 	int tpl;
 	
 	if (argc < 2)
 		TG_ERROR("Usage: %s [source file]", "tablegen");
 	
+	tg_initsymtable();
+	tg_startframe();
+	tg_newscope();
+	
 	if (argc > 2)
 		tg_readsourceslist(argv[2]);
+	
+	tg_createoutput(&out, (argc > 3) ? argv[3] : "csv", stdout);
 
 	if ((tpl = tg_getparsetree(argv[1])) < 0)
 		TG_ERROR("%s", tg_error);
 
-	tg_initsymtable();
-	tg_startframe();
-
 	if ((r = tg_runnode(tpl)) == NULL)
 		return 1;
 
-	printf("return value: ");
-	tg_printval(stdout, r);
-	printf("\n");
-	
+	if (tg_writeval(&out, r) == NULL)
+		return 1;
+
+	tg_popscope();
 	tg_endframe();	
+
 	tg_destroysymtable();
 
 	return 0;
