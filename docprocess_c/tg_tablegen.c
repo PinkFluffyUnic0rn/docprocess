@@ -221,41 +221,6 @@ static int tg_readsourceslist(const char *sources)
 
 static struct tg_val *tg_runnode(int ni);
 
-static struct tg_val *tg_getindexexpr(int fni, struct tg_val *a)
-{
-	struct tg_val *idx;
-	
-	TG_NULLQUIT(idx = tg_runnode(fni));
-
-	if (idx->type == TG_VAL_INT)
-		a = tg_arrgetre(a, idx->intval, tg_emptyval());
-	else {
-		idx = tg_castval(idx, TG_VAL_STRING);
-		a = tg_arrgethre(a, idx->strval.str, tg_emptyval());
-	}
-
-	return a;
-}
-
-static struct tg_val *tg_getindexlvalue(int ini, struct tg_val *a)
-{
-	int eni;
-
-	if (tg_nodeccnt(ini) > 1)
-		return NULL;
-	
-	eni = tg_nodechild(ini, 0);
-
-	if (tg_nodetype(eni) == TG_N_RANGE
-			|| tg_nodetype(eni) == TG_N_FILTER)
-		return NULL;
-
-	if (tg_isscalar(a->type))
-		tg_moveval(a, tg_castval(a, TG_VAL_ARRAY));
-
-	return tg_getindexexpr(eni, a);
-}
-
 static struct tg_val *tg_getattrlvalue(int eni, struct tg_val *a)
 {
 	const char *attrname;
@@ -266,10 +231,14 @@ static struct tg_val *tg_getattrlvalue(int eni, struct tg_val *a)
 	
 static struct tg_val *tg_setlvalue(int ni, const struct tg_val *v)
 {
+	struct tg_darray idxr;
 	struct tg_symbol *s;
 	struct tg_val *a;
+	const char *name;
 	int ini;
 	int i;
+
+	tg_darrinit(&idxr, sizeof(struct tg_val *));
 	
 	if (tg_nodetype(ni) == TG_N_ID)
 		ini = tg_nodechild(ni, 0);
@@ -278,39 +247,89 @@ static struct tg_val *tg_setlvalue(int ni, const struct tg_val *v)
 	else
 		goto notlvalue;
 
-	if (tg_symbolget(tg_nodetoken(ini)->val.str) == NULL) {
-		s = tg_alloc(&symalloc);
-		s->type = TG_SYMTYPE_VARIABLE;
-		s->var.val = tg_emptyval();;
-	
-		tg_symboladd(tg_nodetoken(ini)->val.str, s);
+	name = tg_nodetoken(ini)->val.str;
+
+	if ((s = tg_symbolget(name)) != NULL
+			&& s->type != TG_SYMTYPE_VARIABLE) {
+		tg_darrclear(&idxr);
+
+		TG_WARNING("Identificator %s is already used.", name);
+		return NULL;
 	}
 
-	s = tg_symbolget(tg_nodetoken(ini)->val.str);
-	if (s->type != TG_SYMTYPE_VARIABLE)
-		goto notlvalue;
-
-	if (tg_nodetype(ni) != TG_N_ADDRESS)
-		return (s->var.val = tg_copyval(v));
-
-	a = s->var.val;
 	for (i = 1; i < tg_nodeccnt(ni); ++i) {
+		struct tg_val *idx;
 		int eni;
 
 		eni = tg_nodechild(ni, i);
-		if (tg_nodetype(eni) == TG_N_INDEX) {
-			if ((a = tg_getindexlvalue(eni, a)) == NULL)
-				goto notlvalue;
-		}
-		else if (tg_nodetype(eni) == TG_N_ATTR)
-			a = tg_getattrlvalue(eni, a);
+
+		if (tg_nodetype(eni) == TG_N_ATTR)
+			continue;
+
+		if (tg_nodeccnt(eni) > 1)
+			goto notlvalue;
+		
+		eni = tg_nodechild(eni, 0);
+
+		if (tg_nodetype(eni) == TG_N_RANGE
+				|| tg_nodetype(eni) == TG_N_FILTER)
+			goto notlvalue;
+
+		if((idx = tg_runnode(eni)) == NULL)
+			goto notlvalue;
+	
+		tg_darrset(&idxr, i, &idx);
 	}
 
-	tg_moveval(a, v);
+	if (s == NULL) {
+		s = tg_alloc(&symalloc);
+		s->type = TG_SYMTYPE_VARIABLE;
+		s->var.val = tg_emptyval();;
 
+		tg_symboladd(tg_nodetoken(ini)->val.str, s);
+	}
+
+	s = tg_symbolget(name);
+
+	a = s->var.val;
+
+	if (tg_nodetype(ni) != TG_N_ADDRESS)
+		goto skipaddress;
+
+	for (i = 1; i < tg_nodeccnt(ni); ++i) {
+		struct tg_val *idx;
+		int eni;
+
+		eni = tg_nodechild(ni, i);
+
+		if (tg_nodetype(eni) == TG_N_ATTR) {
+			a = tg_getattrlvalue(eni, a);
+			continue;
+		}
+
+		idx = *((struct tg_val **) tg_darrget(&idxr, i));
+
+		if (tg_isscalar(a->type))
+			tg_moveval(a, tg_castval(a, TG_VAL_ARRAY));
+
+		if (idx->type == TG_VAL_INT)
+			a = tg_arrgetre(a, idx->intval, tg_emptyval());
+		else {
+			idx = tg_castval(idx, TG_VAL_STRING);
+			a = tg_arrgethre(a, idx->strval.str, tg_emptyval());
+		}
+	}
+
+skipaddress:
+	tg_darrclear(&idxr);
+	
+	tg_moveval(a, v);
+	
 	return s->var.val;
 
 notlvalue:
+	tg_darrclear(&idxr);
+	
 	TG_WARNING("Trying to assign into rvalue.");
 
 	return NULL;
@@ -806,6 +825,26 @@ static struct tg_val *tg_getindexfilter(int fni, const struct tg_val *a)
 	// run filter
 		
 	return tg_emptyval(); // !!!
+}
+
+static struct tg_val *tg_getindexexpr(int fni, struct tg_val *a)
+{
+	struct tg_val *idx;
+
+	TG_NULLQUIT(idx = tg_runnode(fni));
+
+	if (idx->type == TG_VAL_INT) {
+		if ((a = tg_arrgetr(a, idx->intval)) == NULL)
+			return tg_emptyval();
+	}
+	else {
+		idx = tg_castval(idx, TG_VAL_STRING);
+
+		if ((a = tg_arrgethr(a, idx->strval.str)) == NULL)
+			return tg_emptyval();
+	}
+
+	return a;
 }
 
 static struct tg_val *tg_getindexrange(int fni, struct tg_val *a)
