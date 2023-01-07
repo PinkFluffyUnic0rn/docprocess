@@ -94,16 +94,7 @@ static void tg_symboladd(const char *name, struct tg_symbol *s)
 		
 	tg_hashset(TG_HASH_SYMBOL, st, name, s);
 }
-/*
-static void tg_symboldel(const char *name)
-{
-	struct tg_hash *st;
 
-	st = tg_darrget(&symtable, symtable.cnt - 1);
-
-	tg_hashdel(TG_HASH_SYMBOL, st, name);
-}
-*/
 static struct tg_symbol *tg_symbolget(const char *name)
 {
 	struct tg_hash *st;
@@ -138,8 +129,8 @@ static const struct tg_val *tg_symbolgetval(const char *name)
 
 	return NULL;
 }
-/*
-static void tg_printsymbols()
+
+void tg_printsymbols()
 {
 	const char *key;
 	struct tg_symbol *s;
@@ -173,7 +164,7 @@ static void tg_printsymbols()
 		);
 	}
 }
-*/
+
 static int tg_readsourceslist(const char *sources)
 {
 	char *s, *ss;
@@ -284,7 +275,7 @@ static struct tg_val *tg_setlvalue(int ni, const struct tg_val *v)
 	if (s == NULL) {
 		s = tg_alloc(&symalloc);
 		s->type = TG_SYMTYPE_VARIABLE;
-		s->var.val = tg_emptyval();;
+		s->var.val = tg_emptyval();
 
 		tg_symboladd(tg_nodetoken(ini)->val.str, s);
 	}
@@ -298,12 +289,9 @@ static struct tg_val *tg_setlvalue(int ni, const struct tg_val *v)
 
 	for (i = 1; i < tg_nodeccnt(ni); ++i) {
 		struct tg_val *idx;
-		int eni;
 
-		eni = tg_nodechild(ni, i);
-
-		if (tg_nodetype(eni) == TG_N_ATTR) {
-			a = tg_getattrlvalue(eni, a);
+		if (tg_nodetype(tg_nodechild(ni, i)) == TG_N_ATTR) {
+			a = tg_getattrlvalue(tg_nodechild(ni, i), a);
 			continue;
 		}
 
