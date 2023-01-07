@@ -3,11 +3,24 @@ function printval(n, v)
 	print(n ~ ": "); dumpval(v); print("\n");
 }
 
-a[3] = "jas";
-a[4] = 2923;
-a[7] = "sdsdds";
-a["sd"] = 41;
+a[1] = "test";
+a[5] = "word";
+a[6] = 512;
+a[5] = 12;
+a[2+1] = 32;
+a[2*2+2-2] = "str";
+a[2][4] = "level2";
 
-b = a[5.."sd"];
+a[2][3] = "aka";
+a[3][3] = "asd";
+a[4][3] = "adsta";
 
-printval("b: ", b);
+
+a["fas"] = 23;
+
+printval("a", a);
+print("\n");
+printval("a[{$0 > 50}]", a[{$0 > 50}]);
+printval("a[{$3 == \"aka\"}]", a[{$3 == "aka"}]);
+
+return a;

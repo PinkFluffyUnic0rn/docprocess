@@ -49,6 +49,10 @@ TG_HASHED(struct tg_symbol, TG_HASH_SYMBOL)
 struct tg_allocator symalloc;
 struct tg_darray symtable;
 
+// TODO: should be stacked
+// struct tg_val *tg_currow = NULL;
+struct tg_darray tg_currow;
+
 struct tg_val *tg_valprinterr(struct tg_val *v)
 {
 	if (v == NULL)
@@ -810,9 +814,32 @@ static struct tg_val *tg_const(int ni)
 
 static struct tg_val *tg_getindexfilter(int fni, const struct tg_val *a)
 {
-	// run filter
-		
-	return tg_emptyval(); // !!!
+	struct tg_val *v, *b;
+	struct tg_val *r;
+	int i;
+	
+	fni = tg_nodechild(fni, 0);
+	
+	r = tg_createval(TG_VAL_ARRAY);
+
+	TG_ARRFOREACH(a, i, v,
+		if (tg_isscalar(v->type))
+			v = tg_castval(v, TG_VAL_ARRAY);
+
+		tg_darrpush(&tg_currow, &v);
+	
+		if ((b = tg_runnode(fni)) == NULL) {
+			tg_darrpop(&tg_currow, NULL);
+			return NULL;
+		}
+
+		if (tg_istrueval(b))
+			tg_arrpush(r, tg_intval(v->arrpos));
+
+		tg_darrpop(&tg_currow, NULL);
+	);
+
+	return r;
 }
 
 static struct tg_val *tg_getindexexpr(int fni, const struct tg_val *a)
@@ -878,7 +905,7 @@ static struct tg_val *tg_getindexval(int ini, const struct tg_val *a)
 		a = tg_castval(a, TG_VAL_ARRAY);
 
 	ri = tg_createval(TG_VAL_ARRAY);
-
+	
 	for (i = 0; i < tg_nodeccnt(ini); ++i) {
 		struct tg_val *rr;
 		int fni;
@@ -1002,7 +1029,20 @@ static struct tg_val *tg_not(int ni)
 
 static struct tg_val *tg_ref(int ni)
 {
-	return NULL;
+	struct tg_val *cr;
+	struct tg_val *r;
+
+	TG_NULLQUIT(r = tg_runnode(tg_nodechild(ni, 0)));
+
+	cr = *((struct tg_val **) tg_darrget(&tg_currow,
+			tg_currow.cnt - 1));
+
+	if (r->type == TG_VAL_INT)
+		return tg_arrgete(cr, r->intval, tg_emptyval());
+		
+	r = tg_castval(r, TG_VAL_STRING);
+
+	return tg_arrgethe(cr, r->strval.str, tg_emptyval());
 }
 
 static struct tg_val *tg_mult(int ni)
@@ -1261,7 +1301,9 @@ int main(int argc, const char *argv[])
 	tg_initsymtable();
 	tg_startframe();
 	tg_newscope();
-	
+
+	tg_darrinit(&tg_currow, sizeof(struct tg_val *));
+
 	if (argc > 2)
 		tg_readsourceslist(argv[2]);	
 
@@ -1276,6 +1318,8 @@ int main(int argc, const char *argv[])
 		if (tg_writeval(&out, r) == NULL)
 			return 1;
 	}
+	
+	tg_darrclear(&tg_currow);
 
 	tg_popscope();
 	tg_endframe();	
