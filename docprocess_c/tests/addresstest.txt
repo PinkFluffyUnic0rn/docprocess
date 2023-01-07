@@ -9,6 +9,7 @@ a[2+1] = 32;
 a[2*2+2-2] = "str";
 a[2][4] = "level2";
 a[2][1][2] = "level3";
+a["fas"] = 23;
 
 b.fe = 3;
 b[3].val = "hello";
@@ -30,5 +31,16 @@ printval("c[2]", c[2]);
 
 a[0] = b;
 a[1] = c;
+
+
+d[1] = "test";
+d[5] = "word";
+d[2+1] = 32;
+d[2*2+2-2] = "str";
+d[2][4] = "level2";
+d["fas"] = 23;
+
+printval("d", d);
+printval("d[1,4,2,1..3]", d[1,4,2,1..3]);
 
 return a;

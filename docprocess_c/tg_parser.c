@@ -943,15 +943,13 @@ static int tg_index(int ni)
 	struct tg_token t;
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LBRK));
-
 	TG_ERRQUIT(tg_filter(ni));
 
 	while (tg_peektoken(&t) == TG_T_COMMA) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COMMA));
-
-		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_FILTER, NULL));
 		TG_ERRQUIT(tg_filter(ni));
 	}
+
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RBRK));
 
 	return 0;

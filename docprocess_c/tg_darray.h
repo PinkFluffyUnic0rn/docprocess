@@ -20,4 +20,7 @@ void tg_darrclear(struct tg_darray *darr);
 
 void *tg_darrget(const struct tg_darray *darr, int n);
 
+#define tg_darrsort(darr, sortfunc) 				\
+	qsort((darr)->data, (darr)->cnt, (darr)->sz, (sortfunc));
+
 #endif

@@ -832,7 +832,8 @@ static struct tg_val *tg_getindexexpr(int fni, struct tg_val *a)
 			return tg_emptyval();
 	}
 
-	return a;
+
+	return tg_intval(a->arrpos);
 }
 
 static struct tg_val *tg_getindexrange(int fni, struct tg_val *a)
@@ -844,37 +845,42 @@ static struct tg_val *tg_getindexrange(int fni, struct tg_val *a)
 	idxb = tg_getindexexpr(tg_nodechild(fni, 0), a);
 	idxe = tg_getindexexpr(tg_nodechild(fni, 1), a);
 
-	if (idxb->arrpos < 0 || idxe->arrpos < 0)
+	if (idxb->type == TG_VAL_EMPTY || idxe->type == TG_VAL_EMPTY )
 		return tg_emptyval();
 
 	r = tg_createval(TG_VAL_ARRAY);
 
-	for (i = idxb->arrpos; i <= idxe->arrpos; ++i) {
-		struct tg_val *v;
-
-		v = tg_arrgetr(a, i);
-
-		if (v->ishashed)
-			tg_arrseth(r, tg_hashkey(TG_HASH_ARRAY, *v), v);
-		else
-			tg_arrpush(r, v);
-	}
+	for (i = idxb->intval; i <= idxe->intval; ++i)
+		tg_arrpush(r, tg_intval(i));
 
 	return r;
 }
 
+int tg_idxsort_f(const void *v1, const void *v2)
+{
+	int i1, i2;
+
+	i1 = (*((struct tg_val **) v1))->intval;
+	i2 = (*((struct tg_val **) v2))->intval;
+
+	if (i1 == i2)		return 0;
+	else if (i1 < i2)	return -1;
+	else			return 1;
+}
+
 static struct tg_val *tg_getindexval(int ini, struct tg_val *a)
 {
-	struct tg_val *r;
+	struct tg_val *ri, *r, *v;
+	int prevri;
 	int i;
 	
-	r = tg_createval(TG_VAL_ARRAY);
-
 	if (tg_isscalar(a->type))
 		a = tg_castval(a, TG_VAL_ARRAY);
 
+	ri = tg_createval(TG_VAL_ARRAY);
+
 	for (i = 0; i < tg_nodeccnt(ini); ++i) {
-		struct tg_val *rr, *v;
+		struct tg_val *rr;
 		int fni;
 		int j;
 
@@ -885,17 +891,37 @@ static struct tg_val *tg_getindexval(int ini, struct tg_val *a)
 		else if (tg_nodetype(fni) == TG_N_FILTER)
 			rr = tg_getindexfilter(fni, a);
 		else {
-			tg_arrpush(r, tg_getindexexpr(fni, a));
-			continue;
+			rr = tg_castval(tg_getindexexpr(fni, a),
+				TG_VAL_ARRAY);
 		}
 
-		TG_ARRFOREACH(rr, j, v,
-			if (v->ishashed)
-				tg_arrseth(r, tg_hashkey(TG_HASH_ARRAY, *v), v);
-			else
-				tg_arrpush(r, v);	
-		);
+		if (rr->type == TG_VAL_EMPTY)
+			continue;
+
+		TG_ARRFOREACH(rr, j, v, tg_arrpush(ri, v));
 	}
+
+	tg_darrsort(&(ri->arrval.arr), tg_idxsort_f);
+
+	r = tg_createval(TG_VAL_ARRAY);
+
+	prevri = -1;
+	TG_ARRFOREACH(ri, i, v,
+		if (v->intval == prevri)
+			continue;
+
+		prevri = v->intval;
+
+		v = tg_arrgetr(a, v->intval);
+
+		if (v->ishashed)
+			tg_arrseth(r, tg_hashkey(TG_HASH_ARRAY, *v), v);
+		else
+			tg_arrpush(r, v);	
+	);
+
+	if (r->arrval.arr.cnt == 0)
+		return tg_emptyval();
 
 	if (r->arrval.arr.cnt == 1)
 		return tg_arrget(r, 0);

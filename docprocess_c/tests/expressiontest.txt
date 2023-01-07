@@ -78,7 +78,9 @@ printval("ternary1", 12 == 12 ? "sd" : 22);
 printval("ternary2", 12 != 12 ? "sd" : 22);
 print("\n");
 
-printval("nextto1", "12" <- 63 <- "sd");
+nextto1 = "12" <- 63 <- "sd";
+
+printval("nextto1", nextto1);
 printval("nextto2", nextto1 ^ "23");
 printval("nextto3", nextto1 ^ "23" : "span");
 
