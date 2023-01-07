@@ -133,8 +133,8 @@ static const struct tg_val *tg_symbolgetval(const char *name)
 void tg_printsymbols()
 {
 	const char *key;
-	struct tg_symbol *s;
-	struct tg_hash *st;
+	const struct tg_symbol *s;
+	const struct tg_hash *st;
 	int j;
 
 	for (j = 0; j < symtable.cnt; ++j) {
@@ -168,7 +168,7 @@ void tg_printsymbols()
 static int tg_readsourceslist(const char *sources)
 {
 	char *s, *ss;
-	char *p;
+	const char *p;
 
 	s = tg_strdup(sources);
 
@@ -338,7 +338,7 @@ static struct tg_val *tg_funcdef(int ni)
 
 static struct tg_val *tg_if(int ni)
 {
-	struct tg_val *r;
+	const struct tg_val *r;
 			
 	TG_NULLQUIT(r = tg_runnode(tg_nodechild(ni, 0)));
 
@@ -815,7 +815,7 @@ static struct tg_val *tg_getindexfilter(int fni, const struct tg_val *a)
 	return tg_emptyval(); // !!!
 }
 
-static struct tg_val *tg_getindexexpr(int fni, struct tg_val *a)
+static struct tg_val *tg_getindexexpr(int fni, const struct tg_val *a)
 {
 	struct tg_val *idx;
 
@@ -836,7 +836,7 @@ static struct tg_val *tg_getindexexpr(int fni, struct tg_val *a)
 	return tg_intval(a->arrpos);
 }
 
-static struct tg_val *tg_getindexrange(int fni, struct tg_val *a)
+static struct tg_val *tg_getindexrange(int fni, const struct tg_val *a)
 {
 	struct tg_val *idxb, *idxe;
 	struct tg_val *r;
@@ -868,7 +868,7 @@ int tg_idxsort_f(const void *v1, const void *v2)
 	else			return 1;
 }
 
-static struct tg_val *tg_getindexval(int ini, struct tg_val *a)
+static struct tg_val *tg_getindexval(int ini, const struct tg_val *a)
 {
 	struct tg_val *ri, *r, *v;
 	int prevri;

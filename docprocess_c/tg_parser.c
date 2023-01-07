@@ -54,47 +54,6 @@ static struct tg_token tbuf[2];
 
 static struct tg_darray nodes;
 
-static struct tg_char _tg_getc();
-static void tg_nexttoken(struct tg_token *t);
-
-static int tg_initparser(const char *path)
-{
-	tg_darrinit(&tg_text, sizeof(char *));
-
-	if ((_tg_file = fopen(path, "r")) == NULL) {
-		TG_SETERROR("Cannot open file %s: %s.",
-			path, strerror(errno));
-		return (-1);
-	}
-
-	_tg_curline = 0;
-	_tg_lbufsize = 0;
-	_tg_lbuf = NULL;
-	_tg_lbufpos = "";
-
-	cbuf[1] = _tg_getc();
-	cbuf[2] = _tg_getc();
-
-	tg_nexttoken(tbuf + 1);
-
-	return 0;
-}
-
-static int tg_finilizeparser()
-{
-	int i;
-
-	for (i = 0; i < tg_text.cnt; ++i)
-		free(*((char **) tg_darrget(&tg_text, i)));
-	
-	tg_darrclear(&tg_text);
-
-	if (_tg_lbuf != NULL)
-		free(_tg_lbuf);
-
-	return 0;
-}
-
 // string stream to char stream
 static struct tg_char _tg_getc()
 {
@@ -1657,6 +1616,44 @@ static int tg_stmt(int ni)
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_SEMICOL));
 		break;
 	}
+
+	return 0;
+}
+
+static int tg_initparser(const char *path)
+{
+	tg_darrinit(&tg_text, sizeof(char *));
+
+	if ((_tg_file = fopen(path, "r")) == NULL) {
+		TG_SETERROR("Cannot open file %s: %s.",
+			path, strerror(errno));
+		return (-1);
+	}
+
+	_tg_curline = 0;
+	_tg_lbufsize = 0;
+	_tg_lbuf = NULL;
+	_tg_lbufpos = "";
+
+	cbuf[1] = _tg_getc();
+	cbuf[2] = _tg_getc();
+
+	tg_nexttoken(tbuf + 1);
+
+	return 0;
+}
+
+static int tg_finilizeparser()
+{
+	int i;
+
+	for (i = 0; i < tg_text.cnt; ++i)
+		free(*((char **) tg_darrget(&tg_text, i)));
+	
+	tg_darrclear(&tg_text);
+
+	if (_tg_lbuf != NULL)
+		free(_tg_lbuf);
 
 	return 0;
 }
