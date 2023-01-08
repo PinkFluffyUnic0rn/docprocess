@@ -1322,9 +1322,53 @@ static struct tg_val *tg_runnode(int ni)
 	return node_handler[t](ni);
 }
 
+const char **tg_buildpathv(const char *path, char **buf)
+{
+	const char **pathv;
+	struct tg_darray patharr;
+	char *s;
+	char *p;
+	int i;
+
+	tg_darrinit(&patharr, sizeof(const char *));
+	pathv = NULL;
+
+	s = tg_strdup(path);
+
+	p = strtok(s, ";");
+	while (p != NULL) {
+		tg_darrpush(&(patharr), &p);
+	
+		p = strtok(NULL, ";");
+	}
+
+	TG_ASSERT((pathv = malloc(patharr.cnt + 1)) != NULL,
+		"Error while allocating memory.");
+
+	for (i = 0; i < patharr.cnt; ++i) {
+		const char *p;
+		FILE *f;
+
+		p  = *((const char **) tg_darrget(&(patharr), i));		
+		
+		TG_ASSERT(f = fopen(p, "r"),
+			"Can't open sources file %s for reading.", p);
+	
+		pathv[i] = p;
+	}
+
+	if (*buf != NULL)
+		*buf = s;
+
+	pathv[patharr.cnt] = NULL;
+	
+	return pathv;
+}
+
 int main(int argc, const char *argv[])
 {
-	const char *pathv[2];
+	const char **pathv;
+	char *pathvbuf;
 	struct tg_output out;
 	struct tg_val *r;
 	int tpl;
@@ -1341,8 +1385,8 @@ int main(int argc, const char *argv[])
 	if (argc > 2)
 		tg_readsourceslist(argv[2]);	
 
-	pathv[0] = argv[1];
-	pathv[1] = NULL;
+	pathv = tg_buildpathv(argv[1], &pathvbuf);
+
 	if ((tpl = tg_getparsetree(pathv)) < 0)
 		TG_ERROR("%s", tg_error);
 
@@ -1361,6 +1405,8 @@ int main(int argc, const char *argv[])
 	tg_endframe();	
 
 	tg_destroysymtable();
+
+	free(pathvbuf);
 
 	return 0;
 }
