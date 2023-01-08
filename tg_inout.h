@@ -1,7 +1,7 @@
 #ifndef TG_INOUT_H
 #define TG_INOUT_H
 
-#define CONVERTERS_PATH "/home/qwerty/docprocess/docprocess_c/converters"
+#define CONVERTERS_PATH "/home/qwerty/docprocess/converters"
 
 struct tg_input {
 	char *type;

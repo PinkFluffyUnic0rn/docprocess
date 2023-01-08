@@ -49,8 +49,6 @@ TG_HASHED(struct tg_symbol, TG_HASH_SYMBOL)
 struct tg_allocator symalloc;
 struct tg_darray symtable;
 
-// TODO: should be stacked
-// struct tg_val *tg_currow = NULL;
 struct tg_darray tg_currow;
 
 struct tg_val *tg_valprinterr(struct tg_val *v)
