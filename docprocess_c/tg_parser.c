@@ -53,7 +53,6 @@ static struct tg_char cbuf[3];
 static struct tg_token tbuf[2];
 
 static struct tg_darray nodes;
-static int tplni;
 
 // string stream to char stream
 static struct tg_char _tg_getc()
@@ -1630,11 +1629,11 @@ static int tg_template(int ni)
 		if (t.type == TG_T_FUNCTION) {
 			int fni;
 
-			TG_ERRQUIT(fni = tg_nodeadd(tplni, TG_N_FUNCDEF, NULL));
+			TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FUNCDEF, NULL));
 			TG_ERRQUIT(tg_funcdef(fni));
 		}
 		else {
-			TG_ERRQUIT(tg_stmt(tplni));
+			TG_ERRQUIT(tg_stmt(ni));
 		}
 	}
 
@@ -1661,11 +1660,6 @@ static int tg_initparser(const char *path)
 
 	tg_nexttoken(tbuf + 1);
 
-	tg_darrinit(&nodes, sizeof(struct tg_node));
-
-	if ((tplni = tg_nodeadd(-1, TG_N_TEMPLATE, NULL)) < 0)
-		return (-1);
-
 	return 0;
 }
 
@@ -1681,24 +1675,28 @@ static int tg_finilizeparser()
 	if (_tg_lbuf != NULL)
 		free(_tg_lbuf);
 
-	tplni = -1;
-
 	return 0;
 }
 
-int tg_getparsetree(const char *path)
+int tg_getparsetree(const char **pathv)
 {
+	const char **p;
 	int ni;
-	
-	if (tg_initparser(path) < 0)
-		goto error;
 
-	if (tg_template(tplni) < 0)
-		goto error;
+	tg_darrinit(&nodes, sizeof(struct tg_node));
 
-	ni = tplni;
+	if ((ni = tg_nodeadd(-1, TG_N_TEMPLATE, NULL)) < 0)
+		return (-1);
 
-	tg_finilizeparser();
+	for (p = pathv; *p != NULL; ++p) {
+		if (tg_initparser(*p) < 0)
+			goto error;
+
+		if (tg_template(ni) < 0)
+			goto error;
+
+		tg_finilizeparser();
+	}
 
 	return ni;
 

@@ -1324,6 +1324,7 @@ static struct tg_val *tg_runnode(int ni)
 
 int main(int argc, const char *argv[])
 {
+	const char *pathv[2];
 	struct tg_output out;
 	struct tg_val *r;
 	int tpl;
@@ -1340,7 +1341,9 @@ int main(int argc, const char *argv[])
 	if (argc > 2)
 		tg_readsourceslist(argv[2]);	
 
-	if ((tpl = tg_getparsetree(argv[1])) < 0)
+	pathv[0] = argv[1];
+	pathv[1] = NULL;
+	if ((tpl = tg_getparsetree(pathv)) < 0)
 		TG_ERROR("%s", tg_error);
 
 	if ((r = tg_runnode(tpl)) == NULL)

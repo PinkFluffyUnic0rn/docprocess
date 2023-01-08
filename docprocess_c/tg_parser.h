@@ -62,6 +62,6 @@ int tg_printnode(int ni, int depth);
 #define tg_isflownode(t) \
 	(t == TG_N_BLOCK || t == TG_N_FOR || t == TG_N_IF)
 
-int tg_getparsetree(const char *path);
+int tg_getparsetree(const char **pathv);
 
 #endif
