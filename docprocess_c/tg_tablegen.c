@@ -606,15 +606,11 @@ static struct tg_val *tg_identificator(int ni)
 		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
-		tg_printval(stdout, v);
 		
-		return tg_emptyval();
+		return tg_printval(stdout, v);
 	}
 	else if (strcmp(name, "substr") == 0) {
-		struct tg_dstring ds;
-		struct tg_val *v, *sa, *la;
-		struct tg_val *r;
-		size_t vl, l, s;
+		struct tg_val *s, *b, *l;
 
 		if (tg_nodeccnt(ani) < 2) {
 			TG_WARNING("%s: expected at least %d arguments, got %d.",
@@ -622,97 +618,45 @@ static struct tg_val *tg_identificator(int ni)
 			return NULL;
 		}
 
-		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
-		v = tg_castval(v, TG_VAL_STRING);
-		vl = v->strval.len;
+		TG_NULLQUIT(s = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(b = tg_runnode(tg_nodechild(ani, 1)));
 
-		TG_NULLQUIT(sa = tg_runnode(tg_nodechild(ani, 1)));
-		sa = tg_castval(sa, TG_VAL_INT);
-		s = sa->intval;
-
-		if (tg_nodeccnt(ani) > 2) {
-			TG_NULLQUIT(la = tg_runnode(tg_nodechild(ani, 2)));
-			la = tg_castval(la, TG_VAL_INT);
-			l = la->intval;
-		}
+		if (tg_nodeccnt(ani) > 2)
+			TG_NULLQUIT(l = tg_runnode(tg_nodechild(ani, 2)));
 		else
-			l = vl - s;
+			l = tg_intval(-1);
 
-		if (s <= 0 || l <= 0 || s > vl || s + l > vl)
-			return tg_emptyval();
-
-		tg_dstrcreaten(&ds, v->strval.str + s, l);
-		r = tg_stringval(ds.str);
-		tg_dstrdestroy(&ds);
-
-		return r;
+		return tg_substr(s, b, l);
 	}
 	else if (strcmp(name, "match") == 0) {
-		struct tg_val *sv, *regv, *r;
-		int ri;
-		regex_t reg;
-		regmatch_t m;
+		struct tg_val *s, *reg;
 		
 		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 2));
 
-		TG_NULLQUIT(sv = tg_runnode(tg_nodechild(ani, 0)));
-		TG_NULLQUIT(sv = tg_castval(sv, TG_VAL_STRING));
-	
-		TG_NULLQUIT(regv = tg_runnode(tg_nodechild(ani, 1)));
-		TG_NULLQUIT(regv = tg_castval(regv, TG_VAL_STRING));
+		TG_NULLQUIT(s = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(reg = tg_runnode(tg_nodechild(ani, 1)));
 
-		if ((ri = regcomp(&reg, regv->strval.str, 0)) != 0) {
-			char buf[1024];
-
-			regerror(ri, &reg, buf, sizeof(buf));
-			TG_WARNING("Cannot compile a regular expression %s error: %s.",
-				regv->strval.str, buf);
-
-			r = NULL;
-			goto ret;
-		}
-
-		if ((ri = regexec(&reg, sv->strval.str, 1, &m, 0)) != 0) {
-			char buf[1024];
-
-			if (ri == REG_NOMATCH) {
-				r = tg_emptyval();
-				goto ret;
-			}
-
-			regerror(ri, &reg, buf, sizeof(buf));	
-			TG_WARNING("Cannot compile a regular expression %s error: %s.",
-				regv->strval.str, buf);
-
-			r =  NULL;
-			goto ret;
-		}
-	
-		r = tg_intval(m.rm_so);
-
-ret:
-		regfree(&reg);
-		return r;
+		return tg_match(s, reg);
 	}
 	else if (strcmp(name, "size") == 0) {
-		struct tg_val *v;
+		struct tg_val *a;
 		
 		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
-		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
-		TG_NULLQUIT(v = tg_castval(v, TG_VAL_ARRAY));
+		TG_NULLQUIT(a = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(a = tg_castval(a, TG_VAL_ARRAY));
 
-		return tg_intval(v->arrval.arr.cnt);
+		return tg_intval(a->arrval.arr.cnt);
 	}
 	else if (strcmp(name, "length") == 0) {
-		struct tg_val *v;
+		struct tg_val *s;
 		
 		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
 
-		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
-		TG_NULLQUIT(v = tg_castval(v, TG_VAL_STRING));
+		TG_NULLQUIT(s = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(s = tg_castval(s, TG_VAL_STRING));
 
-		return tg_intval(v->strval.len);
+		return tg_intval(s->strval.len);
 	}
 	else if (strcmp(name, "defval") == 0) {
 		struct tg_val *v;
@@ -725,6 +669,95 @@ ret:
 			return tg_runnode(tg_nodechild(ani, 1));
 
 		return v;
+	}
+	else if (strcmp(name, "rudate") == 0) {
+		struct tg_val *d, *m, *y;
+
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 3));
+
+		TG_NULLQUIT(d = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(m = tg_runnode(tg_nodechild(ani, 1)));
+		TG_NULLQUIT(y = tg_runnode(tg_nodechild(ani, 2)));
+
+		return tg_rudate(d, m, y);
+	}
+	else if (strcmp(name, "day") == 0) {
+		struct tg_val *d;
+
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
+
+		TG_NULLQUIT(d = tg_runnode(tg_nodechild(ani, 0)));
+
+		return tg_day(d);
+	}
+	else if (strcmp(name, "month") == 0) {
+		struct tg_val *d;
+
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
+
+		TG_NULLQUIT(d = tg_runnode(tg_nodechild(ani, 0)));
+
+		return tg_month(d);
+	}
+	else if (strcmp(name, "year") == 0) {
+		struct tg_val *d;
+
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
+
+		TG_NULLQUIT(d = tg_runnode(tg_nodechild(ani, 0)));
+
+		return tg_year(d);
+	}
+	else if (strcmp(name, "weekday") == 0) {
+		struct tg_val *d;
+
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 1));
+
+		TG_NULLQUIT(d = tg_runnode(tg_nodechild(ani, 0)));
+
+		return tg_weekday(d);
+	}
+	else if (strcmp(name, "monthend") == 0) {
+		struct tg_val *d, *m;
+
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 2));
+
+		TG_NULLQUIT(d = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(m = tg_runnode(tg_nodechild(ani, 1)));
+
+		return tg_monthend(d, m);
+	}
+	else if (strcmp(name, "datecmp") == 0) {
+		struct tg_val *d1, *d2;
+
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 2));
+
+		TG_NULLQUIT(d1 = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(d2 = tg_runnode(tg_nodechild(ani, 1)));
+
+		return tg_datecmp(d1, d2);
+	}
+	else if (strcmp(name, "datediff") == 0) {
+		struct tg_val *d1, *d2, *p;
+
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 3));
+
+		TG_NULLQUIT(d1 = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(d2 = tg_runnode(tg_nodechild(ani, 1)));
+		TG_NULLQUIT(p = tg_runnode(tg_nodechild(ani, 2)));
+
+		return tg_datediff(d1, d2, p);
+	}
+	else if (strcmp(name, "dateadd") == 0) {
+		struct tg_val *d, *v, *p;
+
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 3));
+
+		TG_NULLQUIT(d = tg_runnode(tg_nodechild(ani, 0)));
+		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 1)));
+		TG_NULLQUIT(p = tg_runnode(tg_nodechild(ani, 2)));
+
+		return tg_dateadd(d, v, p);
 	}
 
 	if ((s = tg_symbolget(tg_nodetoken(

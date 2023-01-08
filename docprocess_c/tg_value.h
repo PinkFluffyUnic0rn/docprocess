@@ -79,6 +79,7 @@ void tg_moveval(struct tg_val *d, const struct tg_val *s);
 struct tg_val *tg_copyval(const struct tg_val *v);
 
 struct tg_val *tg_castval(const struct tg_val *v, enum TG_VALTYPE t);
+struct tg_val *tg_castvalr(struct tg_val *v, enum TG_VALTYPE t);
 
 struct tg_val *tg_typeprom1val(const struct tg_val *v,
 	enum TG_VALTYPE mtype);
@@ -94,6 +95,58 @@ struct tg_val *tg_valgetattre(const struct tg_val *v1, const char *key,
 struct tg_val *tg_valgetattrr(const struct tg_val *v1, const char *key);
 struct tg_val *tg_valgetattrre(struct tg_val *v, const char *key,
 	const struct tg_val *e);
+
+struct tg_val *tg_printval(FILE *f, const struct tg_val *v);
+
+int tg_istrueval(const struct tg_val *v);
+
+struct tg_val *tg_valand(const struct tg_val *v1,
+	const struct tg_val *v2);
+struct tg_val *tg_valor(const struct tg_val *v1,
+	const struct tg_val *v2);
+
+struct tg_val *_tg_numop(const struct tg_val *v1,
+	const struct tg_val *v2, enum TG_NUMOP op);
+
+#define tg_valadd(v1, v2) _tg_numop(v1, v2, TG_NUMOP_ADD)
+#define tg_valsub(v1, v2) _tg_numop(v1, v2, TG_NUMOP_SUB)
+#define tg_valmult(v1, v2) _tg_numop(v1, v2, TG_NUMOP_MULT)
+#define tg_valdiv(v1, v2) _tg_numop(v1, v2, TG_NUMOP_DIV)
+
+struct tg_val *_tg_valcmp(const struct tg_val *v1,
+	const struct tg_val *v2, enum TG_RELOP op);
+
+#define tg_valeq(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_EQUAL)
+#define tg_valneq(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_NEQUAL)
+#define tg_valls(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_LESS)
+#define tg_valgr(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_GREATER)
+#define tg_vallseq(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_LESSEQ)
+#define tg_valgreq(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_GREATEREQ)
+
+struct tg_val *tg_valcat(const struct tg_val *v1,
+	const struct tg_val *v2);
+
+struct tg_val *tg_substr(const struct tg_val *s,
+	const struct tg_val *b, const struct tg_val *l);
+
+struct tg_val *tg_match(const struct tg_val *s,
+	const struct tg_val *reg);
+
+struct tg_val *tg_rudate(const struct tg_val *day,
+	const struct tg_val *month, const struct tg_val *year);
+
+struct tg_val *tg_day(const struct tg_val *d);
+struct tg_val *tg_month(const struct tg_val *d);
+struct tg_val *tg_year(const struct tg_val *d);
+struct tg_val *tg_weekday(const struct tg_val *d);
+struct tg_val *tg_monthend(const struct tg_val *day,
+	const struct tg_val *month);
+struct tg_val *tg_datecmp(const struct tg_val *d1,
+	const struct tg_val *d2);
+struct tg_val *tg_datediff(const struct tg_val *d1,
+	const struct tg_val *d2, const struct tg_val *p);
+struct tg_val *tg_dateadd(const struct tg_val *d,
+	const struct tg_val *v, const struct tg_val *p);
 
 void tg_tablesetcellr(struct tg_val *t, int r, int c, struct tg_val *v);
 struct tg_val *tg_tablegetcellr(struct tg_val *t, int row, int col);
@@ -126,36 +179,6 @@ do {								\
 		action;						\
 	}							\
 } while (0);
-
-void tg_printval(FILE *f, const struct tg_val *v);
-
-int tg_istrueval(const struct tg_val *v);
-
-struct tg_val *tg_valcat(const struct tg_val *v1,
-	const struct tg_val *v2);
-
-struct tg_val *_tg_numop(const struct tg_val *v1,
-	const struct tg_val *v2, enum TG_NUMOP op);
-
-#define tg_valadd(v1, v2) _tg_numop(v1, v2, TG_NUMOP_ADD)
-#define tg_valsub(v1, v2) _tg_numop(v1, v2, TG_NUMOP_SUB)
-#define tg_valmult(v1, v2) _tg_numop(v1, v2, TG_NUMOP_MULT)
-#define tg_valdiv(v1, v2) _tg_numop(v1, v2, TG_NUMOP_DIV)
-
-struct tg_val *_tg_valcmp(const struct tg_val *v1,
-	const struct tg_val *v2, enum TG_RELOP op);
-
-#define tg_valeq(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_EQUAL)
-#define tg_valneq(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_NEQUAL)
-#define tg_valls(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_LESS)
-#define tg_valgr(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_GREATER)
-#define tg_vallseq(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_LESSEQ)
-#define tg_valgreq(v1, v2) _tg_valcmp(v1, v2, TG_RELOP_GREATEREQ)
-
-struct tg_val *tg_valand(const struct tg_val *v1,
-	const struct tg_val *v2);
-struct tg_val *tg_valor(const struct tg_val *v1,
-	const struct tg_val *v2);
 
 struct tg_val *tg_tablespan(struct tg_val *t,
 	int newside, int vert);

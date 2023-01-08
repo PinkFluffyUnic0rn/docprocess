@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <regex.h>
 
 #include "tg_dstring.h"
 #include "tg_darray.h"
@@ -268,9 +269,9 @@ struct tg_val *tg_copyval(const struct tg_val *v)
 	return newv;
 }
 
-// make a reference version of tg_castval?
 // should attributes be presersed?
-struct tg_val *tg_castval(const struct tg_val *v, enum TG_VALTYPE t)
+struct tg_val *tg_castval(const struct tg_val *v,
+	enum TG_VALTYPE t)
 {
 	struct tg_val *newv;
 	enum TG_VALTYPE vt;
@@ -279,12 +280,9 @@ struct tg_val *tg_castval(const struct tg_val *v, enum TG_VALTYPE t)
 
 	vt = v->type;
 
-	if (t == TG_VAL_EMPTY) {
-		TG_SETERROR("%s", "Cannot cast to an empty value.");
-		return NULL;
-	}
-
-	if (vt == TG_VAL_EMPTY)
+	if (t == TG_VAL_EMPTY)
+		return tg_emptyval();
+	else if (vt == TG_VAL_EMPTY)
 		newv = tg_createval(t);
 	else if (vt == TG_VAL_INT && t == TG_VAL_FLOAT) {
 		newv = tg_createval(t);
@@ -425,6 +423,14 @@ struct tg_val *tg_castval(const struct tg_val *v, enum TG_VALTYPE t)
 	return newv;
 }
 
+struct tg_val *tg_castvalr(struct tg_val *v, enum TG_VALTYPE t)
+{
+	if (v->type == t)
+		return v;
+
+	return tg_castval(v, t);
+}
+
 struct tg_val *tg_typeprom1val(const struct tg_val *v,
 	enum TG_VALTYPE mtype)
 {
@@ -447,6 +453,16 @@ struct tg_val *tg_typeprom2val(const struct tg_val *v1,
 		return tg_castval(v1, v2type);
 
 	return tg_copyval(v1);
+}
+
+void tg_valsetattr(struct tg_val *v, const char *key,
+	const struct tg_val *attr)
+{
+	TG_ASSERT(v != NULL, "Cannot set value attribute");
+	TG_ASSERT(key != NULL, "Cannot set value attribute");
+	TG_ASSERT(attr != NULL, "Cannot set value attribute");
+
+	tg_hashset(TG_HASH_ARRAY, &(v->attrs), key, tg_copyval(attr));
 }
 
 struct tg_val *tg_valgetattrr(const struct tg_val *v, const char *key)
@@ -506,88 +522,6 @@ struct tg_val *tg_valgetattre(const struct tg_val *v, const char *key,
 	return tg_copyval(r);
 }
 
-void tg_valsetattr(struct tg_val *v, const char *key,
-	const struct tg_val *attr)
-{
-	TG_ASSERT(v != NULL, "Cannot set value attribute");
-	TG_ASSERT(key != NULL, "Cannot set value attribute");
-	TG_ASSERT(attr != NULL, "Cannot set value attribute");
-
-	tg_hashset(TG_HASH_ARRAY, &(v->attrs), key, tg_copyval(attr));
-}
-
-int tg_istrueval(const struct tg_val *v)
-{
-	TG_ASSERT(v != NULL, "Cannot check value's trueness");
-
-	if (v->type == TG_VAL_INT)
-		return v->intval;
-	else if (v->type == TG_VAL_FLOAT)
-		return (v->floatval != 0.0);
-	else if (v->type == TG_VAL_STRING)
-		return strlen(v->strval.str);
-	else if (v->type == TG_VAL_ARRAY)
-		return v->arrval.arr.cnt;
-
-	return 0;
-}
-
-// redefine through tg_arrset?
-void tg_arrpush(struct tg_val *arr, const struct tg_val *v)
-{
-	struct tg_val *newv;
-
-	TG_ASSERT(arr != NULL, "Cannot push to value");
-	TG_ASSERT(!tg_isscalar(arr->type), "Cannot push to value");
-	TG_ASSERT(v != NULL, "Cannot push to value");
-
-	newv = tg_copyval(v);
-	newv->arrpos = arr->arrval.arr.cnt;
-
-	tg_darrpush(&(arr->arrval.arr), &newv);
-}
-
-void tg_arrset(struct tg_val *arr, int p, const struct tg_val *v)
-{
-	struct tg_val *newv;
-
-	TG_ASSERT(arr != NULL, "Cannot set array value");
-	TG_ASSERT(!tg_isscalar(arr->type), "Cannot set array value");
-	TG_ASSERT(v != NULL, "Cannot set array value");
-	
-	if (p >= arr->arrval.arr.cnt) {
-		int i;
-
-		for (i = arr->arrval.arr.cnt; i < p; ++i) {
-			newv = tg_emptyval();
-			newv->arrpos = i;
-			tg_darrset(&(arr->arrval.arr), i, &newv);
-		}
-	}
-
-	newv = tg_copyval(v);
-	newv->arrpos = p;
-
-	tg_darrset(&(arr->arrval.arr), p, &newv);
-}
-
-void tg_arrseth(struct tg_val *arr, const char *k, const struct tg_val *v)
-{
-	struct tg_val *newv;
-
-	TG_ASSERT(arr != NULL, "Cannot set array value");
-	TG_ASSERT(!tg_isscalar(arr->type), "Cannot set array value");
-	TG_ASSERT(v != NULL, "Cannot set array value");
-
-	newv = tg_copyval(v);
-	newv->ishashed = 1;
-	newv->arrpos = arr->arrval.arr.cnt;
-	
-	tg_darrpush(&(arr->arrval.arr), &newv);
-	
-	tg_hashset(TG_HASH_ARRAY, &(arr->arrval.hash), k, newv);	
-}
-
 static void tg_printtable(FILE *f, const struct tg_val *v)
 {
 	int i, j;
@@ -645,7 +579,7 @@ static void tg_printtable(FILE *f, const struct tg_val *v)
 	fprintf(f, "}");
 }
 
-void tg_printval(FILE *f, const struct tg_val *v)
+struct tg_val *tg_printval(FILE *f, const struct tg_val *v)
 {
 	const char *key;
 	int isfirst;
@@ -710,7 +644,7 @@ void tg_printval(FILE *f, const struct tg_val *v)
 
 
 	if (v->attrs.count == 0)
-		return;
+		return tg_emptyval();
 	
 	fprintf(f, "[");
 	TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY, v->attrs, key,
@@ -718,67 +652,24 @@ void tg_printval(FILE *f, const struct tg_val *v)
 		tg_printval(f, tg_valgetattrr(v, key));
 	);
 	fprintf(f, "]");
+
+	return tg_emptyval();
 }
 
-struct tg_val *tg_valcat(const struct tg_val *v1,
-	const struct tg_val *v2)
+int tg_istrueval(const struct tg_val *v)
 {
-	struct tg_val *r;
-	
-	TG_ASSERT(v1 != NULL, "Cannot cancatenate strings");
-	TG_ASSERT(v2 != NULL, "Cannot cancatenate strings");
-	
-	if ((v1 = tg_castval(v1, TG_VAL_STRING)) == NULL)
-		return NULL;
+	TG_ASSERT(v != NULL, "Cannot check value's trueness");
 
-	if ((v2 = tg_castval(v2, TG_VAL_STRING)) == NULL)
-		return NULL;
+	if (v->type == TG_VAL_INT)
+		return v->intval;
+	else if (v->type == TG_VAL_FLOAT)
+		return (v->floatval != 0.0);
+	else if (v->type == TG_VAL_STRING)
+		return strlen(v->strval.str);
+	else if (v->type == TG_VAL_ARRAY || TG_VAL_TABLE)
+		return v->arrval.arr.cnt;
 
-	r = tg_copyval(v1);
-
-	tg_dstraddstr(&(r->strval), v2->strval.str);
-
-	return r;
-}
-
-#define TG_NUMOPEXPR(r, v1, v2)					\
-do {								\
-	if (op == TG_NUMOP_ADD)		(r) = (v1) + (v2);	\
-	else if (op == TG_NUMOP_SUB)	(r) = (v1) - (v2);	\
-	else if (op == TG_NUMOP_MULT)	(r) = (v1) * (v2);	\
-	else if (op == TG_NUMOP_DIV)	(r) = (v1) / (v2);	\
-} while (0);
-
-struct tg_val *_tg_numop(const struct tg_val *v1,
-	const struct tg_val *v2, enum TG_NUMOP op)
-{
-	struct tg_val *r;
-		
-	TG_ASSERT(v1 != NULL, "Cannot operate on numbers");
-	TG_ASSERT(v2 != NULL, "Cannot operate on numbers");
-
-	if ((v1 = tg_typeprom2val(v1, v2->type, TG_VAL_FLOAT)) == NULL)
-		return NULL;
-
-	if ((v2 = tg_typeprom2val(v2, v1->type, TG_VAL_FLOAT)) == NULL)
-		return NULL;
-
-	r = tg_createval(v1->type);
-
-	if (v1->type == TG_VAL_INT) {
-		TG_NUMOPEXPR(r->intval, v1->intval, v2->intval);
-	}
-	else if (v1->type == TG_VAL_FLOAT) {
-		TG_NUMOPEXPR(r->floatval, v1->floatval, v2->floatval);
-	}
-	else if (v1->type == TG_VAL_EMPTY) {
-	}
-	else {
-		TG_SETERROR("%s", "Wrong value type.");
-		return NULL;
-	}
-
-	return r;
+	return 0;
 }
 
 struct tg_val *tg_valor(const struct tg_val *v1,
@@ -811,6 +702,43 @@ struct tg_val *tg_valand(const struct tg_val *v1,
 	return r;
 }
 
+#define TG_NUMOPEXPR(r, v1, v2)					\
+do {								\
+	if (op == TG_NUMOP_ADD)		(r) = (v1) + (v2);	\
+	else if (op == TG_NUMOP_SUB)	(r) = (v1) - (v2);	\
+	else if (op == TG_NUMOP_MULT)	(r) = (v1) * (v2);	\
+	else if (op == TG_NUMOP_DIV)	(r) = (v1) / (v2);	\
+} while (0);
+
+struct tg_val *_tg_numop(const struct tg_val *v1,
+	const struct tg_val *v2, enum TG_NUMOP op)
+{
+	struct tg_val *r;
+		
+	TG_ASSERT(v1 != NULL, "Cannot operate on numbers");
+	TG_ASSERT(v2 != NULL, "Cannot operate on numbers");
+
+	TG_NULLQUIT(tg_typeprom2val(v1, v2->type, TG_VAL_FLOAT));
+	TG_NULLQUIT(tg_typeprom2val(v2, v1->type, TG_VAL_FLOAT));
+
+	r = tg_createval(v1->type);
+
+	if (v1->type == TG_VAL_INT) {
+		TG_NUMOPEXPR(r->intval, v1->intval, v2->intval);
+	}
+	else if (v1->type == TG_VAL_FLOAT) {
+		TG_NUMOPEXPR(r->floatval, v1->floatval, v2->floatval);
+	}
+	else if (v1->type == TG_VAL_EMPTY) {
+	}
+	else {
+		TG_SETERROR("%s", "Wrong value type.");
+		return NULL;
+	}
+
+	return r;
+}
+
 #define TG_RELOPEXPR(r, v1, v2)					\
 do {									\
 	if (op == TG_RELOP_EQUAL)		(r) = (v1) == (v2);	\
@@ -829,11 +757,8 @@ struct tg_val *_tg_valcmp(const struct tg_val *v1,
 	TG_ASSERT(v1 != NULL, "Cannot compare values");
 	TG_ASSERT(v2 != NULL, "Cannot compare values");
 
-	if ((v1 = tg_typeprom2val(v1, v2->type, TG_VAL_STRING)) == NULL)
-		return NULL;
-
-	if ((v2 = tg_typeprom2val(v2, v1->type, TG_VAL_STRING)) == NULL)
-		return NULL;
+	TG_NULLQUIT(v1 = tg_typeprom2val(v1, v2->type, TG_VAL_STRING));
+	TG_NULLQUIT(v2 = tg_typeprom2val(v2, v1->type, TG_VAL_STRING));
 
 	r = tg_createval(TG_VAL_INT);
 
@@ -858,6 +783,380 @@ struct tg_val *_tg_valcmp(const struct tg_val *v1,
 	}
 
 	return r;
+}
+
+struct tg_val *tg_valcat(const struct tg_val *v1,
+	const struct tg_val *v2)
+{
+	struct tg_val *r;
+	
+	TG_ASSERT(v1 != NULL, "Cannot cancatenate strings");
+	TG_ASSERT(v2 != NULL, "Cannot cancatenate strings");
+	
+	TG_NULLQUIT(v1 = tg_castval(v1, TG_VAL_STRING));
+	TG_NULLQUIT(v2 = tg_castval(v2, TG_VAL_STRING));
+
+	r = tg_copyval(v1);
+
+	tg_dstraddstr(&(r->strval), v2->strval.str);
+
+	return r;
+}
+
+struct tg_val *tg_substr(const struct tg_val *s,
+	const struct tg_val *b, const struct tg_val *l)
+{
+	struct tg_dstring rs;
+	struct tg_val *r;
+	int bi, li;
+
+	TG_NULLQUIT(s = tg_castval(s, TG_VAL_STRING));
+	TG_NULLQUIT(b = tg_castval(b, TG_VAL_INT));
+	TG_NULLQUIT(l = tg_castval(l, TG_VAL_INT));
+
+	bi = b->intval;
+	li = l->intval;
+
+	if (li < 0)
+		li = s->strval.len - bi;
+
+	if (bi <= 0 || bi > li || bi + li > s->strval.len)
+		return tg_emptyval();
+
+	tg_dstrcreaten(&rs, s->strval.str + bi, li);
+	r = tg_stringval(rs.str);
+	tg_dstrdestroy(&rs);
+
+	return r;
+}
+
+struct tg_val *tg_match(const struct tg_val *s,
+	const struct tg_val *reg)
+{
+	struct tg_val *r;
+	char buf[1024];
+	regex_t regex;
+	regmatch_t m;
+	int ri;
+	
+	TG_NULLQUIT(s = tg_castval(s, TG_VAL_STRING));
+	TG_NULLQUIT(reg = tg_castval(reg, TG_VAL_STRING));
+
+	if ((ri = regcomp(&regex, reg->strval.str, 0)) != 0)
+		goto error;
+
+	if ((ri = regexec(&regex, s->strval.str, 1, &m, 0)) != 0) {
+		if (ri == REG_NOMATCH) {
+			regfree(&regex);
+			return tg_emptyval();
+		}
+
+		goto error;
+	}
+
+	r = tg_intval(m.rm_so);
+
+	regfree(&regex);
+
+	return r;
+
+error:
+	regerror(ri, &regex, buf, sizeof(buf));	
+	TG_SETERROR("Regular expression %s error: %s.",
+		reg->strval.str, buf);
+
+	regfree(&regex);
+	
+	return NULL;
+}
+
+static int tg_datepart2numn(const char *s, size_t l)
+{
+	char b[1024];
+
+	if (l > 4)
+		return 0;
+
+	memcpy(b, s, l);
+	b[l] = '\0';
+
+	return atoi(b);
+}
+
+struct tg_val *tg_rudate(const struct tg_val *day,
+	const struct tg_val *month, const struct tg_val *year)
+{
+	struct tg_val *r;
+
+	TG_NULLQUIT(day = tg_castval(day, TG_VAL_STRING));
+	TG_NULLQUIT(month = tg_castval(month, TG_VAL_STRING));
+	TG_NULLQUIT(year = tg_castval(year, TG_VAL_STRING));
+
+	r = tg_stringval("");
+
+	tg_dstraddstr(&(r->strval), day->strval.str);
+	tg_dstraddstr(&(r->strval), ".");
+	tg_dstraddstr(&(r->strval), month->strval.str);
+	tg_dstraddstr(&(r->strval), ".");
+	tg_dstraddstr(&(r->strval), year->strval.str);
+
+	return r;
+}
+
+static int tg_isyearleap(int y)
+{
+	return ((y % 4) ? 0 : ((y % 100) ? 1 : ((y % 400) ? 0 : 1)));
+}
+
+static int _tg_monthend(int month, int year)
+{
+	int e[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+	TG_ASSERT(month > 0 && month <= 12,
+		"Month number should be from 1 to 12.");
+
+	return e[month] + (month == 2 && tg_isyearleap(year) ? 1 : 0);
+}
+
+static int tg_dateformat(const char *s,
+	int *d, int *m, int *y)
+{
+	const char *c;
+	int day, month, year;
+
+	if ((c = strchr(s, '-')) != NULL) {
+		year = tg_datepart2numn(s, c - s);
+		s = c;
+	
+		if ((c = strchr(s, '-')) == NULL)
+			return 0;
+		month = tg_datepart2numn(s, c - s);
+		s = c;
+
+		c = s + strlen(s);
+		day = tg_datepart2numn(s, c - s);
+	}
+	else if ((c = strchr(s, '.')) != NULL) {
+		day = tg_datepart2numn(s, c - s);
+		s = c;
+	
+		if ((c = strchr(s, '.')) == NULL)
+			return 0;
+		month = tg_datepart2numn(s, c - s);
+		s = c;
+
+		c = s + strlen(s);
+		year = tg_datepart2numn(s, c - s);
+	}
+	else if ((c = strchr(s, '/')) != NULL) {
+		month = tg_datepart2numn(s, c - s);
+		s = c;
+	
+		if ((c = strchr(s, '/')) == NULL)
+			return 0;
+		day = tg_datepart2numn(s, c - s);
+		s = c;
+
+		c = s + strlen(s);
+		year = tg_datepart2numn(s, c - s);
+	}
+
+	if (month <= 0 || month > 12)
+		return 0;
+
+	if (day <= 0 || day > _tg_monthend(month, year))
+		return 0;
+
+	if (d != NULL) *d = day;
+	if (m != NULL) *m = year;
+	if (y != NULL) *y = month;
+
+	return 1;
+}
+
+struct tg_val *tg_day(const struct tg_val *d)
+{
+	int day;
+
+	TG_NULLQUIT(d = tg_castval(d, TG_VAL_STRING));
+
+	if (!tg_dateformat(d->strval.str, &day, NULL, NULL))
+		return tg_emptyval();
+
+	return tg_intval(day);
+}
+
+struct tg_val *tg_month(const struct tg_val *d)
+{
+	int month;
+
+	TG_NULLQUIT(d = tg_castval(d, TG_VAL_STRING));
+
+	if (!tg_dateformat(d->strval.str, NULL, &month, NULL))
+		return tg_emptyval();
+
+	return tg_intval(month);
+}
+
+struct tg_val *tg_weekday(const struct tg_val *d)
+{
+	int day, month, year;
+	int j, k, h;
+
+	TG_NULLQUIT(d = tg_castval(d, TG_VAL_STRING));
+
+	if (!tg_dateformat(d->strval.str, &day, &month, &year))
+		return tg_emptyval();
+
+	if (month == 1 || month == 2) {
+		month += 12;
+		--year;
+	}
+
+	j = year / 100;
+	k = year % 100;
+
+	h = (day + (13 * (month + 1) / 5) + k
+		+ (k / 4) + (j / 4) + 5 * j) % 7;
+
+	return tg_intval(((h + 5) % 7) + 1);
+}
+
+struct tg_val *tg_monthend(const struct tg_val *day,
+	const struct tg_val *month)
+{
+	TG_NULLQUIT(day = tg_castval(day, TG_VAL_INT));
+	TG_NULLQUIT(month = tg_castval(month, TG_VAL_INT));
+
+	return tg_intval(_tg_monthend(day->intval, month->intval));
+}
+
+struct tg_val *tg_year(const struct tg_val *d)
+{
+	int year;
+
+	TG_NULLQUIT(d = tg_castval(d, TG_VAL_STRING));
+
+	if (!tg_dateformat(d->strval.str, NULL, NULL, &year))
+		return tg_emptyval();
+
+	return tg_intval(year);
+}
+
+struct tg_val *tg_datecmp(const struct tg_val *d1,
+	const struct tg_val *d2)
+{
+	int day1, month1, year1;
+	int day2, month2, year2;
+	
+	TG_NULLQUIT(d1 = tg_castval(d1, TG_VAL_STRING));
+	TG_NULLQUIT(d2 = tg_castval(d2, TG_VAL_STRING));
+
+	if (!tg_dateformat(d1->strval.str, &day1, &month1, &year1))
+		return tg_emptyval();
+
+	if (!tg_dateformat(d2->strval.str, &day2, &month2, &year2))
+		return tg_emptyval();
+
+	if (year1 < year2)
+		return tg_intval(-1);
+	else if (year1 > year2)
+		return tg_intval(1);
+	else if (month1 < month2)
+		return tg_intval(-1);
+	else if (month1 > month2)
+		return tg_intval(1);
+	else if (day1 < day2)
+		return tg_intval(-1);
+	else if (day1 > day2)
+		return tg_intval(1);
+		
+	return tg_intval(0);
+}
+
+static int tg_datedays(int day, int month, int year)
+{
+	int m[13] = {0, 31, 59, 90, 120, 151, 181, 212,
+		243, 273, 304, 334, 365};
+	
+	return (365 * (year - 1) + m[month] + day
+		+ year / 4 + year / 400 - year / 100);
+}
+
+struct tg_val *tg_datediff(const struct tg_val *d1,
+	const struct tg_val *d2, const struct tg_val *p)
+{
+	int day1, month1, year1;
+	int day2, month2, year2;
+	
+	TG_NULLQUIT(d1 = tg_castval(d1, TG_VAL_STRING));
+	TG_NULLQUIT(d2 = tg_castval(d2, TG_VAL_STRING));
+	TG_NULLQUIT(p = tg_castval(p, TG_VAL_STRING));
+
+	if (!tg_dateformat(d1->strval.str, &day1, &month1, &year1))
+		return tg_emptyval();
+
+	if (!tg_dateformat(d2->strval.str, &day2, &month2, &year2))
+		return tg_emptyval();
+
+	if (strcmp(d1->strval.str, "day") == 0) {
+		return tg_intval(tg_datedays(day2, month2, year2)
+			- tg_datedays(day1, month1, year1));
+	}
+	else if (strcmp(d1->strval.str, "month") == 0) {
+		return tg_intval((year2 - year1) * 12
+			+ month2 - month1);
+	}
+	else if (strcmp(d1->strval.str, "year") == 0)
+		return tg_intval(year2 - year1);
+
+	return tg_emptyval();
+}
+
+struct tg_val *tg_dateadd(const struct tg_val *d,
+	const struct tg_val *v, const struct tg_val *p)
+{
+	
+	return tg_emptyval();
+}
+
+// redefine through tg_arrset?
+void tg_arrpush(struct tg_val *arr, const struct tg_val *v)
+{
+	struct tg_val *newv;
+
+	TG_ASSERT(arr != NULL, "Cannot push to value");
+	TG_ASSERT(!tg_isscalar(arr->type), "Cannot push to value");
+	TG_ASSERT(v != NULL, "Cannot push to value");
+
+	newv = tg_copyval(v);
+	newv->arrpos = arr->arrval.arr.cnt;
+
+	tg_darrpush(&(arr->arrval.arr), &newv);
+}
+
+void tg_arrset(struct tg_val *arr, int p, const struct tg_val *v)
+{
+	struct tg_val *newv;
+
+	TG_ASSERT(arr != NULL, "Cannot set array value");
+	TG_ASSERT(!tg_isscalar(arr->type), "Cannot set array value");
+	TG_ASSERT(v != NULL, "Cannot set array value");
+	
+	if (p >= arr->arrval.arr.cnt) {
+		int i;
+
+		for (i = arr->arrval.arr.cnt; i < p; ++i) {
+			newv = tg_emptyval();
+			newv->arrpos = i;
+			tg_darrset(&(arr->arrval.arr), i, &newv);
+		}
+	}
+
+	newv = tg_copyval(v);
+	newv->arrpos = p;
+
+	tg_darrset(&(arr->arrval.arr), p, &newv);
 }
 
 struct tg_val *tg_arrgetr(const struct tg_val *v, int i)
@@ -920,6 +1219,23 @@ struct tg_val *tg_arrgete(struct tg_val *v, int i,
 		return tg_copyval(e);
 
 	return tg_copyval(r);
+}
+
+void tg_arrseth(struct tg_val *arr, const char *k, const struct tg_val *v)
+{
+	struct tg_val *newv;
+
+	TG_ASSERT(arr != NULL, "Cannot set array value");
+	TG_ASSERT(!tg_isscalar(arr->type), "Cannot set array value");
+	TG_ASSERT(v != NULL, "Cannot set array value");
+
+	newv = tg_copyval(v);
+	newv->ishashed = 1;
+	newv->arrpos = arr->arrval.arr.cnt;
+	
+	tg_darrpush(&(arr->arrval.arr), &newv);
+	
+	tg_hashset(TG_HASH_ARRAY, &(arr->arrval.hash), k, newv);	
 }
 
 struct tg_val *tg_arrgethr(const struct tg_val *v, const char *k)
@@ -1137,11 +1453,8 @@ struct tg_val *tg_valnextto(const struct tg_val *v1,
 	TG_ASSERT(v1 != NULL, "Cannot make complex table");
 	TG_ASSERT(v2 != NULL, "Cannot make complex table");
 
-	if ((vc1 = tg_castval(v1, TG_VAL_TABLE)) == NULL)
-		return NULL;
-
-	if ((vc2 = tg_castval(v2, TG_VAL_TABLE)) == NULL)
-		return NULL;
+	TG_NULLQUIT((vc1 = tg_castval(v1, TG_VAL_TABLE)));
+	TG_NULLQUIT((vc2 = tg_castval(v2, TG_VAL_TABLE))); 
 
 	t1rows = tg_valgetattr(vc1, "rows")->intval;
 	t1cols = tg_valgetattr(vc1, "cols")->intval;

@@ -1,0 +1,13 @@
+function printval(n, v)
+{
+	print(n ~ ": "); dumpval(v); print("\n");
+}
+
+a[3] = "jas";
+a[4] = 2923;
+a[7] = "sdsdds";
+a["sd"] = 41;
+
+b = a[5.."sd"];
+
+printval("b: ", b);
