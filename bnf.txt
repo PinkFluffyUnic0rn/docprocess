@@ -32,9 +32,10 @@ address		-> val [index | attr]*
 val		-> call | '(' expr ')' | float | int | string
 call		-> id [args]
 args		-> '(' assign [',' assign]* ')'
-index		-> '[' filter [',' filter]* ']'
-filter 		-> assign | range
+index		-> '[' inxedexrp [',' inxedexrp]* ']'
+inxedexrp	-> assign | range | filter
 range		-> assign '..' assign
+filter		-> '{' assign '}'
 attr		-> '.' id
 
 id		-> /^[a-zA-Z_]+[a-zA-Z_0-9]*/

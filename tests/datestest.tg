@@ -1,0 +1,115 @@
+function printval(n, v)
+{
+	print(n ~ ": "); dumpval(v); print("\n");
+}
+
+printval("rudate(12, 4, 2022)", rudate(12, 4, 2022));
+printval("rudate(12, 13, 2022)", rudate(12, 13, 2022));
+printval("rudate(-12, 13, 2022)", rudate(12, 13, 2022));
+printval("rudate(29, 2, 2022)", rudate(12, 13, 2022));
+printval("rudate(29, 2, 2020)", rudate(29, 2, 2020));
+print("\n");
+
+printval("day(\"23.08.2022\")", day("23.08.2022"));
+printval("month(\"23.08.2022\")", month("23.08.2022"));
+printval("year(\"23.08.2022\")", year("23.08.2022"));
+print("\n");
+
+printval("day(\"2022-08-23\")", day("2022-08-23"));
+printval("month(\"2022-08-23\")", month("2022-08-23"));
+printval("year(\"2022-08-23\")", year("2022-08-23"));
+print("\n");
+
+printval("day(\"29.02.2020\")", day("29.02.2020"));
+printval("month(\"29.02.2020\")", month("29.02.2020"));
+printval("year(\"29.02.2020\")", year("29.02.2020"));
+print("\n");
+
+printval("day(\"29.02.2021\")", day("29.02.2021"));
+printval("month(\"29.02.2021\")", month("29.02.2021"));
+printval("year(\"29.02.2021\")", year("29.02.2021"));
+print("\n");
+
+printval("weekday(\"01.01.2022\")", weekday("01.01.2022"));
+printval("weekday(\"23.08.2022\")", weekday("23.08.2022"));
+printval("weekday(\"29.02.2020\")", weekday("29.02.2020"));
+printval("weekday(\"29.02.2021\")", weekday("29.02.2021"));
+print("\n");
+
+printval("monthend(6, 2022)", monthend(6, 2022));
+printval("monthend(2, 2022)", monthend(2, 2022));
+printval("monthend(1, 2022)", monthend(1, 2022));
+printval("monthend(4, 2020)", monthend(4, 2020));
+printval("monthend(2, 2020)", monthend(2, 2020));
+printval("monthend(2, 2021)", monthend(2, 2021));
+print("\n");
+
+printval("datecmp(\"23.12.2021\", \"23.12.2021\")",
+	datecmp("23.12.2021", "23.12.2021"));
+printval("datecmp(\"23.11.2021\", \"23.12.2021\")",
+	datecmp("23.11.2021", "23.12.2021"));
+printval("datecmp(\"12.12.2021\", \"23.12.2021\")",
+	datecmp("12.12.2021", "23.12.2021"));
+printval("datecmp(\"12.12.2021\", \"23.09.2021\")",
+	datecmp("12.12.2021", "23.09.2021"));
+printval("datecmp(\"23.12.2021\", \"23.12.2015\")",
+	datecmp("23.12.2021", "23.12.2015"));
+print("\n");
+
+printval("datediff(\"23.12.2021\", \"23.12.2021\", \"day\")",
+	datediff("23.12.2021", "23.12.2021", "day"));
+printval("datediff(\"23.11.2021\", \"23.12.2021\", \"month\")",
+	datediff("23.11.2021", "23.12.2021", "month"));
+printval("datediff(\"12.12.2021\", \"23.12.2021\", \"day\")",
+	datediff("12.12.2021", "23.12.2021", "day"));
+printval("datediff(\"12.12.2021\", \"23.09.2021\", \"month\")",
+	datediff("12.12.2021", "23.09.2021", "month"));
+printval("datediff(\"23.12.2021\", \"23.12.2015\", \"year\")",
+	datediff("23.12.2021", "23.12.2015", "year"));
+print("\n");
+
+printval("dateadd(\"23.12.2021\", 3, \"day\")",
+	dateadd("23.12.2021", 3, "day"));
+printval("dateadd(\"27.12.2021\", 5, \"day\")",
+	dateadd("27.12.2021", 5, "day"));
+printval("dateadd(\"23.11.2021\", 2, \"month\")",
+	dateadd("23.11.2021", 2, "month"));
+printval("dateadd(\"12.12.2021\", 71, \"day\")",
+	dateadd("12.12.2021", 71, "day"));
+printval("dateadd(\"12.12.2021\", 18, \"month\")",
+	dateadd("12.12.2021", 18, "month"));
+printval("dateadd(\"23.12.2021\", 5, \"year\")",
+	dateadd("23.12.2021", 5, "year"));
+print("\n");
+
+printval("dateadd(\"23.12.2021\", -3, \"day\")",
+	dateadd("23.12.2021", -3, "day"));
+printval("dateadd(\"03.12.2021\", -5, \"day\")",
+	dateadd("03.12.2021", -5, "day"));
+printval("dateadd(\"03.01.2021\", -5, \"day\")",
+	dateadd("03.01.2021", -5, "day"));
+printval("dateadd(\"23.11.2021\", -2, \"month\")",
+	dateadd("23.11.2021", -2, "month"));
+printval("dateadd(\"12.01.2021\", -3, \"month\")",
+	dateadd("12.01.2021", -3, "month"));
+printval("dateadd(\"23.12.2021\", -5, \"year\")",
+	dateadd("23.12.2021", -5, "year"));
+print("\n");
+
+printval("weekfrom(4, 2022)", weekfrom(4, 2022));
+printval("weekto(4, 2022)", weekto(4, 2022));
+printval("weekfrom(7, 2022)", weekfrom(7, 2022));
+printval("weekto(7, 2022)", weekto(7, 2022));
+printval("weekfrom(12, 2022)", weekfrom(12, 2022));
+printval("weekto(12, 2022)", weekto(12, 2022));
+printval("weekfrom(11, 2021)", weekfrom(11, 2021));
+printval("weekto(11, 2021)", weekto(11, 2021));
+printval("weekfrom(2, 2022)", weekfrom(2, 2022));
+printval("weekto(2, 2022)", weekto(2, 2022));
+printval("weekfrom(6, 2022)", weekfrom(6, 2022));
+printval("weekto(6, 2022)", weekto(6, 2022));
+printval("weekfrom(1, 2022)", weekfrom(1, 2022));
+printval("weekto(1, 2022)", weekto(1, 2022));
+
+print("\n");
+

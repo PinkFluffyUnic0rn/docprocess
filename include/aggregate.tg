@@ -1,10 +1,10 @@
 function csum(t)
 {
-	r = EMPTY;
-	for (i in t columns) {
+	r = empty;
+	for (i in t) {
 		s = 0;
 
-		for (j in i)
+		for (j in i columns)
 			s = s + j;
 
 		r = r <- s;
@@ -15,7 +15,7 @@ function csum(t)
 
 function rsum(t)
 {
-	r = EMPTY;
+	r = empty;
 	for (i in t) {
 		s = 0;
 
@@ -30,7 +30,7 @@ function rsum(t)
 
 function cmin(t)
 {
-	r = EMPTY;
+	r = empty;
 	for (i in t columns) {
 		m = i[1][];
 
@@ -45,7 +45,7 @@ function cmin(t)
 
 function rmin(t)
 {
-	r = EMPTY;
+	r = empty;
 	for (i in t) {
 		m = i[][1];
 
@@ -60,7 +60,7 @@ function rmin(t)
 
 function cmax(t)
 {
-	r = EMPTY;
+	r = empty;
 	for (i in t columns) {
 		m = i[1][];
 
@@ -75,7 +75,7 @@ function cmax(t)
 
 function rmax(t)
 {
-	r = EMPTY;
+	r = empty;
 	for (i in t) {
 		m = i[][1];
 

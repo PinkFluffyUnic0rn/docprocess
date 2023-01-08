@@ -883,26 +883,6 @@ static int tg_datepart2numn(const char *s, size_t l)
 	return atoi(b);
 }
 
-struct tg_val *tg_rudate(const struct tg_val *day,
-	const struct tg_val *month, const struct tg_val *year)
-{
-	struct tg_val *r;
-
-	TG_NULLQUIT(day = tg_castval(day, TG_VAL_STRING));
-	TG_NULLQUIT(month = tg_castval(month, TG_VAL_STRING));
-	TG_NULLQUIT(year = tg_castval(year, TG_VAL_STRING));
-
-	r = tg_stringval("");
-
-	tg_dstraddstr(&(r->strval), day->strval.str);
-	tg_dstraddstr(&(r->strval), ".");
-	tg_dstraddstr(&(r->strval), month->strval.str);
-	tg_dstraddstr(&(r->strval), ".");
-	tg_dstraddstr(&(r->strval), year->strval.str);
-
-	return r;
-}
-
 static int tg_isyearleap(int y)
 {
 	return ((y % 4) ? 0 : ((y % 100) ? 1 : ((y % 400) ? 0 : 1)));
@@ -918,6 +898,35 @@ static int _tg_monthend(int month, int year)
 	return e[month] + (month == 2 && tg_isyearleap(year) ? 1 : 0);
 }
 
+struct tg_val *_tg_rudate(int day, int month, int year)
+{
+	char buf[16];
+	
+	sprintf(buf, "%02d.%02d.%04d", day, month, year);
+
+	return tg_stringval(buf);
+}
+
+struct tg_val *tg_rudate(const struct tg_val *d,
+	const struct tg_val *m, const struct tg_val *y)
+{
+	int day, month, year;
+
+	TG_NULLQUIT(d = tg_castval(d, TG_VAL_INT));
+	TG_NULLQUIT(m = tg_castval(m, TG_VAL_INT));
+	TG_NULLQUIT(y = tg_castval(y, TG_VAL_INT));
+
+	day = d->intval;
+	month = m->intval;
+	year = y->intval;
+
+	if (month <= 0 || month > 12 || day <= 0
+		|| day > _tg_monthend(month, year))
+		return tg_emptyval();
+
+	return _tg_rudate(day, month, year);	
+}
+
 static int tg_dateformat(const char *s,
 	int *d, int *m, int *y)
 {
@@ -926,39 +935,36 @@ static int tg_dateformat(const char *s,
 
 	if ((c = strchr(s, '-')) != NULL) {
 		year = tg_datepart2numn(s, c - s);
-		s = c;
+		s = c + 1;
 	
 		if ((c = strchr(s, '-')) == NULL)
 			return 0;
 		month = tg_datepart2numn(s, c - s);
-		s = c;
+		s = c + 1;
 
-		c = s + strlen(s);
-		day = tg_datepart2numn(s, c - s);
+		day = tg_datepart2numn(s, strlen(s));
 	}
 	else if ((c = strchr(s, '.')) != NULL) {
 		day = tg_datepart2numn(s, c - s);
-		s = c;
-	
+		s = c + 1;
+
 		if ((c = strchr(s, '.')) == NULL)
 			return 0;
 		month = tg_datepart2numn(s, c - s);
-		s = c;
-
-		c = s + strlen(s);
-		year = tg_datepart2numn(s, c - s);
+		s = c + 1;
+	
+		year = tg_datepart2numn(s, strlen(s));
 	}
 	else if ((c = strchr(s, '/')) != NULL) {
 		month = tg_datepart2numn(s, c - s);
-		s = c;
+		s = c + 1;
 	
 		if ((c = strchr(s, '/')) == NULL)
 			return 0;
 		day = tg_datepart2numn(s, c - s);
-		s = c;
+		s = c + 1;
 
-		c = s + strlen(s);
-		year = tg_datepart2numn(s, c - s);
+		year = tg_datepart2numn(s, strlen(s));
 	}
 
 	if (month <= 0 || month > 12)
@@ -968,8 +974,8 @@ static int tg_dateformat(const char *s,
 		return 0;
 
 	if (d != NULL) *d = day;
-	if (m != NULL) *m = year;
-	if (y != NULL) *y = month;
+	if (m != NULL) *m = month;
+	if (y != NULL) *y = year;
 
 	return 1;
 }
@@ -979,7 +985,7 @@ struct tg_val *tg_day(const struct tg_val *d)
 	int day;
 
 	TG_NULLQUIT(d = tg_castval(d, TG_VAL_STRING));
-
+	
 	if (!tg_dateformat(d->strval.str, &day, NULL, NULL))
 		return tg_emptyval();
 
@@ -996,6 +1002,18 @@ struct tg_val *tg_month(const struct tg_val *d)
 		return tg_emptyval();
 
 	return tg_intval(month);
+}
+
+struct tg_val *tg_year(const struct tg_val *d)
+{
+	int year;
+
+	TG_NULLQUIT(d = tg_castval(d, TG_VAL_STRING));
+
+	if (!tg_dateformat(d->strval.str, NULL, NULL, &year))
+		return tg_emptyval();
+
+	return tg_intval(year);
 }
 
 struct tg_val *tg_weekday(const struct tg_val *d)
@@ -1022,25 +1040,13 @@ struct tg_val *tg_weekday(const struct tg_val *d)
 	return tg_intval(((h + 5) % 7) + 1);
 }
 
-struct tg_val *tg_monthend(const struct tg_val *day,
-	const struct tg_val *month)
+struct tg_val *tg_monthend(const struct tg_val *month,
+	const struct tg_val *year)
 {
-	TG_NULLQUIT(day = tg_castval(day, TG_VAL_INT));
 	TG_NULLQUIT(month = tg_castval(month, TG_VAL_INT));
+	TG_NULLQUIT(year = tg_castval(year, TG_VAL_INT));
 
-	return tg_intval(_tg_monthend(day->intval, month->intval));
-}
-
-struct tg_val *tg_year(const struct tg_val *d)
-{
-	int year;
-
-	TG_NULLQUIT(d = tg_castval(d, TG_VAL_STRING));
-
-	if (!tg_dateformat(d->strval.str, NULL, NULL, &year))
-		return tg_emptyval();
-
-	return tg_intval(year);
+	return tg_intval(_tg_monthend(month->intval, year->intval));
 }
 
 struct tg_val *tg_datecmp(const struct tg_val *d1,
@@ -1099,15 +1105,15 @@ struct tg_val *tg_datediff(const struct tg_val *d1,
 	if (!tg_dateformat(d2->strval.str, &day2, &month2, &year2))
 		return tg_emptyval();
 
-	if (strcmp(d1->strval.str, "day") == 0) {
+	if (strcmp(p->strval.str, "day") == 0) {
 		return tg_intval(tg_datedays(day2, month2, year2)
 			- tg_datedays(day1, month1, year1));
 	}
-	else if (strcmp(d1->strval.str, "month") == 0) {
+	else if (strcmp(p->strval.str, "month") == 0) {
 		return tg_intval((year2 - year1) * 12
 			+ month2 - month1);
 	}
-	else if (strcmp(d1->strval.str, "year") == 0)
+	else if (strcmp(p->strval.str, "year") == 0)
 		return tg_intval(year2 - year1);
 
 	return tg_emptyval();
@@ -1116,23 +1122,48 @@ struct tg_val *tg_datediff(const struct tg_val *d1,
 struct tg_val *tg_dateadd(const struct tg_val *d,
 	const struct tg_val *v, const struct tg_val *p)
 {
+	int day, month, year;
 	
-	return tg_emptyval();
-}
+	TG_NULLQUIT(d = tg_castval(d, TG_VAL_STRING));
+	TG_NULLQUIT(v = tg_castval(v, TG_VAL_INT));
+	TG_NULLQUIT(p = tg_castval(p, TG_VAL_STRING));
 
-// redefine through tg_arrset?
-void tg_arrpush(struct tg_val *arr, const struct tg_val *v)
-{
-	struct tg_val *newv;
+	if (!tg_dateformat(d->strval.str, &day, &month, &year))
+		return tg_emptyval();
 
-	TG_ASSERT(arr != NULL, "Cannot push to value");
-	TG_ASSERT(!tg_isscalar(arr->type), "Cannot push to value");
-	TG_ASSERT(v != NULL, "Cannot push to value");
+	if (strcmp(p->strval.str, "day") == 0)
+		day += v->intval;
+	else if (strcmp(p->strval.str, "month") == 0)
+		month += v->intval;
+	else if (strcmp(p->strval.str, "year") == 0)
+		year += v->intval;
 
-	newv = tg_copyval(v);
-	newv->arrpos = arr->arrval.arr.cnt;
+	while (day <= 0 || month <= 0 || month > 12
+			|| day > _tg_monthend(month, year)) {
+		if (day <= 0) {
+			year = month > 1 ? year : year - 1;
+			month = month > 1 ? month - 1 : 12;
+			day += _tg_monthend(month, year);
+		}
 
-	tg_darrpush(&(arr->arrval.arr), &newv);
+		if (month <= 0) {
+			month += 12;
+			--year;
+		}
+
+		if (month > 0 && month <= 12
+				&& day > _tg_monthend(month, year)) {
+			day -= _tg_monthend(month, year);
+			++month;
+		}
+
+		if (month > 12) {
+			month -= 12;
+			++year;
+		}
+	}
+
+	return _tg_rudate(day, month, year);
 }
 
 void tg_arrset(struct tg_val *arr, int p, const struct tg_val *v)
@@ -1159,6 +1190,15 @@ void tg_arrset(struct tg_val *arr, int p, const struct tg_val *v)
 	tg_darrset(&(arr->arrval.arr), p, &newv);
 }
 
+void tg_arrpush(struct tg_val *arr, const struct tg_val *v)
+{
+	TG_ASSERT(arr != NULL, "Cannot push to value");
+	TG_ASSERT(!tg_isscalar(arr->type), "Cannot push to value");
+	TG_ASSERT(v != NULL, "Cannot push to value");
+
+	tg_arrset(arr, arr->arrval.arr.cnt, v);
+}
+
 struct tg_val *tg_arrgetr(const struct tg_val *v, int i)
 {
 	struct tg_val **r;
@@ -1177,20 +1217,18 @@ struct tg_val *tg_arrgetr(const struct tg_val *v, int i)
 struct tg_val *tg_arrgetre(struct tg_val *v, int i,
 	const struct tg_val *e)
 {
-	struct tg_val **r;
+	struct tg_val *r;
 
 	TG_ASSERT(v != NULL, "Cannot get array value");
 	TG_ASSERT(!tg_isscalar(v->type), "Cannot get array value");
 	TG_ASSERT(e != NULL, "Cannot get array value");
 
-	r = tg_darrget(&(v->arrval.arr), i);
-	
-	if (r == NULL) {
+	if ((r = tg_arrgetr(v, i)) == NULL) {
 		tg_arrset(v, i, e);
 		return tg_arrgetr(v, i);
 	}
 
-	return *((struct tg_val **) r);
+	return r;
 }
 
 struct tg_val *tg_arrget(const struct tg_val *v, int i)

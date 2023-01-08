@@ -139,8 +139,8 @@ struct tg_val *tg_day(const struct tg_val *d);
 struct tg_val *tg_month(const struct tg_val *d);
 struct tg_val *tg_year(const struct tg_val *d);
 struct tg_val *tg_weekday(const struct tg_val *d);
-struct tg_val *tg_monthend(const struct tg_val *day,
-	const struct tg_val *month);
+struct tg_val *tg_monthend(const struct tg_val *month,
+	const struct tg_val *year);
 struct tg_val *tg_datecmp(const struct tg_val *d1,
 	const struct tg_val *d2);
 struct tg_val *tg_datediff(const struct tg_val *d1,
@@ -153,8 +153,8 @@ struct tg_val *tg_tablegetcellr(struct tg_val *t, int row, int col);
 struct tg_val *tg_tablegetcellre(struct tg_val *t,
 	int row, int col, struct tg_val *e);
 
-void tg_arrpush(struct tg_val *arr, const struct tg_val *v);
 void tg_arrset(struct tg_val *arr, int i, const struct tg_val *v);
+void tg_arrpush(struct tg_val *arr, const struct tg_val *v);
 
 struct tg_val *tg_arrgetr(const struct tg_val *v, int i);
 struct tg_val *tg_arrgetre(struct tg_val *v, int i,
