@@ -51,7 +51,7 @@ struct tg_val *tg_csvtoken(FILE *f)
 
 		return tg_emptyval();
 	}
-	else if (c == '\"') {
+	else if (c == '"') {
 		struct tg_val *r;
 		int cc;
 
@@ -65,9 +65,12 @@ struct tg_val *tg_csvtoken(FILE *f)
 					TG_SETERROR("Unexpected EOF.");
 					return NULL;
 				}
-				else
-					return r;
+				else {
+					if (ungetc(cc, file) == EOF)
+						goto ioerror;
 
+					return r;
+				}
 			}
 			else
 				tg_dstraddstrn(&(r->strval), (char *) &cc, 1);
@@ -83,7 +86,7 @@ struct tg_val *tg_csvtoken(FILE *f)
 	
 	tg_dstraddstrn(&(r->strval), (char *) &c, 1);
 	while ((cc = fgetc(file)) != EOF) {
-		if (cc == '\"' || cc == ';' || cc == '\n') {
+		if (cc == '"' || cc == ';' || cc == '\n') {
 			if (ungetc(cc, file) == EOF)
 				goto ioerror;
 
@@ -106,38 +109,52 @@ ioerror:
 struct tg_val *tg_csvrecord(FILE *f, const struct tg_val *h)
 {
 	struct tg_val *s, *r;
+	struct tg_dstring str;
 	int p;
 
 	r = tg_createval(TG_VAL_ARRAY);
 
+	tg_dstrcreate(&str, "");
+	
 	p = 0;
 	while ((s = tg_csvtoken(f)) != NULL) {
-		if (s->type == TG_VAL_EMPTY)
-			return s;
-		else if (s->type == TG_VAL_INT && s->intval == 1)
-			++p;
-		else if (s->type == TG_VAL_INT && s->intval == 2)
-			return r;
-		else {
-			struct tg_val *v;	
+		if (s->type == TG_VAL_EMPTY) {
+			r = tg_emptyval();
+			break;
+		}
+		else if (s->type == TG_VAL_INT) {
+			struct tg_val *v;
 
 			if (h != NULL) {
 				if ((v = tg_arrget(h, p)) == NULL) {
 					TG_SETERROR("Header string doesn't have enough values.");
-					return NULL;
+					r = NULL;
+					break;
 				}
 
 				v = tg_castval(v, TG_VAL_STRING);
-				v = tg_arrgethre(r, v->strval.str, tg_stringval(""));
+
+				tg_arrseth(r, v->strval.str, tg_stringval(str.str));
 			}
 			else
-				v = tg_arrgetre(r, p, tg_stringval(""));
-			
-			tg_dstraddstr(&(v->strval), s->strval.str);
+				tg_arrset(r, p, tg_stringval(str.str));
+				
+			tg_dstrdestroy(&str);
+			tg_dstrcreate(&str, "");
+
+			++p;
+	
+			if (s->intval == 2) {
+				tg_dstrdestroy(&str);
+				break;
+			}
 		}
+		else
+			tg_dstraddstr(&str, s->strval.str);
 	}
 
-	return NULL;
+	tg_dstrdestroy(&str);
+	return r;
 }
 
 struct tg_val *tg_csv2table(FILE *f)
@@ -147,11 +164,11 @@ struct tg_val *tg_csv2table(FILE *f)
 	r = tg_createval(TG_VAL_ARRAY);
 	
 	TG_NULLQUIT(h = tg_csvrecord(f, NULL));
-
+	
 	while ((rr = tg_csvrecord(f, h)) != NULL) {
 		if (rr->type == TG_VAL_EMPTY)
 			return tg_castval(r, TG_VAL_TABLE);
-
+		
 		tg_arrpush(r, rr);
 	}
 

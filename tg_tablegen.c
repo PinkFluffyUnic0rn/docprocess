@@ -270,7 +270,10 @@ static struct tg_val *tg_setlvalue(int ni, const struct tg_val *v)
 
 		if((idx = tg_runnode(eni)) == NULL)
 			goto notlvalue;
-	
+
+		if (!tg_isscalar(idx->type))
+			goto notlvalue;
+
 		tg_darrset(&idxr, i, &idx);
 	}
 
@@ -878,6 +881,9 @@ static struct tg_val *tg_getindexexpr(int fni, const struct tg_val *a)
 	struct tg_val *idx;
 
 	TG_NULLQUIT(idx = tg_runnode(fni));
+
+	if (!tg_isscalar(idx->type))
+		return tg_emptyval();
 
 	if (idx->type == TG_VAL_INT) {
 		if ((a = tg_arrgetr(a, idx->intval)) == NULL)

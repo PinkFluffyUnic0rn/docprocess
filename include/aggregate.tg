@@ -1,25 +1,25 @@
 function csum(t)
 {
 	r = empty;
-	for (i in t columns) {
-		s = 0;
 
-		for (j in i)
-			s = s + j;
+	for (row in t) {
 
-		r = r <- s;
+		for (j = 0; j < size(row); ++j) {
+			r[0][j] = r[0][j] + row[j];
+
+		}
 	}
-
+	
 	return r;
 }
 
 function rsum(t)
 {
 	r = empty;
-	for (i in t) {
+	for (row in t) {
 		s = 0;
 
-		for (j in i columns)
+		for (j in row)
 			s = s + j;
 
 		r = r ^ s;
@@ -31,14 +31,15 @@ function rsum(t)
 function cmin(t)
 {
 	r = empty;
-	for (i in t columns) {
-		m = i[1][];
 
-		for (j in i)
-			if (j < m) m = j;
+	for (i = 0; i < size(t[0]); ++i)
+		r[0][i] = t[0][i];
 
-		r = r <- m;
-	}
+	for (row in t)
+		for (j = 0; j < size(row); ++j) {
+			if (row[j] < r[0][j])
+				r[0][j] = row[j];
+		}
 
 	return r;
 }
@@ -46,10 +47,10 @@ function cmin(t)
 function rmin(t)
 {
 	r = empty;
-	for (i in t) {
-		m = i[][1];
+	for (row in t) {
+		m = row[0];
 
-		for (j in i columns)
+		for (j in row)
 			if (j < m) m = j;
 
 		r = r ^ m;
@@ -61,14 +62,15 @@ function rmin(t)
 function cmax(t)
 {
 	r = empty;
-	for (i in t columns) {
-		m = i[1][];
 
-		for (j in i)
-			if (j > m) m = j;
+	for (i = 0; i < size(t[0]); ++i)
+		r[0][i] = t[0][i];
 
-		r = r <- m;
-	}
+	for (row in t)
+		for (j = 0; j < size(row); ++j) {
+			if (row[j] > r[0][j])
+				r[0][j] = row[j];
+		}
 
 	return r;
 }
@@ -76,10 +78,10 @@ function cmax(t)
 function rmax(t)
 {
 	r = empty;
-	for (i in t) {
-		m = i[][1];
+	for (row in t) {
+		m = row[0];
 
-		for (j in i columns)
+		for (j in row)
 			if (j > m) m = j;
 
 		r = r ^ m;

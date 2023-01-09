@@ -275,15 +275,16 @@ struct tg_val *tg_castval(const struct tg_val *v,
 {
 	struct tg_val *newv;
 	enum TG_VALTYPE vt;
-
+	
 	TG_ASSERT(v != NULL, "Cannot cast value");
 
 	vt = v->type;
-
+	
 	if (t == TG_VAL_EMPTY)
 		return tg_emptyval();
-	else if (vt == TG_VAL_EMPTY)
+	else if (vt == TG_VAL_EMPTY) {
 		newv = tg_createval(t);
+	}
 	else if (vt == TG_VAL_INT && t == TG_VAL_FLOAT) {
 		newv = tg_createval(t);
 		newv->floatval = (float) v->intval;
@@ -718,8 +719,8 @@ struct tg_val *_tg_numop(const struct tg_val *v1,
 	TG_ASSERT(v1 != NULL, "Cannot operate on numbers");
 	TG_ASSERT(v2 != NULL, "Cannot operate on numbers");
 
-	TG_NULLQUIT(tg_typeprom2val(v1, v2->type, TG_VAL_FLOAT));
-	TG_NULLQUIT(tg_typeprom2val(v2, v1->type, TG_VAL_FLOAT));
+	TG_NULLQUIT(v1 = tg_typeprom2val(v1, v2->type, TG_VAL_FLOAT));
+	TG_NULLQUIT(v2 = tg_typeprom2val(v2, v1->type, TG_VAL_FLOAT));
 
 	r = tg_createval(v1->type);
 
