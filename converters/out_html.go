@@ -10,27 +10,6 @@ import "strconv"
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Println(`<!DOCTYPE html>				
-<html>								
-<head>								
-	<meta charset="utf-8">				
-	<style>							
-		table, th, td {					
-			background-color: #DCDCDC;		
-			border-collapse: collapse;		
-			border: 1px solid black;		
-			text-align: center;			
-		}						
-		.block {					
-			word-wrap: break-word;			
-			overflow: hidden;			
-			text-overflow: ellipsis;		
-			max-height: 200px;			
-		}						
-	</style>						
-</head>		
-<body>`)
-
 	s := "";
 	for {
 		text, err := reader.ReadString('\n')
@@ -140,5 +119,4 @@ func main() {
 	}
 
 	fmt.Printf("</table>\n");
-	fmt.Printf("</body>\n");
 }
