@@ -22,7 +22,7 @@ const char *tg_strsym[] = {
 	"identificator", "integer", "float", "quoted string",
 	"relational operator", "(", ")", "&", "|", "~", ",", "!",
 	"increment or decrement operator", ";", ":", "cell reference",
-	"addition or substraction operator",
+	"%", "addition or substraction operator",
 	"multiplication or division operator", "..",
 	"assignment operator", "?", "next to operator", "empty",
 	"global", "function", "for", "if", "else", "continue", "break",
@@ -377,7 +377,7 @@ static void tg_nexttoken(struct tg_token *t)
 	}
 	else if (c == '%') {
 		v = "%";
-		type = TG_T_REFOP;
+		type = TG_T_PERCENT;
 	}
 	else if (c == '~') {
 		if (tg_peekc() == '=') {
@@ -901,6 +901,11 @@ static int tg_index(int ni)
 {
 	struct tg_token t;
 
+	if (tg_peektoken(&t) == TG_T_PERCENT) {
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_PERCENT));
+		TG_ERRQUIT(tg_nodeadd(ni, TG_T_PERCENT, &t));
+	}
+
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LBRK));
 	TG_ERRQUIT(tg_filter(ni));
 
@@ -937,9 +942,11 @@ static int tg_address(int ni)
 	TG_ERRQUIT(tg_val(ni));
 
 	while ((type = tg_peektoken(&t)) == TG_T_LPAR
-		|| type == TG_T_LBRK || type == TG_T_DOT) {
+		|| type == TG_T_PERCENT	|| type == TG_T_LBRK
+		|| type == TG_T_DOT) {
 		switch (type) {
 		case TG_T_LBRK:
+		case TG_T_PERCENT:
 			TG_ERRQUIT(ini = tg_nodeadd(ni,
 				TG_N_INDEX, NULL));
 			TG_ERRQUIT(tg_index(ini));

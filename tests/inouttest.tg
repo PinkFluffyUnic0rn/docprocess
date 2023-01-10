@@ -1,0 +1,16 @@
+a = test();
+
+b = empty;
+for (row in a) {
+	r = empty;
+	for (col in row)
+		r = r <- float(col);
+
+
+	b = b ^ r;
+}
+
+dumpval(a[{$("ОСП") > 8718}]%["ОСП","СПИ"]);
+print("\n");
+
+return a;

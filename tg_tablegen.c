@@ -851,7 +851,7 @@ static struct tg_val *tg_getindexfilter(int fni, const struct tg_val *a)
 	struct tg_val *v, *b;
 	struct tg_val *r;
 	int i;
-	
+
 	fni = tg_nodechild(fni, 0);
 	
 	r = tg_createval(TG_VAL_ARRAY);
@@ -885,6 +885,9 @@ static struct tg_val *tg_getindexexpr(int fni, const struct tg_val *a)
 	if (!tg_isscalar(idx->type))
 		return tg_emptyval();
 
+	// if row
+	// 	a = arrget(a, row)
+
 	if (idx->type == TG_VAL_INT) {
 		if ((a = tg_arrgetr(a, idx->intval)) == NULL)
 			return tg_emptyval();
@@ -896,6 +899,7 @@ static struct tg_val *tg_getindexexpr(int fni, const struct tg_val *a)
 			return tg_emptyval();
 	}
 
+	// }
 
 	return tg_intval(a->arrpos);
 }
@@ -905,6 +909,8 @@ static struct tg_val *tg_getindexrange(int fni, const struct tg_val *a)
 	struct tg_val *idxb, *idxe;
 	struct tg_val *r;
 	int i;
+
+	// if row -> add it as argument to getindexexpr
 
 	idxb = tg_getindexexpr(tg_nodechild(fni, 0), a);
 	idxe = tg_getindexexpr(tg_nodechild(fni, 1), a);
@@ -937,7 +943,7 @@ static struct tg_val *tg_getindexval(int ini, const struct tg_val *a)
 	struct tg_val *ri, *r, *v;
 	int prevri;
 	int i;
-	
+
 	if (tg_isscalar(a->type))
 		a = tg_castval(a, TG_VAL_ARRAY);
 
@@ -950,15 +956,18 @@ static struct tg_val *tg_getindexval(int ini, const struct tg_val *a)
 
 		fni = tg_nodechild(ini, i);
 
-		if (tg_nodetype(fni) == TG_N_RANGE)
-			rr = tg_getindexrange(fni, a);
-		else if (tg_nodetype(fni) == TG_N_FILTER)
-			rr = tg_getindexfilter(fni, a);
-		else {
-			rr = tg_castval(tg_getindexexpr(fni, a),
-				TG_VAL_ARRAY);
-		}
+		if (tg_nodetype(fni) == TG_T_PERCENT)
+			continue;
 
+		if (tg_nodetype(fni) == TG_N_RANGE)
+			TG_NULLQUIT(rr = tg_getindexrange(fni, a));
+		else if (tg_nodetype(fni) == TG_N_FILTER)
+			TG_NULLQUIT(rr = tg_getindexfilter(fni, a));
+		else {
+			TG_NULLQUIT(rr = tg_getindexexpr(fni, a));
+			TG_NULLQUIT(rr = tg_castval(rr, TG_VAL_ARRAY));
+		}	
+		
 		if (rr->type == TG_VAL_EMPTY)
 			continue;
 
@@ -983,14 +992,40 @@ static struct tg_val *tg_getindexval(int ini, const struct tg_val *a)
 		else
 			tg_arrpush(r, v);	
 	);
-
+	
 	if (r->arrval.arr.cnt == 0)
 		return tg_emptyval();
-
+	
 	if (r->arrval.arr.cnt == 1)
 		return tg_arrget(r, 0);
 
 	return r;
+}
+
+static struct tg_val *tg_getindexvaltable(int ini, const struct tg_val *a)
+{
+	struct tg_val *r;
+	int i;
+	
+	if (tg_nodetype(tg_nodechild(ini, 0)) != TG_T_PERCENT)
+		return tg_getindexval(ini, a);
+
+	if (a->type != TG_VAL_TABLE)
+		a = tg_castval(a, TG_VAL_TABLE);
+
+	r = tg_createval(TG_VAL_ARRAY);
+
+	for (i = 0; i < a->arrval.arr.cnt; ++i) {
+		struct tg_val *v;
+	
+		v = tg_arrgetr(a, i);
+		
+		TG_NULLQUIT(v = tg_getindexval(ini, v));
+
+		tg_arrpush(r, v);
+	}
+
+	return tg_castval(r, TG_VAL_TABLE);
 }
 
 static struct tg_val *tg_address(int ni)
@@ -1012,7 +1047,7 @@ static struct tg_val *tg_address(int ni)
 
 		eni = tg_nodechild(ni, i);
 		if (tg_nodetype(eni) == TG_N_INDEX)
-			TG_NULLQUIT(a = tg_getindexval(eni, a));
+			TG_NULLQUIT(a = tg_getindexvaltable(eni, a));
 		else if (tg_nodetype(eni) == TG_N_ATTR) {
 			const char *attrname;
 	
@@ -1070,6 +1105,11 @@ static struct tg_val *tg_ref(int ni)
 	struct tg_val *r;
 
 	TG_NULLQUIT(r = tg_runnode(tg_nodechild(ni, 0)));
+
+	if (tg_currow.cnt == 0) {
+		TG_WARNING("Attempt to use cell reference outside of index.");
+		return NULL;
+	}
 
 	cr = *((struct tg_val **) tg_darrget(&tg_currow,
 			tg_currow.cnt - 1));

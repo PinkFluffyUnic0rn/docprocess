@@ -32,8 +32,8 @@ address		-> val [index | attr]*
 val		-> call | '(' expr ')' | float | int | string
 call		-> id [args]
 args		-> '(' assign [',' assign]* ')'
-index		-> '[' inxedexrp [',' inxedexrp]* ']'
-inxedexrp	-> assign | range | filter
+index		-> ['%'] '[' indexexrpr ';' indexexrpr ']'
+indedexrp	-> assign | range | filter
 range		-> assign '..' assign
 filter		-> '{' assign '}'
 attr		-> '.' id

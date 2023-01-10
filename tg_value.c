@@ -380,7 +380,7 @@ struct tg_val *tg_castval(const struct tg_val *v,
 	else if (vt == TG_VAL_TABLE && t == TG_VAL_ARRAY) {
 		newv = tg_copyval(v);
 
-		newv->type = TG_VAL_TABLE;
+		newv->type = TG_VAL_ARRAY;
 	}
 	else if (vt == TG_VAL_ARRAY && t == TG_VAL_TABLE) {
 		int cols;
