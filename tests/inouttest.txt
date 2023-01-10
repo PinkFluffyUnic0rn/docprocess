@@ -1,0 +1,42 @@
+#input test csv : tests/test.csv
+
+#table testtable
+a = test();
+
+b = empty;
+for (row in a) {
+	r = empty;
+	for (col in row)
+		r = r <- float(col);
+
+
+	b = b ^ r;
+}
+
+return (a ^ csum(b) ^ cmin(b) ^ cmax(b) <- rsum(b) <- rmax(b) <- rmin(b));
+#end
+
+#document
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<style>
+		table, th, td {
+			background-color: #DCDCDC;
+			border-collapse: collapse;
+			border: 1px solid black;
+			text-align: center;
+		}
+		.block {
+			word-wrap: break-word;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			max-height: 200px;
+		}
+	</style>
+</head>
+<body>
+	*testtable
+</body>
+#end

@@ -1346,7 +1346,8 @@ const char **tg_buildpathv(const char *path, char **buf)
 		p = strtok(NULL, ";");
 	}
 
-	TG_ASSERT((pathv = malloc(patharr.cnt + 1)) != NULL,
+	TG_ASSERT((pathv = malloc(sizeof(const char *)
+			* (patharr.cnt + 1))) != NULL,
 		"Error while allocating memory.");
 
 	for (i = 0; i < patharr.cnt; ++i) {
@@ -1357,7 +1358,9 @@ const char **tg_buildpathv(const char *path, char **buf)
 		
 		TG_ASSERT(f = fopen(p, "r"),
 			"Can't open sources file %s for reading.", p);
-	
+		TG_ASSERT(fclose(f) == 0,
+			"Can't close sources file %s", p);
+
 		pathv[i] = p;
 	}
 
@@ -1365,7 +1368,7 @@ const char **tg_buildpathv(const char *path, char **buf)
 		*buf = s;
 
 	pathv[patharr.cnt] = NULL;
-	
+
 	return pathv;
 }
 

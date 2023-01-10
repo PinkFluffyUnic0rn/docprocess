@@ -12,10 +12,6 @@ function sqltoscript(file,	l, r, ll, d, n)
 		= sprintf("/tmp/%s.%s", Tmpcount, PROCINFO["pid"]);
 
 	print "#!/bin/sh\n\n" >filenew;
-	
-#	print "curl --connect-timeout 15 -Is $3 >/dev/null;\n" >filenew;
-#	print "if [ $? -ne 0 ]; then exit 1; fi;\n" >filenew;
-	
 	print "echo 'set list on;\n" >filenew;
 	
 	while ((r = getline l <file) > 0) {
@@ -54,11 +50,10 @@ function sourcesubst(file,	cmd, filenew)
 	system(sprintf("LC_ALL=C cat %s | awk -f %s/error.awk \
 		-f %s/substitute.awk -f %s/sources.awk \
 		-v 'A_scriptpath=%s' -v 'A_source=%s' \
-		-v 'A_tablegenpath=%s' -v 'A_utilspath=%s' \
-		-v 'A_awktablespath=%s' >%s",
-		file, A_awktablespath, A_scriptpath, A_scriptpath,
+		-v 'A_tablegenpath=%s' -v 'A_utilspath=%s' >%s",
+		file, A_scriptpath, A_scriptpath, A_scriptpath,
 		A_scriptpath, wrapsources(), A_tablegenpath,
-		A_utilspath, A_awktablespath, filenew));
+		A_utilspath, filenew));
 	
 	close(filenew)
 
@@ -148,12 +143,6 @@ function source(l, 	name, type, s, file, i, a, c, r, ll, subst)
 	else
 		error("Unknown input type: " a[1]);	
 
-#	Source[Sourcecount,"name"] = name;
-#	Source[Sourcecount,"type"] = name;
-#	Source[Sourcecount,"path"] = name;
-#
-#	Sourcenum[name] = Sourcecount;
-
 	Sourcename[Sourcecount] = name;
 	Source[name,"type"] = type;
 	Source[name,"path"] = file;
@@ -164,8 +153,6 @@ function source(l, 	name, type, s, file, i, a, c, r, ll, subst)
 BEGIN {
 	Sourcecount = 0;
 	unwrapsources();
-#print "___" Sourcename[0], Sourcename[1], Sourcename[2], Sourcename[3] >"/dev/stderr";
-#print >"/dev/stderr";
 	
 	while ((r = getline l) > 0) {
 		if (l ~ /^[ \t]*$/)
@@ -177,10 +164,6 @@ BEGIN {
 		l = substr(l, 2);
 
 		source(l);
-#for (i = 0; i <= Sourcecount; ++i)
-#	print Sourcename[i] >"/dev/stderr";
-#print "_" >"/dev/stderr";
-
 	}
 
 	assert(r >= 0, "Error while reading template ");

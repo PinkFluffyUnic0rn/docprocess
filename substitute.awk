@@ -6,11 +6,9 @@ function substitute(s, of,	idx, r)
 	of = (of == "") ? "html" : of
 
 	if (Source[s,"type"] == "table") {
-		cmd = sprintf("awktablespath=\"%s\" \
-			%s/tablegen.sh '%s' '%s' '%s'",
-			A_awktablespath, A_tablegenpath,
-			Source[s,"path"], wrapsources(),
-			of);
+		cmd = sprintf("%s '%s/include/week.tg;%s/include/aggregate.tg;%s' '%s' '%s'",
+			A_tablegenpath, A_scriptpath, A_scriptpath,
+			Source[s,"path"], wrapsources(), of);
 	}
 	else if (Source[s,"type"] == "text")
 		cmd = "cat " Source[s,"path"] " | head -c -1";
