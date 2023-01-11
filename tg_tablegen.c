@@ -132,7 +132,7 @@ static const struct tg_val *tg_symbolgetval(const char *name)
 	return NULL;
 }
 
-void tg_printsymbols()
+static struct tg_val *tg_printsymbols(FILE *f)
 {
 	const char *key;
 	const struct tg_symbol *s;
@@ -144,27 +144,31 @@ void tg_printsymbols()
 
 		st = tg_darrget(&symtable, j);
 		
-
 		TG_HASHFOREACH(struct tg_symbol, TG_HASH_SYMBOL, *st, key,
 			s = tg_hashget(TG_HASH_SYMBOL, st, key);
 
-			for (k = 0; k < j; ++k) printf("\t");
+			for (k = 0; k < j; ++k)
+				TG_NULLQUIT(tg_fprintf(f, "\t"));
 
-			printf("%s: ", key);
+			TG_NULLQUIT(tg_fprintf(f, "%s: ", key));
 			if (s->type == TG_SYMTYPE_FUNCTION) {
-				printf("function\n");
+				TG_NULLQUIT(tg_fprintf(f, "function\n"));
 			}
 			else if (s->type == TG_SYMTYPE_VARIABLE) {
-				printf("variable{");
-				tg_printval(stdout, tg_symbolgetval(key));
-				printf("}\n");
+				TG_NULLQUIT(tg_fprintf(f, "variable{"));
+				TG_NULLQUIT(tg_printval(f,
+					tg_symbolgetval(key)));
+				TG_NULLQUIT(tg_fprintf(f, "}\n"));
 			}
 			if (s->type == TG_SYMTYPE_INPUT) {
-				printf("input{type:\"%s\"; path:\"%s\"}\n",
-					s->input.type, s->input.path);
+				TG_NULLQUIT(tg_fprintf(f, 
+					"input{type:\"%s\"; path:\"%s\"}\n",
+					s->input.type, s->input.path));
 			}
 		);
 	}
+
+	return tg_emptyval();
 }
 
 static int tg_readsourceslist(const char *sources)
@@ -597,9 +601,8 @@ static struct tg_val *tg_identificator(int ni)
 
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		
-		printf("%s", tg_castval(v, TG_VAL_STRING)->strval.str);
-		
-		return tg_emptyval();
+		return tg_fprintf(stdout,
+			"%s", tg_castval(v, TG_VAL_STRING)->strval.str);
 	}
 	else if (strcmp(name, "dumpval") == 0) {
 		struct tg_val *v;
@@ -609,6 +612,11 @@ static struct tg_val *tg_identificator(int ni)
 		TG_NULLQUIT(v = tg_runnode(tg_nodechild(ani, 0)));
 		
 		return tg_printval(stdout, v);
+	}
+	else if (strcmp(name, "dumpsymbols") == 0) {
+		TG_NULLQUIT(tg_checkargs(name, tg_nodeccnt(ani), 0));
+
+		return tg_printsymbols(stdout);
 	}
 	else if (strcmp(name, "substr") == 0) {
 		struct tg_val *s, *b, *l;
@@ -885,9 +893,6 @@ static struct tg_val *tg_getindexexpr(int fni, const struct tg_val *a)
 	if (!tg_isscalar(idx->type))
 		return tg_emptyval();
 
-	// if row
-	// 	a = arrget(a, row)
-
 	if (idx->type == TG_VAL_INT) {
 		if ((a = tg_arrgetr(a, idx->intval)) == NULL)
 			return tg_emptyval();
@@ -899,8 +904,6 @@ static struct tg_val *tg_getindexexpr(int fni, const struct tg_val *a)
 			return tg_emptyval();
 	}
 
-	// }
-
 	return tg_intval(a->arrpos);
 }
 
@@ -909,8 +912,6 @@ static struct tg_val *tg_getindexrange(int fni, const struct tg_val *a)
 	struct tg_val *idxb, *idxe;
 	struct tg_val *r;
 	int i;
-
-	// if row -> add it as argument to getindexexpr
 
 	idxb = tg_getindexexpr(tg_nodechild(fni, 0), a);
 	idxe = tg_getindexexpr(tg_nodechild(fni, 1), a);
@@ -1435,15 +1436,17 @@ int main(int argc, const char *argv[])
 	pathv = tg_buildpathv(argv[1], &pathvbuf);
 
 	if ((tpl = tg_getparsetree(pathv)) < 0)
-		TG_ERROR("%s", tg_error);
+		TG_ERROR("%s\n", tg_error);
 
 	if ((r = tg_runnode(tpl)) == NULL)
 		return 1;
 
 	if (argc > 3) {
 		tg_createoutput(&out, argv[3], stdout);
-		if (tg_writeval(&out, r) == NULL)
+		if (tg_writeval(&out, r) == NULL) {
+			TG_ERROR("%s\n", tg_error);
 			return 1;
+		}
 	}
 	
 	tg_darrclear(&tg_currow);

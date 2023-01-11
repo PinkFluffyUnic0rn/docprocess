@@ -1,3 +1,5 @@
+#include <stdarg.h>
+
 #include "tg_common.h"
 
 #define TG_FRAMEBLOCKSIZE 32

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdarg.h>
 #include <regex.h>
 
 #include "tg_dstring.h"
@@ -523,7 +524,7 @@ struct tg_val *tg_valgetattre(const struct tg_val *v, const char *key,
 	return tg_copyval(r);
 }
 
-static void tg_printtable(FILE *f, const struct tg_val *v)
+static struct tg_val *tg_printtable(FILE *f, const struct tg_val *v)
 {
 	int i, j;
 	int cols, rows;
@@ -534,18 +535,19 @@ static void tg_printtable(FILE *f, const struct tg_val *v)
 	rows = tg_valgetattr(v, "rows")->intval;
 	cols = tg_valgetattr(v, "cols")->intval;
 
-	fprintf(f, "table{\n");
+	TG_NULLQUIT(tg_fprintf(f, "table{\n"));
 	
-	fprintf(f, "\t");
-	for (j = 0; j < cols * 15 + 1; ++j) fprintf(f, "-");
-	fprintf(f, "\n");
+	TG_NULLQUIT(tg_fprintf(f, "\t"));
+	for (j = 0; j < cols * 15 + 1; ++j)
+		TG_NULLQUIT(tg_fprintf(f, "-"));
+	TG_NULLQUIT(tg_fprintf(f, "\n"));
 
 	for (i = 0; i < rows; ++i) {
 		struct tg_val *row;
 
 		row = tg_arrgetr(v, i);
 			
-		fprintf(f, "\t");
+		TG_NULLQUIT(tg_fprintf(f, "\t"));
 		for (j = 0; j < cols; ++j) {
 			struct tg_val *cell;
 			struct tg_val *hspan, *vspan;
@@ -555,29 +557,32 @@ static void tg_printtable(FILE *f, const struct tg_val *v)
 			hspan = tg_valgetattrr(cell, "hspan");
 			vspan = tg_valgetattrr(cell, "vspan");
 			
-			fprintf(f, "|%d,%d;",
+			TG_NULLQUIT(tg_fprintf(f, "|%d,%d;",
 				(hspan != NULL && hspan->intval > 0)
 					? hspan->intval : 0,
 				(vspan != NULL && vspan->intval > 0)
-					? vspan->intval : 0);
+					? vspan->intval : 0));
 
 			if (cell->type == TG_VAL_EMPTY)
-				fprintf(f, "%-10s", "empty");
+				TG_NULLQUIT(tg_fprintf(f, "%-10s", "empty"));
 			else if (cell->type == TG_VAL_INT)
-				fprintf(f, "%-10d", cell->intval);
+				TG_NULLQUIT(tg_fprintf(f, "%-10d", cell->intval));
 			else if (cell->type == TG_VAL_FLOAT)
-				fprintf(f, "%-10f", cell->floatval);
+				TG_NULLQUIT(tg_fprintf(f, "%-10f", cell->floatval));
 			else if (cell->type == TG_VAL_STRING)
-				fprintf(f, "%-10s", cell->strval.str);
+				TG_NULLQUIT(tg_fprintf(f, "%-10s", cell->strval.str));
 		}
-		fprintf(f, "|");
+		TG_NULLQUIT(tg_fprintf(f, "|"));
 
-		fprintf(f, "\n\t");
-		for (j = 0; j < cols * 15 + 1; ++j) fprintf(f, "-");
-		fprintf(f, "\n");
+		TG_NULLQUIT(tg_fprintf(f, "\n\t"));
+		for (j = 0; j < cols * 15 + 1; ++j)
+			TG_NULLQUIT(tg_fprintf(f, "-"));
+		TG_NULLQUIT(tg_fprintf(f, "\n"));
 	}
 
-	fprintf(f, "}");
+	TG_NULLQUIT(tg_fprintf(f, "}"));
+	
+	return tg_emptyval();
 }
 
 struct tg_val *tg_printval(FILE *f, const struct tg_val *v)
@@ -591,25 +596,25 @@ struct tg_val *tg_printval(FILE *f, const struct tg_val *v)
 
 	switch (v->type) {
 	case TG_VAL_DELETED:
-		fprintf(f, "deleted");
+		TG_NULLQUIT(tg_fprintf(f, "deleted"));
 		break;
 	case TG_VAL_EMPTY:
-		fprintf(f, "empty");
+		TG_NULLQUIT(tg_fprintf(f, "empty"));
 		break;
 	case TG_VAL_INT:
-		fprintf(f, "int{%d}", v->intval);
+		TG_NULLQUIT(tg_fprintf(f, "int{%d}", v->intval));
 		break;
 	case TG_VAL_FLOAT:
-		fprintf(f, "float{%f}", v->floatval);
+		TG_NULLQUIT(tg_fprintf(f, "float{%f}", v->floatval));
 		break;
 	case TG_VAL_STRING:
-		fprintf(f, "string{%s}", v->strval.str);
+		TG_NULLQUIT(tg_fprintf(f, "string{%s}", v->strval.str));
 		break;
 	case TG_VAL_TABLE:
-		tg_printtable(f, v);
+		TG_NULLQUIT(tg_printtable(f, v));
 		break;
 	case TG_VAL_ARRAY:
-		fprintf(f, "array{");
+		TG_NULLQUIT(tg_fprintf(f, "array{"));
 		
 		isfirst = 1;
 
@@ -621,24 +626,28 @@ struct tg_val *tg_printval(FILE *f, const struct tg_val *v)
 			if (tg_arrgetr(v, i)->ishashed)
 				printf("*");
 
-			tg_printval(f, tg_arrgetr(v, i));
+			TG_NULLQUIT(tg_printval(f, tg_arrgetr(v, i)));
 
-
-			if (tg_arrgetr(v, i)->arrpos >= 0)
-				printf(":%d", tg_arrgetr(v, i)->arrpos);
+			if (tg_arrgetr(v, i)->arrpos >= 0) {
+				TG_NULLQUIT(tg_fprintf(f, ":%d",
+					tg_arrgetr(v, i)->arrpos));
+			}
 		}
 
 		TG_HASHFOREACH(struct tg_val, TG_HASH_ARRAY,
 			v->arrval.hash, key,
-			if (!isfirst) fprintf(f, ", ");
+			if (!isfirst) {
+				TG_NULLQUIT(tg_fprintf(f, ", "));
+			}
 		
 			isfirst = 0;
 			
-			fprintf(f, "%s:", key);
-			tg_printval(f, tg_arrgeth(v, key));
+			TG_NULLQUIT(tg_fprintf(f, "%s:", key));
+
+			TG_NULLQUIT(tg_printval(f, tg_arrgeth(v, key)));
 		);
 	
-		fprintf(f, "}");
+		TG_NULLQUIT(tg_fprintf(f, "}"));
 
 		break;
 	}
@@ -1360,7 +1369,7 @@ static void tg_copytable(struct tg_val *dst, const struct tg_val *src,
 	tg_valsetattr(dst, "cols", tg_intval(offc + cols));
 }
 
-struct tg_val *tg_tablegetcellr(struct tg_val *t,
+static struct tg_val *tg_tablegetcellr(struct tg_val *t,
 	int row, int col)
 {
 	TG_ASSERT(t != NULL, "Cannot get table's cell");
@@ -1369,17 +1378,7 @@ struct tg_val *tg_tablegetcellr(struct tg_val *t,
 	return tg_arrgetr(tg_arrgetr(t, row), col);
 }
 
-struct tg_val *tg_tablegetcellre(struct tg_val *t,
-	int row, int col, struct tg_val *e)
-{
-	TG_ASSERT(t != NULL, "Cannot get table's cell");
-	TG_ASSERT(t->type == TG_VAL_TABLE, "Cannot get table's cell");
-	TG_ASSERT(e != NULL, "Cannot get table's cell");
-
-	return tg_arrgetre(tg_arrgetre(t, row, tg_arrval()), col, e);
-}
-
-void tg_tablesetcellr(struct tg_val *t,
+static void tg_tablesetcellr(struct tg_val *t,
 	int r, int c, struct tg_val *v)
 {
 	struct tg_val *row;
@@ -1518,4 +1517,25 @@ struct tg_val *tg_valnextto(const struct tg_val *v1,
 		vert ? t2rows : maxrows, vert ? maxcols : t2cols);
 
 	return r;
+}
+
+struct tg_val *tg_fprintf(FILE *file, const char *format, ...)
+{
+	va_list args;
+	int r;
+
+	va_start(args, format);
+
+	r = vfprintf(file, format, args);
+
+	va_end(args);
+
+	if (r < 0) {
+		TG_SETERROR("Can't print with fprintf: %s.",
+			strerror(errno));
+
+		return NULL;
+	}
+
+	return tg_emptyval();
 }

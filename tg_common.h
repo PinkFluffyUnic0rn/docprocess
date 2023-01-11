@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include "tg_darray.h"
 
@@ -21,6 +22,16 @@ do {								\
 			__FILE__, __LINE__, __func__);		\
 		fprintf(stderr, __VA_ARGS__);			\
 		fprintf(stderr, "\n");				\
+		exit(1);					\
+	}							\
+} while (0);
+
+#define TG_ASSERTSTDERR(expr)					\
+do {								\
+	if (!(expr)) {						\
+		fprintf(stderr, "file %s, line %d: %s: ",	\
+			__FILE__, __LINE__, __func__);		\
+		fprintf(stderr, "%s\n", strerror(errno));	\
 		exit(1);					\
 	}							\
 } while (0);

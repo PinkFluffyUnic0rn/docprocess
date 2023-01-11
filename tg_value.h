@@ -148,11 +148,6 @@ struct tg_val *tg_datediff(const struct tg_val *d1,
 struct tg_val *tg_dateadd(const struct tg_val *d,
 	const struct tg_val *v, const struct tg_val *p);
 
-void tg_tablesetcellr(struct tg_val *t, int r, int c, struct tg_val *v);
-struct tg_val *tg_tablegetcellr(struct tg_val *t, int row, int col);
-struct tg_val *tg_tablegetcellre(struct tg_val *t,
-	int row, int col, struct tg_val *e);
-
 void tg_arrset(struct tg_val *arr, int i, const struct tg_val *v);
 void tg_arrpush(struct tg_val *arr, const struct tg_val *v);
 
@@ -185,6 +180,8 @@ struct tg_val *tg_tablespan(struct tg_val *t,
 
 struct tg_val *tg_valnextto(const struct tg_val *v1,
 	const struct tg_val *v2, int vert, int span);
+
+struct tg_val *tg_fprintf(FILE *file, const char *format, ...);
 
 // -------------------------------------------------------------------
 
