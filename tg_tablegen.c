@@ -1007,15 +1007,48 @@ static struct tg_val *tg_getindexvaltable(int ini, const struct tg_val *a)
 {
 	struct tg_val *r;
 	int i;
-	
-	if (tg_nodetype(tg_nodechild(ini, 0)) != TG_T_PERCENT)
-		return tg_getindexval(ini, a);
 
+	// %[fexpr;fexpr] -- not allowed
+	if (tg_nodeccnt(ini) > 2) {
+		TG_WARNING("Cannot use \"%%\" and table cell access simultaneously");
+		return NULL;
+	}
+
+	// simple array access without "%"
+	if (tg_nodeccnt(ini) == 1)
+		return tg_getindexval(tg_nodechild(ini, 0), a);
+
+	// array access with "%"
+	if (tg_nodetype(tg_nodechild(ini, 0)) == TG_T_PERCENT) {
+		ini = tg_nodechild(ini, 1);
+
+		if (a->type != TG_VAL_TABLE)
+			a = tg_castval(a, TG_VAL_TABLE);
+
+		r = tg_createval(TG_VAL_ARRAY);
+
+		for (i = 0; i < a->arrval.arr.cnt; ++i) {
+			struct tg_val *v;
+		
+			v = tg_arrgetr(a, i);
+			
+			TG_NULLQUIT(v = tg_getindexval(ini, v));
+
+			tg_arrpush(r, v);
+		}
+
+		return tg_castval(r, TG_VAL_TABLE);
+	}
+
+	// table access
 	if (a->type != TG_VAL_TABLE)
 		a = tg_castval(a, TG_VAL_TABLE);
 
 	r = tg_createval(TG_VAL_ARRAY);
 
+	a = tg_getindexval(tg_nodechild(ini, 0), a);
+
+	ini = tg_nodechild(ini, 1);
 	for (i = 0; i < a->arrval.arr.cnt; ++i) {
 		struct tg_val *v;
 	

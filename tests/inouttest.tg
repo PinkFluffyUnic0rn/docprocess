@@ -10,7 +10,9 @@ for (row in a) {
 	b = b ^ r;
 }
 
-dumpval(a[{$("ОСП") > 8718}]%["ОСП","СПИ"]);
+dumpval(a[{int($("sent")) < 100}]%["name","surname","sent"]);
+
+dumpval(a[{int($("sent")) > 100};"name","surname","sent"]);
 print("\n");
 
 return a;

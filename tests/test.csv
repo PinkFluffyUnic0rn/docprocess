@@ -1,0 +1,12 @@
+id;name;surname;job;hiredate;sent;recieved
+1;Fyodor;Aleksandrov;manager;23.04.2018;783;583
+2;Vasiliy;Dmitriev;manager;05.08.2019;573;478
+3;Ivan;Petrov;manager;27.05.2017;674;551
+4;Aleksey;Nikolaev;financist;12.03.2012;175;97
+5;Mikhail;Sergeev;financist;19.09.2010;94;59
+6;Ilya;Ilyin;engineer;08.11.2015;24;92
+7;Sergey;Michailov;financist;01.04.2014;122;91
+8;Nikolay;Alekseev;engineer;17.03.2008;12;83
+9;Petr;Ivanov;manager;29.10.2018;693;485
+10;Dmitriy;Vasilyev;engineer;23.07.2011;15;82
+11;Aleksandr;Fyodorov;manager;30.04.2009;871;571

@@ -36,7 +36,8 @@ const char *tg_strsym[] = {
 	"addtion or substraction", "multiplication or division",
 	"unary operator", "reference", "logical not", "sign",
 	"preincrement or predecrement", "id usage", "value",
-	"identificator", "constant", "array access", "filter", "range",
+	"identificator", "constant", "array access",
+	"array access expression", "filter", "range",
 	"function arguments", "object attribute access"
 };
 
@@ -525,7 +526,7 @@ static int tg_gettoken(struct tg_token *t)
 	return tbuf[0].type;
 }
 
-int tg_peektoken(struct tg_token *t)
+static int tg_peektoken(struct tg_token *t)
 {
 	if (tbuf[0].type == TG_T_EOF || tbuf[0].type == TG_T_ERROR)
 		return tg_gettoken(t);
@@ -537,7 +538,7 @@ int tg_peektoken(struct tg_token *t)
 }
 
 // node API
-int tg_nodeadd(int pi, enum TG_TYPE type, struct tg_token *token)
+static int tg_nodeadd(int pi, enum TG_TYPE type, struct tg_token *token)
 {	
 	struct tg_node n;
 	struct tg_node *parent;
@@ -552,49 +553,41 @@ int tg_nodeadd(int pi, enum TG_TYPE type, struct tg_token *token)
 
 	n.parent = pi;
 
-	if ((ni = tg_darrpush(&nodes, &n)) < 0)
-		return (-1);
+	ni = tg_darrpush(&nodes, &n);
 	
 	if (pi < 0)
 		return ni;
 
-	if ((parent = tg_darrget(&nodes, pi)) == NULL)
-		return (-1);
+	TG_ASSERT((parent = tg_darrget(&nodes, pi)) != NULL,
+		"Node %d does not exist", pi);
 
-	if (tg_darrpush(&(parent->children), &ni) < 0)
-		return (-1);
+	tg_darrpush(&(parent->children), &ni);
 
 	return ni;
 }
 
-int tg_nodeattach(int pi, int ni)
+static void tg_nodeattach(int pi, int ni)
 {
 	struct tg_node *node;
 	struct tg_node *parent;
 
-	if ((parent = tg_darrget(&nodes, pi)) == NULL)
-		return (-1);
-	
-	if ((node = tg_darrget(&nodes, ni)) == NULL)
-		return (-1);
+	TG_ASSERT((parent = tg_darrget(&nodes, pi)) != NULL,
+		"Node %d does not exist", pi);
 
-	if ((node = tg_darrget(&nodes, ni)) == NULL)
-		return (-1);
+	TG_ASSERT((node = tg_darrget(&nodes, ni)) != NULL,
+		"Node %d does not exist", ni);
 
 	node->parent = pi;
 
-	if (tg_darrpush(&(parent->children), &ni) < 0)
-		return (-1);
-
-	return 0;
+	tg_darrpush(&(parent->children), &ni);
 }
 
 int tg_nodeccnt(int ni)
 {
 	struct tg_node *p;
 	
-	if ((p = tg_darrget(&nodes, ni)) == NULL)
-		return (-1);
+	TG_ASSERT((p = tg_darrget(&nodes, ni)) != NULL,
+		"Node %d does not exist", ni);
 
 	return p->children.cnt;
 
@@ -605,11 +598,11 @@ int tg_nodechild(int ni, int i)
 	struct tg_node *p;
 	int *pci;
 	
-	if ((p = tg_darrget(&nodes, ni)) == NULL)
-		return (-1);
+	TG_ASSERT((p = tg_darrget(&nodes, ni)) != NULL,
+		"Node %d does not exist", ni);
 
-	if ((pci = tg_darrget(&(p->children), i)) == NULL)
-		return (-1);
+	TG_ASSERT((pci = tg_darrget(&(p->children), i)) != NULL,
+		"Child %d of Node %d does not exist", i, ni);
 
 	return *pci;
 }
@@ -750,24 +743,24 @@ static int tg_args(int ni)
 		return 0;
 	}
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+	ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL);
 	TG_ERRQUIT(tg_assign(ani));
 		
 	if (tg_nodeccnt(ani) == 1)
-		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+		ani = tg_nodechild(ani, 0);
 	
-	TG_ERRQUIT(tg_nodeattach(ni, ani));
+	tg_nodeattach(ni, ani);
 
 	while (tg_peektoken(&t) == TG_T_COMMA) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COMMA));
 	
-		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+		ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL);
 		TG_ERRQUIT(tg_assign(ani));
 
 		if (tg_nodeccnt(ani) == 1)
-			TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+			ani = tg_nodechild(ani, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, ani));
+		tg_nodeattach(ni, ani);
 	}
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
@@ -783,12 +776,12 @@ static int tg_id(int ni)
 
 	ni = tg_nodeadd(ni, TG_N_ID, NULL);
 
-	TG_ERRQUIT(tg_nodeadd(ni, TG_T_ID, &t));
+	tg_nodeadd(ni, TG_T_ID, &t);
 
 	if (tg_peektoken(&t) == TG_T_LPAR) {
 		int ani;
 
-		TG_ERRQUIT(ani = tg_nodeadd(ni, TG_N_ARGS, NULL));
+		ani = tg_nodeadd(ni, TG_N_ARGS, NULL);
 		TG_ERRQUIT(tg_args(ani));
 	}
 
@@ -810,7 +803,7 @@ static int tg_val(int ni)
 	case TG_T_LPAR:
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_LPAR));
 
-		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_EXPR, NULL));
+		ni = tg_nodeadd(ni, TG_N_EXPR, NULL);
 
 		TG_ERRQUIT(tg_expr(ni));
 
@@ -825,7 +818,7 @@ static int tg_val(int ni)
 	
 		ni = tg_nodeadd(ni, TG_N_CONST, NULL);
 
-		TG_ERRQUIT(tg_nodeadd(ni, t.type, &t));
+		tg_nodeadd(ni, t.type, &t);
 		break;
 
 	case TG_T_ERROR:
@@ -854,59 +847,53 @@ static int tg_filter(int ni)
 
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_LBRC));
 		
-		TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FILTER, NULL));
+		fni = tg_nodeadd(ni, TG_N_FILTER, NULL);
 
-		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+		ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL);
 		TG_ERRQUIT(tg_assign(ani));
 			
 		if (tg_nodeccnt(ani) == 1)
-			TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+			ani = tg_nodechild(ani, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(fni, ani));
+		tg_nodeattach(fni, ani);
 
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_RBRC));
 	
 		return 0;
 	}
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+	ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL);
 	TG_ERRQUIT(tg_assign(ani));
 		
 	if (tg_nodeccnt(ani) == 1)
-		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+		ani = tg_nodechild(ani, 0);
 	
 	if (tg_peektoken(&t) == TG_T_DDOT) {
 		int rni;
 
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_DDOT));
 
-		TG_ERRQUIT(rni = tg_nodeadd(ni, TG_N_RANGE, NULL));
-		TG_ERRQUIT(tg_nodeattach(rni, ani));
+		rni = tg_nodeadd(ni, TG_N_RANGE, NULL);
+		tg_nodeattach(rni, ani);
 
-		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+		ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL);
 		TG_ERRQUIT(tg_assign(ani));
 			
 		if (tg_nodeccnt(ani) == 1)
-			TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+			ani = tg_nodechild(ani, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(rni, ani));
+		tg_nodeattach(rni, ani);
 	}
 	else
-		TG_ERRQUIT(tg_nodeattach(ni, ani));
+		tg_nodeattach(ni, ani);
 
 	return 0;
 }
 
-static int tg_index(int ni)
+static int tg_indexexpr(int ni)
 {
 	struct tg_token t;
 
-	if (tg_peektoken(&t) == TG_T_PERCENT) {
-		TG_ERRQUIT(tg_gettokentype(&t, TG_T_PERCENT));
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_PERCENT, &t));
-	}
-
-	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LBRK));
 	TG_ERRQUIT(tg_filter(ni));
 
 	while (tg_peektoken(&t) == TG_T_COMMA) {
@@ -914,6 +901,32 @@ static int tg_index(int ni)
 		TG_ERRQUIT(tg_filter(ni));
 	}
 
+	return 0;
+}
+
+static int tg_index(int ni)
+{
+	struct tg_token t;
+	int ini;
+
+	if (tg_peektoken(&t) == TG_T_PERCENT) {
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_PERCENT));
+		tg_nodeadd(ni, TG_T_PERCENT, &t);
+	}
+
+	
+	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LBRK));
+
+	ini = tg_nodeadd(ni, TG_N_INDEXEXPR, NULL);
+	TG_ERRQUIT(tg_indexexpr(ini));
+
+	if (tg_peektoken(&t) == TG_T_SEMICOL) {
+		TG_ERRQUIT(tg_gettokentype(&t, TG_T_SEMICOL));
+
+		ini = tg_nodeadd(ni, TG_N_INDEXEXPR, NULL);
+		TG_ERRQUIT(tg_indexexpr(ini));
+	}
+	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RBRK));
 
 	return 0;
@@ -927,7 +940,7 @@ static int tg_attr(int ni)
 	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_ID));
 	
-	TG_ERRQUIT(tg_nodeadd(ni, TG_T_ID, &t));
+	tg_nodeadd(ni, TG_T_ID, &t);
 
 	return 0;
 }
@@ -947,14 +960,12 @@ static int tg_address(int ni)
 		switch (type) {
 		case TG_T_LBRK:
 		case TG_T_PERCENT:
-			TG_ERRQUIT(ini = tg_nodeadd(ni,
-				TG_N_INDEX, NULL));
+			ini = tg_nodeadd(ni, TG_N_INDEX, NULL);
 			TG_ERRQUIT(tg_index(ini));
 			break;
 
 		case TG_T_DOT:
-			TG_ERRQUIT(ani = tg_nodeadd(ni,
-				TG_N_ATTR, NULL));
+			ani = tg_nodeadd(ni, TG_N_ATTR, NULL);
 			TG_ERRQUIT(tg_attr(ani));
 			break;
 
@@ -977,15 +988,15 @@ static int tg_prestep(int ni)
 	int ani;
 	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_STEPOP));
-	TG_ERRQUIT(tg_nodeadd(ni, TG_T_STEPOP, &t));
+	tg_nodeadd(ni, TG_T_STEPOP, &t);
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL));
+	ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL);
 	TG_ERRQUIT(tg_address(ani));
 
 	if (tg_nodeccnt(ani) == 1)
-		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+		ani = tg_nodechild(ani, 0);
 
-	TG_ERRQUIT(tg_nodeattach(ni, ani));
+	tg_nodeattach(ni, ani);
 
 	return 0;
 }
@@ -997,13 +1008,13 @@ static int tg_ref(int ni)
 	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_REFOP));
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL));
+	ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL);
 	TG_ERRQUIT(tg_address(ani));
 
 	if (tg_nodeccnt(ani) == 1)
-		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+		ani = tg_nodechild(ani, 0);
 
-	TG_ERRQUIT(tg_nodeattach(ni, ani));
+	tg_nodeattach(ni, ani);
 
 	return 0;
 }
@@ -1015,13 +1026,13 @@ static int tg_not(int ni)
 	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_NOT));
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL));
+	ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL);
 	TG_ERRQUIT(tg_address(ani));
 
 	if (tg_nodeccnt(ani) == 1)
-		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+		ani = tg_nodechild(ani, 0);
 
-	TG_ERRQUIT(tg_nodeattach(ni, ani));
+	tg_nodeattach(ni, ani);
 
 	return 0;
 }
@@ -1032,15 +1043,15 @@ static int tg_sign(int ni)
 	int ani;
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_ADDOP));
-	TG_ERRQUIT(tg_nodeadd(ni, TG_T_ADDOP, &t));
+	tg_nodeadd(ni, TG_T_ADDOP, &t);
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL));
+	ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL);
 	TG_ERRQUIT(tg_address(ani));
 
 	if (tg_nodeccnt(ani) == 1)
-		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+		ani = tg_nodechild(ani, 0);
 
-	TG_ERRQUIT(tg_nodeattach(ni, ani));
+	tg_nodeattach(ni, ani);
 
 	return 0;
 }
@@ -1054,33 +1065,33 @@ static int tg_unary(int ni)
 
 	switch(t.type) {
 	case TG_T_STEPOP:
-		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_PRESTEP, NULL));
+		ni = tg_nodeadd(ni, TG_N_PRESTEP, NULL);
 		TG_ERRQUIT(tg_prestep(ni));
 		break;
 
 	case TG_T_REFOP:
-		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_REF, NULL));
+		ni = tg_nodeadd(ni, TG_N_REF, NULL);
 		TG_ERRQUIT(tg_ref(ni));
 		break;
 
 	case TG_T_NOT:
-		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_NOT, NULL));
+		ni = tg_nodeadd(ni, TG_N_NOT, NULL);
 		TG_ERRQUIT(tg_not(ni));
 		break;
 
 	case TG_T_ADDOP:
-		TG_ERRQUIT(ni = tg_nodeadd(ni, TG_N_SIGN, NULL));
+		ni = tg_nodeadd(ni, TG_N_SIGN, NULL);
 		TG_ERRQUIT(tg_sign(ni));
 		break;
 
 	default:
-		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL));
+		ani = tg_nodeadd(-1, TG_N_ADDRESS, NULL);
 		TG_ERRQUIT(tg_address(ani));
 
 		if (tg_nodeccnt(ani) == 1)
-			TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+			ani = tg_nodechild(ani, 0);
 
-		TG_ERRQUIT(tg_nodeattach(ni, ani));
+		tg_nodeattach(ni, ani);
 	}
 
 	return 0;
@@ -1095,7 +1106,7 @@ static int tg_mult(int ni)
 	while (tg_peektoken(&t) == TG_T_MULTOP) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_MULTOP));
 	
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_MULTOP, &t));
+		tg_nodeadd(ni, TG_T_MULTOP, &t);
 
 		TG_ERRQUIT(tg_unary(ni));
 	}
@@ -1108,26 +1119,26 @@ static int tg_add(int ni)
 	struct tg_token t;
 	int mni;
 
-	TG_ERRQUIT(mni = tg_nodeadd(-1, TG_N_MULT, NULL));
+	mni = tg_nodeadd(-1, TG_N_MULT, NULL);
 	TG_ERRQUIT(tg_mult(mni));
 
 	if (tg_nodeccnt(mni) == 1)
-		TG_ERRQUIT(mni = tg_nodechild(mni, 0));
+		mni = tg_nodechild(mni, 0);
 
-	TG_ERRQUIT(tg_nodeattach(ni, mni));
+	tg_nodeattach(ni, mni);
 
 	while (tg_peektoken(&t) == TG_T_ADDOP) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_ADDOP));
 
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_ADDOP, &t));
+		tg_nodeadd(ni, TG_T_ADDOP, &t);
 
-		TG_ERRQUIT(mni = tg_nodeadd(-1, TG_N_MULT, NULL));
+		mni = tg_nodeadd(-1, TG_N_MULT, NULL);
 		TG_ERRQUIT(tg_mult(mni));
 	
 		if (tg_nodeccnt(mni) == 1)
-			TG_ERRQUIT(mni = tg_nodechild(mni, 0));
+			mni = tg_nodechild(mni, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, mni));
+		tg_nodeattach(ni, mni);
 	}
 
 	return 0;
@@ -1138,24 +1149,24 @@ static int tg_cat(int ni)
 	struct tg_token t;
 	int ani;
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADD, NULL));
+	ani = tg_nodeadd(-1, TG_N_ADD, NULL);
 	TG_ERRQUIT(tg_add(ani));
 
 	if (tg_nodeccnt(ani) == 1)
-		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+		ani = tg_nodechild(ani, 0);
 	
-	TG_ERRQUIT(tg_nodeattach(ni, ani));
+	tg_nodeattach(ni, ani);
 
 	while (tg_peektoken(&t) == TG_T_TILDA) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_TILDA));
 	
-		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ADD, NULL));
+		ani = tg_nodeadd(-1, TG_N_ADD, NULL);
 		TG_ERRQUIT(tg_add(ani));
 	
 		if (tg_nodeccnt(ani) == 1)
-			TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+			ani = tg_nodechild(ani, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, ani));
+		tg_nodeattach(ni, ani);
 	}
 
 	return 0;
@@ -1169,7 +1180,7 @@ static int tg_nexttoopts(int ni)
 	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_STRING));
 		
-	TG_ERRQUIT(tg_nodeadd(ni, TG_T_STRING, &t));
+	tg_nodeadd(ni, TG_T_STRING, &t);
 
 	return 0;
 }
@@ -1179,36 +1190,35 @@ static int tg_nextto(int ni)
 	struct tg_token t;
 	int cni;
 
-	TG_ERRQUIT(cni = tg_nodeadd(-1, TG_N_CAT, NULL));
+	cni = tg_nodeadd(-1, TG_N_CAT, NULL);
 	TG_ERRQUIT(tg_cat(cni));
 
 	if (tg_nodeccnt(cni) == 1)
-		TG_ERRQUIT(cni = tg_nodechild(cni, 0));
+		cni = tg_nodechild(cni, 0);
 	
-	TG_ERRQUIT(tg_nodeattach(ni, cni));
+	tg_nodeattach(ni, cni);
 
 	while (tg_peektoken(&t) == TG_T_NEXTTOOP) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_NEXTTOOP));
 	
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_NEXTTOOP, &t));
+		tg_nodeadd(ni, TG_T_NEXTTOOP, &t);
 
-		TG_ERRQUIT(cni = tg_nodeadd(-1, TG_N_CAT, NULL));
+		cni = tg_nodeadd(-1, TG_N_CAT, NULL);
 		TG_ERRQUIT(tg_cat(cni));
 
 		if (tg_nodeccnt(cni) == 1)
-			TG_ERRQUIT(cni = tg_nodechild(cni, 0));
+			cni = tg_nodechild(cni, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, cni));
+		tg_nodeattach(ni, cni);
 
 		if (tg_peektoken(&t) == TG_T_COLON) {
 			int oni;
 
-			TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_NEXTTOOPTS,
-				NULL));
+			oni = tg_nodeadd(-1, TG_N_NEXTTOOPTS, NULL);
 
 			TG_ERRQUIT(tg_nexttoopts(oni));
 	
-			TG_ERRQUIT(tg_nodeattach(ni, oni));
+			tg_nodeattach(ni, oni);
 		}
 	}
 
@@ -1220,26 +1230,26 @@ static int tg_rel(int ni)
 	struct tg_token t;
 	int nni;
 
-	TG_ERRQUIT(nni = tg_nodeadd(-1, TG_N_NEXTTO, NULL));
+	nni = tg_nodeadd(-1, TG_N_NEXTTO, NULL);
 	TG_ERRQUIT(tg_nextto(nni));
 	
 	if (tg_nodeccnt(nni) == 1)
-		TG_ERRQUIT(nni = tg_nodechild(nni, 0));
+		nni = tg_nodechild(nni, 0);
 	
-	TG_ERRQUIT(tg_nodeattach(ni, nni));
+	tg_nodeattach(ni, nni);
 
 	if (tg_peektoken(&t) == TG_T_RELOP) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_RELOP));
 	
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_RELOP, &t));
+		tg_nodeadd(ni, TG_T_RELOP, &t);
 
-		TG_ERRQUIT(nni = tg_nodeadd(-1, TG_N_NEXTTO, NULL));
+		nni = tg_nodeadd(-1, TG_N_NEXTTO, NULL);
 		TG_ERRQUIT(tg_nextto(nni));
 
 		if (tg_nodeccnt(nni) == 1)
-			TG_ERRQUIT(nni = tg_nodechild(nni, 0));
+			nni = tg_nodechild(nni, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, nni));
+		tg_nodeattach(ni, nni);
 	}
 
 	return 0;
@@ -1250,24 +1260,24 @@ static int tg_and(int ni)
 	struct tg_token t;
 	int rni;
 
-	TG_ERRQUIT(rni = tg_nodeadd(-1, TG_N_REL, NULL));
+	rni = tg_nodeadd(-1, TG_N_REL, NULL);
 	TG_ERRQUIT(tg_rel(rni));
 	
 	if (tg_nodeccnt(rni) == 1)
-		TG_ERRQUIT(rni = tg_nodechild(rni, 0));
+		rni = tg_nodechild(rni, 0);
 	
-	TG_ERRQUIT(tg_nodeattach(ni, rni));
+	tg_nodeattach(ni, rni);
 
 	while (tg_peektoken(&t) == TG_T_AND) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_AND));
 	
-		TG_ERRQUIT(rni = tg_nodeadd(-1, TG_N_REL, NULL));
+		rni = tg_nodeadd(-1, TG_N_REL, NULL);
 		TG_ERRQUIT(tg_rel(rni));
 
 		if (tg_nodeccnt(rni) == 1)
-			TG_ERRQUIT(rni = tg_nodechild(rni, 0));
+			rni = tg_nodechild(rni, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, rni));
+		tg_nodeattach(ni, rni);
 	}
 
 	return 0;
@@ -1278,24 +1288,24 @@ static int tg_or(int ni)
 	struct tg_token t;
 	int ani;
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_AND, NULL));
+	ani = tg_nodeadd(-1, TG_N_AND, NULL);
 	TG_ERRQUIT(tg_and(ani));
 	
 	if (tg_nodeccnt(ani) == 1)
-		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+		ani = tg_nodechild(ani, 0);
 	
-	TG_ERRQUIT(tg_nodeattach(ni, ani));
+	tg_nodeattach(ni, ani);
 
 	while (tg_peektoken(&t) == TG_T_OR) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_OR));
 	
-		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_AND, NULL));
+		ani = tg_nodeadd(-1, TG_N_AND, NULL);
 		TG_ERRQUIT(tg_and(ani));
 
 		if (tg_nodeccnt(ani) == 1)
-			TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+			ani = tg_nodechild(ani, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, ani));
+		tg_nodeattach(ni, ani);
 	}
 
 	return 0;
@@ -1306,34 +1316,34 @@ static int tg_ternary(int ni)
 	struct tg_token t;
 	int oni;
 
-	TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_OR, NULL));
+	oni = tg_nodeadd(-1, TG_N_OR, NULL);
 	TG_ERRQUIT(tg_or(oni));
 
 	if (tg_nodeccnt(oni) == 1)
-		TG_ERRQUIT(oni = tg_nodechild(oni, 0));
+		oni = tg_nodechild(oni, 0);
 	
-	TG_ERRQUIT(tg_nodeattach(ni, oni));
+	tg_nodeattach(ni, oni);
 
 	while (tg_peektoken(&t) == TG_T_QUEST) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_QUEST));
 	
-		TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_OR, NULL));
+		oni = tg_nodeadd(-1, TG_N_OR, NULL);
 		TG_ERRQUIT(tg_or(oni));
 
 		if (tg_nodeccnt(oni) == 1)
-			TG_ERRQUIT(oni = tg_nodechild(oni, 0));
+			oni = tg_nodechild(oni, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, oni));
+		tg_nodeattach(ni, oni);
 
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COLON));
 
-		TG_ERRQUIT(oni = tg_nodeadd(-1, TG_N_OR, NULL));
+		oni = tg_nodeadd(-1, TG_N_OR, NULL);
 		TG_ERRQUIT(tg_or(oni));
 
 		if (tg_nodeccnt(oni) == 1)
-			TG_ERRQUIT(oni = tg_nodechild(oni, 0));
+			oni = tg_nodechild(oni, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, oni));
+		tg_nodeattach(ni, oni);
 	}
 
 	return 0;
@@ -1344,26 +1354,26 @@ static int tg_assign(int ni)
 	struct tg_token t;
 	int tni;
 
-	TG_ERRQUIT(tni = tg_nodeadd(-1, TG_N_TERNARY, NULL));
+	tni = tg_nodeadd(-1, TG_N_TERNARY, NULL);
 	TG_ERRQUIT(tg_ternary(tni));
 	
 	if (tg_nodeccnt(tni) == 1)
-		TG_ERRQUIT(tni = tg_nodechild(tni, 0));
+		tni = tg_nodechild(tni, 0);
 	
-	TG_ERRQUIT(tg_nodeattach(ni, tni));
+	tg_nodeattach(ni, tni);
 
 	while (tg_peektoken(&t) == TG_T_ASSIGNOP) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_ASSIGNOP));
 		
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_ASSIGNOP, &t));
+		tg_nodeadd(ni, TG_T_ASSIGNOP, &t);
 		
-		TG_ERRQUIT(tni = tg_nodeadd(-1, TG_N_TERNARY, NULL));
+		tni = tg_nodeadd(-1, TG_N_TERNARY, NULL);
 		TG_ERRQUIT(tg_ternary(tni));
 	
 		if (tg_nodeccnt(tni) == 1)
-			TG_ERRQUIT(tni = tg_nodechild(tni, 0));
+			tni = tg_nodechild(tni, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, tni));
+		tg_nodeattach(ni, tni);
 	}
 
 	return 0;
@@ -1374,24 +1384,24 @@ static int tg_expr(int ni)
 	struct tg_token t;
 	int ani;
 
-	TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+	ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL);
 	TG_ERRQUIT(tg_assign(ani));
 		
 	if (tg_nodeccnt(ani) == 1)
-		TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+		ani = tg_nodechild(ani, 0);
 	
-	TG_ERRQUIT(tg_nodeattach(ni, ani));
+	tg_nodeattach(ni, ani);
 
 	while (tg_peektoken(&t) == TG_T_COMMA) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COMMA));
 		
-		TG_ERRQUIT(ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL));
+		ani = tg_nodeadd(-1, TG_N_ASSIGN, NULL);
 		TG_ERRQUIT(tg_assign(ani));
 
 		if (tg_nodeccnt(ani) == 1)
-			TG_ERRQUIT(ani = tg_nodechild(ani, 0));
+			ani = tg_nodechild(ani, 0);
 		
-		TG_ERRQUIT(tg_nodeattach(ni, ani));
+		tg_nodeattach(ni, ani);
 	}
 
 	return 0;
@@ -1416,13 +1426,13 @@ static int tg_defargs(int ni)
 	struct tg_token t;
 	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_ID));
-	TG_ERRQUIT(tg_nodeadd(ni, TG_T_ID, &t));
+	tg_nodeadd(ni, TG_T_ID, &t);
 	
 	while (tg_peektoken(&t) == TG_T_COMMA) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COMMA));
 			
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_ID));
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_ID, &t));
+		tg_nodeadd(ni, TG_T_ID, &t);
 	}
 
 	return 0;
@@ -1436,16 +1446,16 @@ static int tg_funcdef(int ni)
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_FUNCTION));
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_ID));
-	TG_ERRQUIT(tg_nodeadd(ni, TG_T_ID, &t));
+	tg_nodeadd(ni, TG_T_ID, &t);
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LPAR));
 
-	TG_ERRQUIT(ani = tg_nodeadd(ni, TG_N_DEFARGS, NULL));
+	ani = tg_nodeadd(ni, TG_N_DEFARGS, NULL);
 	TG_ERRQUIT(tg_defargs(ani));
 	
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
 
-	TG_ERRQUIT(bni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
+	bni = tg_nodeadd(ni, TG_N_BLOCK, NULL);
 	TG_ERRQUIT(tg_block(bni));
 
 	return 0;
@@ -1473,13 +1483,13 @@ static int tg_forexpr(int ni)
 	if (t.type == TG_T_SEMICOL || t.type == TG_T_RPAR)
 		return 0;
 
-	TG_ERRQUIT(eni = tg_nodeadd(-1, TG_N_EXPR, NULL));
+	eni = tg_nodeadd(-1, TG_N_EXPR, NULL);
 	TG_ERRQUIT(tg_expr(eni));
 
 	if (tg_nodeccnt(eni) == 1)
-		TG_ERRQUIT(eni = tg_nodechild(eni, 0));
+		eni = tg_nodechild(eni, 0);
 	
-	TG_ERRQUIT(tg_nodeattach(ni, eni));
+	tg_nodeattach(ni, eni);
 
 	return 0;
 }
@@ -1491,12 +1501,12 @@ static int tg_fortable(int ni)
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_IN));
 
-	TG_ERRQUIT(eni = tg_nodeadd(ni, TG_N_EXPR, NULL));
+	eni = tg_nodeadd(ni, TG_N_EXPR, NULL);
 	TG_ERRQUIT(tg_expr(eni));
 
 	if (tg_peektoken(&t) == TG_T_COLUMNS) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_COLUMNS));
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_COLUMNS, &t));
+		tg_nodeadd(ni, TG_T_COLUMNS, &t);
 	}
 	
 	return 0;
@@ -1535,7 +1545,7 @@ static int tg_for(int ni)
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
 
-	TG_ERRQUIT(bni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
+	bni = tg_nodeadd(ni, TG_N_BLOCK, NULL);
 	TG_ERRQUIT(tg_body(bni));
 
 	return 0;
@@ -1549,18 +1559,18 @@ static int tg_if(int ni)
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_IF));
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_LPAR));
 
-	TG_ERRQUIT(eni = tg_nodeadd(ni, TG_N_EXPR, NULL));
+	eni = tg_nodeadd(ni, TG_N_EXPR, NULL);
 	TG_ERRQUIT(tg_expr(eni));
 
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RPAR));
 
-	TG_ERRQUIT(bni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
+	bni = tg_nodeadd(ni, TG_N_BLOCK, NULL);
 	TG_ERRQUIT(tg_body(bni));
 
 	if (tg_peektoken(&t) == TG_T_ELSE) {
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_ELSE));
 
-		TG_ERRQUIT(bni = tg_nodeadd(ni, TG_N_BLOCK, NULL));
+		bni = tg_nodeadd(ni, TG_N_BLOCK, NULL);
 		TG_ERRQUIT(tg_body(bni));
 	}
 
@@ -1575,7 +1585,7 @@ static int tg_return(int ni)
 	TG_ERRQUIT(tg_gettokentype(&t, TG_T_RETURN));
 
 	if (tg_peektoken(&t) != TG_T_SEMICOL) {
-		TG_ERRQUIT(eni = tg_nodeadd(ni, TG_N_EXPR, NULL));
+		eni = tg_nodeadd(ni, TG_N_EXPR, NULL);
 		TG_ERRQUIT(tg_expr(eni));
 	}
 
@@ -1591,34 +1601,34 @@ static int tg_stmt(int ni)
 
 	switch (tg_peektoken(&t)) {
 	case TG_T_FOR:
-		TG_ERRQUIT(sni = tg_nodeadd(ni, TG_N_FOR, NULL));
+		sni = tg_nodeadd(ni, TG_N_FOR, NULL);
 		TG_ERRQUIT(tg_for(sni));
 		break;
 
 	case TG_T_IF:
-		TG_ERRQUIT(sni = tg_nodeadd(ni, TG_N_IF, NULL));
+		sni = tg_nodeadd(ni, TG_N_IF, NULL);
 		TG_ERRQUIT(tg_if(sni));
 		break;
 
 	case TG_T_RETURN:
-		TG_ERRQUIT(sni = tg_nodeadd(ni, TG_N_RETURN, NULL));
+		sni = tg_nodeadd(ni, TG_N_RETURN, NULL);
 		TG_ERRQUIT(tg_return(sni));
 		break;
 
 	case TG_T_BREAK:
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_BREAK));
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_BREAK, &t));
+		tg_nodeadd(ni, TG_T_BREAK, &t);
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_SEMICOL));
 		break;
 
 	case TG_T_CONTINUE:
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_CONTINUE));
-		TG_ERRQUIT(tg_nodeadd(ni, TG_T_CONTINUE, &t));
+		tg_nodeadd(ni, TG_T_CONTINUE, &t);
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_SEMICOL));
 		break;
 
 	default:
-		TG_ERRQUIT(sni = tg_nodeadd(ni, TG_N_EXPR, NULL));
+		sni = tg_nodeadd(ni, TG_N_EXPR, NULL);
 		TG_ERRQUIT(tg_expr(sni));
 		TG_ERRQUIT(tg_gettokentype(&t, TG_T_SEMICOL));
 		break;
@@ -1636,7 +1646,7 @@ static int tg_template(int ni)
 		if (t.type == TG_T_FUNCTION) {
 			int fni;
 
-			TG_ERRQUIT(fni = tg_nodeadd(ni, TG_N_FUNCDEF, NULL));
+			fni = tg_nodeadd(ni, TG_N_FUNCDEF, NULL);
 			TG_ERRQUIT(tg_funcdef(fni));
 		}
 		else {
