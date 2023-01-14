@@ -1,0 +1,5 @@
+Package: docprocess
+Version: 1.0
+Architecture: amd64
+Maintainer: PinkFluffyUnic0rn
+Description: Template based language for document generating

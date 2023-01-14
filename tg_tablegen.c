@@ -268,6 +268,11 @@ static struct tg_val *tg_setlvalue(int ni, const struct tg_val *v)
 		
 		eni = tg_nodechild(eni, 0);
 
+		if (tg_nodeccnt(eni) > 1)
+			goto notlvalue;
+		
+		eni = tg_nodechild(eni, 0);
+
 		if (tg_nodetype(eni) == TG_N_RANGE
 				|| tg_nodetype(eni) == TG_N_FILTER)
 			goto notlvalue;

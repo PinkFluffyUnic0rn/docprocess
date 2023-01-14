@@ -2,7 +2,8 @@
 
 export LC_ALL=C
 
-scriptdir=$(cd "$(dirname "$0")"; pwd -P)
+#scriptdir=$(cd "$(dirname "$0")"; pwd -P)
+scriptdir="/usr/share/docprocess"
 
 trap "[ -n \"\$rmcmd\" ] && eval \"rm \$rmcmd\"" ERR EXIT
 
@@ -24,7 +25,7 @@ then
 	fi
 fi
 
-tablegenpath="$scriptdir/tablegen"
+tablegenpath="/usr/bin/tablegen"
 
 cmd="cat '$1' | awk -f '$scriptdir/error.awk' \
 	-f '$scriptdir/sources.awk' -f '$scriptdir/template.awk' \
