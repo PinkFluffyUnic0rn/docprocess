@@ -2,12 +2,23 @@
 
 Document generating language interpretor
 
-## Insallation
+## Installation
 
    To run the terminal interpretor you suppose to have AWK and
 Shell interpretors in your system. Most of UNIX-like systems have them
 by default. To start work with this interpretator you need to copy
 this repo's content to any directory in your system.
+
+## Installation for debian/ubuntu
+
+   For debian based systems this repo has a .deb package builder. To run
+it you can go to repo's directory and run:
+
+	make deb
+
+After this you can install the package:
+
+	dpkg -i docprocess.deb
 
 ## How to run the interpretor
 
