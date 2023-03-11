@@ -104,21 +104,16 @@ static struct tg_char _tg_getc()
 
 static int tg_getc()
 {
-	struct tg_char c;
-
 	cbuf[0] = cbuf[1];
 	cbuf[1] = cbuf[2];
 
-	c = cbuf[0];
-	
-	if (c.c != TG_C_EOF)
+	if (cbuf[0].c != TG_C_EOF)
 		cbuf[2] = _tg_getc();
 
-	tg_curline = c.line;
-	tg_curpos = c.pos;
-	strncpy(tg_error, c.error, TG_MSGMAXSIZE);
+	tg_curline = cbuf[0].line;
+	tg_curpos = cbuf[0].pos;
 	
-	return c.c;
+	return cbuf[0].c;
 }
 
 static int tg_peekc()
@@ -1657,7 +1652,7 @@ static int tg_template(int ni)
 	return 0;
 }
 
-static int tg_initparser(const char *path)
+static int tg_initgetc(const char *path)
 {
 	tg_darrinit(&tg_text, sizeof(char *));
 
@@ -1674,6 +1669,14 @@ static int tg_initparser(const char *path)
 
 	cbuf[1] = _tg_getc();
 	cbuf[2] = _tg_getc();
+
+	return 0;
+}
+
+static int tg_initparser(const char *path)
+{
+	if (tg_initgetc(path) < 0)
+		return (-1);
 
 	tg_nexttoken(tbuf + 1);
 
